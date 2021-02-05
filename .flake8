@@ -1,0 +1,3 @@
+[flake8]
+# Do not report unused imports in __init__ files
+per-file-ignores = __init__.py:F401
