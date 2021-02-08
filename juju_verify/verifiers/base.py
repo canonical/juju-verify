@@ -1,11 +1,14 @@
 """Base for other modules that implement verification checks for specific
 charms"""
+import logging
 from abc import ABC, abstractmethod
 from typing import Callable, Dict, List
 
 from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError
+
+logger = logging.getLogger(__name__)
 
 
 class BaseVerifier(ABC):
@@ -59,4 +62,14 @@ class BaseVerifier(ABC):
         if verify_action is None:
             raise VerificationError('Unsupported verification check "{}" for '
                                     'charm {}'.format(check, self.NAME))
-        verify_action()
+        try:
+            logger.debug('Running check %s on units: %s', check,
+                         ','.join([unit.entity_id for unit in self.units]))
+            verify_action()
+        except NotImplementedError as exc:
+            err = VerificationError('Requested check "{}" is not implemented '
+                                    'on "{}" charm.'.format(check, self.NAME))
+            raise err from exc
+        except Exception as exc:
+            err = VerificationError('Verification failed: {}'.format(exc))
+            raise err from exc

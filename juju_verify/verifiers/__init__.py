@@ -1,6 +1,7 @@
 """Package containing classes that implement verification methods for various
 charms"""
 import re
+import logging
 from typing import List
 
 from juju.unit import Unit
@@ -9,6 +10,9 @@ from juju_verify.exceptions import CharmException
 from .base import BaseVerifier
 from .nova_compute import NovaCompute
 from .ceph_osd import CephOsd
+
+logger = logging.getLogger(__name__)
+
 
 SUPPORTED_CHARMS = {
     'nova-compute': NovaCompute,
@@ -41,7 +45,10 @@ def get_verifier(units: List[Unit]) -> BaseVerifier:
     charm_types = set()
 
     for unit in units:
-        charm_types.add(parse_charm_name(unit.data.get('charm-url', '')))
+        charm_type = parse_charm_name(unit.data.get('charm-url', ''))
+        logger.debug('Inferred charm for unit %s: %s', unit.entity_id,
+                     charm_type)
+        charm_types.add(charm_type)
 
     if len(charm_types) > 1:
         raise CharmException('Units are not running same charm. '
@@ -59,4 +66,6 @@ def get_verifier(units: List[Unit]) -> BaseVerifier:
         raise CharmException('Charm "{}" is not supported by juju-verify. '
                              'Supported charms:\n'
                              '{}'.format(charm, supported_charms))
+    logger.debug('Initiating verifier instance of class: %s',
+                 verifier.__name__)
     return verifier(units=units)

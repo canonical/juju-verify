@@ -2,6 +2,7 @@
 """Entrypoint to the 'juju verify' plugin"""
 import argparse
 import sys
+import logging
 
 from typing import Dict, List, Union
 
@@ -18,10 +19,12 @@ SUPPORTED_CHECKS = [
     'shutdown'
 ]
 
+logger = logging.getLogger(__package__)
+
 
 def fail(err_msg: str) -> None:
-    """Print error message and exit"""
-    print("Error. {}".format(err_msg))
+    """Log error message and exit"""
+    logger.error(err_msg)
     sys.exit(1)
 
 
@@ -39,8 +42,10 @@ async def find_units(model: Model, units: List[str]) -> List[Unit]:
     all_units: Dict[str, Unit] = {}
     selected_units: List[Unit] = []
 
+    logger.debug('Units found in the model:')
     for _, app in model.applications.items():
         for unit in app.units:
+            logger.debug('  %s', unit.entity_id)
             all_units[unit.entity_id] = unit
 
     for unit_name in units:
@@ -57,8 +62,10 @@ async def connect_model(model_name: Union[str, None]) -> Model:
     model = Model()
     try:
         if model_name:
+            logger.debug('Connecting to model "%s".', model_name)
             await model.connect_model(model_name)
         else:
+            logger.debug('Connecting to currently active model.')
             await model.connect_current()
     except errors.JujuError as exc:
         fail("Failed to connect to the model.\n{}".format(exc))
@@ -72,17 +79,40 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument('--model', '-m', required=False,
-                        help='Connect to specific model')
+                        help='Connect to specific model.')
     parser.add_argument('check', choices=SUPPORTED_CHECKS,
-                        help='Check to verify')
-    parser.add_argument('units', nargs='+', help='Units to check')
+                        help='Check to verify.')
+    parser.add_argument('units', nargs='+', help='Units to check.')
+    parser.add_argument('-l', '--log-level', help='Set amount of displayed '
+                                                  'information',
+                        default='info', choices=['trace', 'debug', 'info'])
 
     return parser.parse_args()
+
+
+def config_logger(log_level: str) -> None:
+    """Configure logging options"""
+    log_level = log_level.lower()
+
+    if log_level == 'trace':
+        # 'trace' level enables debugging in juju lib and other dependencies
+        logging.basicConfig(format='%(message)s', level=logging.DEBUG)
+    else:
+        # other levels apply only to juju-verify logging
+        logging.basicConfig(format='%(message)s')
+        if log_level == 'debug':
+            logger.setLevel(logging.DEBUG)
+        elif log_level == 'info':
+            logger.setLevel(logging.INFO)
+        else:
+            raise RuntimeError('Unsupported log level requested: '
+                               '"{}"'.format(log_level))
 
 
 def main() -> None:
     """Execute 'juju-verify' command"""
     args = parse_args()
+    config_logger(args.log_level)
     model = loop.run(connect_model(args.model))
     units = loop.run(find_units(model, args.units))
     try:
