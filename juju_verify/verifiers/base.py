@@ -18,7 +18,7 @@
 """Base for other modules that implement verification checks for specific
 charms"""
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Callable, Dict, List
 
 from juju.unit import Unit
@@ -28,23 +28,38 @@ from juju_verify.exceptions import VerificationError
 logger = logging.getLogger(__name__)
 
 
+class Result:  # pylint: disable=too-few-public-methods
+    """Convenience class that represents result of the check"""
+
+    def __init__(self, success: bool, reason: str = ''):
+        """
+        Set values of the check result.
+
+        :param success: Indicates whether check passed or failed. True/False
+        :param reason: Additional information about result. Can stay empty for
+        positive results
+        """
+        self.success = success
+        self.reason = reason
+
+    def format(self) -> str:
+        """Returns formatted string representing the result"""
+        result = 'OK' if self.success else 'FAIL'
+        output = 'Result: {}'.format(result)
+        if self.reason:
+            output += '\nReason: {}'.format(self.reason)
+        return output
+
+
 class BaseVerifier(ABC):
     """Base class for implementation of verification checks for specific charms.
 
-    Class that inherits form this base must override class variable 'NAME' to
-    match charm name (e.g. 'nova-compute') and property '_action_map' to return
-    map between verification check name (e.g. 'shutdown') and callable method
-    that implements the check.
+    Classes that inherit from this base must override class variable 'NAME' to
+    match charm name (e.g. 'nova-compute') and override methods named
+    `verify_<check_name>` with actual implementation of the  checks.
 
-    Example:
-        ```
-        @property
-        def _action_map(self):
-            return {
-                'reboot': self.verify_reboot,
-                'shutdown': self.verify_shutdown,
-            }
-        ```
+    NotImplemented exception will be raised if attempt is made to perform check
+    that is not implemented in child class.
     """
     NAME = ''
 
@@ -57,36 +72,52 @@ class BaseVerifier(ABC):
         """
         self.units = units
 
-    @property
-    def supported_checks(self) -> List[str]:
-        """Returns list of supported checks on the specific charm"""
-        return list(self._action_map.keys())
+    @classmethod
+    def supported_checks(cls) -> List[str]:
+        """Returns list of supported checks"""
+        return list(cls._action_map().keys())
 
-    @property
-    @abstractmethod
-    def _action_map(self) -> Dict[str, Callable]:
+    @classmethod
+    def _action_map(cls) -> Dict[str, Callable[['BaseVerifier'], Result]]:
         """Returns map between verification check names and callable methods
-        that implement them. See class Docstring for example."""
+        that implement them."""
+        return {
+            'shutdown': cls.verify_shutdown,
+            'reboot': cls.verify_reboot,
+        }
 
-    def verify(self, check: str) -> None:
+    def verify(self, check: str) -> Result:
         """Execute requested verification check.
 
         :param check: Check to execute
         :return: None
-        :raises VerificationError: If requested check is unsupported/unknown
+        :raises NotImplementedError: If requested check is unsupported/unknown
+        :raises VerificationError: If check fails in unexpected manner.
         """
-        verify_action = self._action_map.get(check)
+        verify_action = self._action_map().get(check)
         if verify_action is None:
-            raise VerificationError('Unsupported verification check "{}" for '
-                                    'charm {}'.format(check, self.NAME))
+            raise NotImplementedError('Unsupported verification check "{}" for'
+                                      ' charm {}'.format(check, self.NAME))
         try:
             logger.debug('Running check %s on units: %s', check,
                          ','.join([unit.entity_id for unit in self.units]))
-            verify_action()
+            return verify_action(self)
         except NotImplementedError as exc:
-            err = VerificationError('Requested check "{}" is not implemented '
-                                    'on "{}" charm.'.format(check, self.NAME))
-            raise err from exc
+            raise exc
         except Exception as exc:
             err = VerificationError('Verification failed: {}'.format(exc))
             raise err from exc
+
+    def verify_shutdown(self) -> Result:
+        """Child classes must override this method with implementation of the
+        'shutdown' check"""
+        raise NotImplementedError('Requested check "shutdown" is not '
+                                  'implemented for "{}" '
+                                  'charm.'.format(self.NAME))
+
+    def verify_reboot(self) -> Result:
+        """Child classes must override this method with implementation of the
+        'reboot' check"""
+        raise NotImplementedError('Requested check "reboot" is not '
+                                  'implemented for "{}" '
+                                  'charm.'.format(self.NAME))

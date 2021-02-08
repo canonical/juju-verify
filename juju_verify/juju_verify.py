@@ -29,13 +29,8 @@ from juju import errors
 from juju.model import Model
 from juju.unit import Unit
 
-from juju_verify.verifiers import get_verifier
+from juju_verify.verifiers import get_verifier, BaseVerifier
 from juju_verify.exceptions import CharmException, VerificationError
-
-SUPPORTED_CHECKS = [
-    'reboot',
-    'shutdown'
-]
 
 logger = logging.getLogger(__package__)
 
@@ -98,7 +93,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument('--model', '-m', required=False,
                         help='Connect to specific model.')
-    parser.add_argument('check', choices=SUPPORTED_CHECKS,
+    parser.add_argument('check', choices=BaseVerifier.supported_checks(),
                         help='Check to verify.')
     parser.add_argument('units', nargs='+', help='Units to check.')
     parser.add_argument('-l', '--log-level', help='Set amount of displayed '
@@ -135,8 +130,9 @@ def main() -> None:
     units = loop.run(find_units(model, args.units))
     try:
         verifier = get_verifier(units)
-        verifier.verify(args.check)
-    except (CharmException, VerificationError) as exc:
+        result = verifier.verify(args.check)
+        logger.info(result.format())
+    except (CharmException, VerificationError, NotImplementedError) as exc:
         fail(str(exc))
 
 
