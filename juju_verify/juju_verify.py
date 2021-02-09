@@ -52,17 +52,10 @@ async def find_units(model: Model, units: List[str]) -> List[Unit]:
     :param units: List of unit names to search
     :return: List of matching juju.Unit objects
     """
-    all_units: Dict[str, Unit] = {}
     selected_units: List[Unit] = []
 
-    logger.debug('Units found in the model:')
-    for _, app in model.applications.items():
-        for unit in app.units:
-            logger.debug('  %s', unit.entity_id)
-            all_units[unit.entity_id] = unit
-
     for unit_name in units:
-        unit = all_units.get(unit_name)
+        unit = model.units.get(unit_name)
         if unit is None:
             fail('Unit "{}" not found in the model.'.format(unit_name))
         selected_units.append(unit)
