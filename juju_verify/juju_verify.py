@@ -111,8 +111,7 @@ def config_logger(log_level: str) -> None:
         elif log_level == 'info':
             logger.setLevel(logging.INFO)
         else:
-            raise RuntimeError('Unsupported log level requested: '
-                               '"{}"'.format(log_level))
+            fail('Unsupported log level requested: "{}"'.format(log_level))
 
 
 def main() -> None:
@@ -129,5 +128,5 @@ def main() -> None:
         fail(str(exc))
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     main()

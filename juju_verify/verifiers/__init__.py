@@ -61,6 +61,9 @@ def get_verifier(units: List[Unit]) -> BaseVerifier:
 
     charm_types = set()
 
+    if not units:
+        raise CharmException('List of units can not be empty when creating '
+                             'verifier')
     for unit in units:
         charm_type = parse_charm_name(unit.data.get('charm-url', ''))
         logger.debug('Inferred charm for unit %s: %s', unit.entity_id,
@@ -71,9 +74,6 @@ def get_verifier(units: List[Unit]) -> BaseVerifier:
         raise CharmException('Units are not running same charm. '
                              'Detected types: {}'.format(charm_types))
 
-    if len(charm_types) < 1:
-        raise CharmException('Failed to detect charm running on the selected '
-                             'units.')
     charm = charm_types.pop()
 
     verifier = SUPPORTED_CHARMS.get(charm)
