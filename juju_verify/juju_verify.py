@@ -17,33 +17,30 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 
-"""Entrypoint to the 'juju verify' plugin"""
+"""Entrypoint to the 'juju-verify' plugin."""
 import argparse
-import sys
 import logging
-
+import sys
 from typing import List, Union
 
-from juju import loop
-from juju import errors
+from juju import errors, loop
 from juju.model import Model
 from juju.unit import Unit
 
-from juju_verify.verifiers import get_verifier, BaseVerifier
 from juju_verify.exceptions import CharmException, VerificationError
+from juju_verify.verifiers import BaseVerifier, get_verifier
 
 logger = logging.getLogger(__package__)
 
 
 def fail(err_msg: str) -> None:
-    """Log error message and exit"""
+    """Log error message and exit."""
     logger.error(err_msg)
     sys.exit(1)
 
 
 async def find_units(model: Model, units: List[str]) -> List[Unit]:
-    """Returns list of juju.Unit objects that match with names in 'units'
-    parameter.
+    """Return list of juju.Unit objects that match with names in 'units' parameter.
 
     This function will exit program with error message if any of units is not
     found in the juju model.
@@ -63,8 +60,11 @@ async def find_units(model: Model, units: List[str]) -> List[Unit]:
 
 
 async def connect_model(model_name: Union[str, None]) -> Model:
-    """Connect to Juju model identified by 'model_name' or currently active
-    model if the name is not specified."""
+    """Connect to a custom or default Juju model.
+
+    The Juju model can be identified by 'model_name' or the currently active
+    model will be used if left unspecified.
+    """
     model = Model()
     try:
         if model_name:
@@ -79,7 +79,7 @@ async def connect_model(model_name: Union[str, None]) -> Model:
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse cli arguments"""
+    """Parse cli arguments."""
     description = "Verify that it's safe to perform selected action on " \
                   "specified units"
     parser = argparse.ArgumentParser(description=description)
@@ -97,7 +97,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def config_logger(log_level: str) -> None:
-    """Configure logging options"""
+    """Configure logging options."""
     log_level = log_level.lower()
 
     if log_level == 'trace':
@@ -115,7 +115,7 @@ def config_logger(log_level: str) -> None:
 
 
 def main() -> None:
-    """Execute 'juju-verify' command"""
+    """Execute 'juju-verify' command."""
     args = parse_args()
     config_logger(args.log_level)
     model = loop.run(connect_model(args.model))

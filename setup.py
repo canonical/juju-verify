@@ -14,8 +14,8 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
-
-from setuptools import setup, find_packages
+"""Manage package and distribution."""
+from setuptools import find_packages, setup
 
 requirements = [
     'juju'

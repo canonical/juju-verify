@@ -14,20 +14,22 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
+"""Test suite for the entrypoint function and helpers."""
 
-import sys
 import argparse
 import logging
-from unittest.mock import MagicMock, ANY
-
-import pytest
+import sys
+from unittest.mock import ANY, MagicMock
 
 from juju import errors
 from juju.model import Model
 from juju.unit import Unit
+
 from juju_verify import juju_verify
-from juju_verify.exceptions import VerificationError, CharmException
+from juju_verify.exceptions import CharmException, VerificationError
 from juju_verify.verifiers.base import Result
+
+import pytest
 
 
 def test_fail(mocker):
@@ -74,7 +76,7 @@ async def test_connect_model(mocker, fail, model_name, func_name):
 
 @pytest.mark.asyncio
 async def test_find_units(model, all_units, fail):
-    """Test that find_units returns correct list of Unit objects"""
+    """Test that find_units returns correct list of Unit objects."""
     unit_list = await juju_verify.find_units(model, all_units)
 
     assert len(unit_list) == len(all_units)
@@ -101,7 +103,7 @@ async def test_find_units(model, all_units, fail):
                           ('InFo', logging.INFO),
                           ])
 def test_logger_setup_basic_levels(mocker, log_level, log_constant):
-    """Test setting basic log levels (debug/info)"""
+    """Test setting basic log levels (debug/info)."""
     logger = mocker.patch.object(juju_verify, 'logger')
     basic_config = mocker.patch.object(logging, 'basicConfig')
     log_format = '%(message)s'
@@ -114,7 +116,7 @@ def test_logger_setup_basic_levels(mocker, log_level, log_constant):
 
 @pytest.mark.parametrize('log_level', ['trace', 'TRACE'])
 def test_logger_setup_deep_logging(mocker, log_level):
-    """Test setting up deep logging with 'trace' level"""
+    """Test setting up deep logging with 'trace' level."""
     basic_config = mocker.patch.object(logging, 'basicConfig')
     log_format = '%(message)s'
 
@@ -126,7 +128,7 @@ def test_logger_setup_deep_logging(mocker, log_level):
 
 @pytest.mark.parametrize('log_level', ['warning', 'error', 'critical', 'foo'])
 def test_unsupported_log_levels(fail, log_level):
-    """juju-verify cli supports only info(default)/debug/trace log levels"""
+    """juju-verify cli supports only info(default)/debug/trace log levels."""
     expected_msg = 'Unsupported log level requested: "{}"'.format(log_level)
 
     juju_verify.config_logger(log_level)
@@ -135,7 +137,7 @@ def test_unsupported_log_levels(fail, log_level):
 
 
 def test_parse_args(mocker):
-    """Rudimentary test for argument parsing"""
+    """Rudimentary test for argument parsing."""
     parser = mocker.patch.object(argparse.ArgumentParser, 'parse_args')
 
     juju_verify.parse_args()
@@ -144,7 +146,7 @@ def test_parse_args(mocker):
 
 
 def test_main_entrypoint(mocker):
-    """Verify workflow if the main entrypoint"""
+    """Verify workflow if the main entrypoint."""
     args = MagicMock()
     args.log_level = 'info'
     args.model = None
@@ -175,7 +177,7 @@ def test_main_entrypoint(mocker):
                           (NotImplementedError, 'No Implementation'),
                           ])
 def test_main_expected_failure(mocker, fail, error, error_msg):
-    """Verify handling of expected exceptions"""
+    """Verify handling of expected exceptions."""
     mocker.patch.object(juju_verify, 'parse_args')
     mocker.patch.object(juju_verify, 'config_logger')
     mocker.patch.object(juju_verify, 'connect_model')

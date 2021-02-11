@@ -15,18 +15,19 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 
-"""Package containing classes that implement verification methods for various
-charms"""
-import re
+"""Package with classes implementing verification methods for various charms."""
 import logging
+import re
 from typing import List
 
 from juju.unit import Unit
 
 from juju_verify.exceptions import CharmException
+
 from .base import BaseVerifier
-from .nova_compute import NovaCompute
 from .ceph_osd import CephOsd
+from .nova_compute import NovaCompute
+
 
 logger = logging.getLogger(__name__)
 
@@ -41,15 +42,16 @@ CHARM_URL_PATTERN = re.compile(r'^(.*):(.*/)?(?P<charm>.*)(-\d+)$')
 
 
 def get_verifier(units: List[Unit]) -> BaseVerifier:
-    """ Factory function to create "verifier" for the supplied units.
+    """Implement Factory function "verifier" creator for the supplied units.
 
     :param units: Juju unit(s) for which you want to produce verifier
     :return: Correct verifier for given unit(s)
     :raises CharmException: Raised if units do not belong to the same charm or
     if the charm is unsupported for verification
     """
+
     def parse_charm_name(charm_url: str) -> str:
-        """Parses charm name from full charm url.
+        """Parse charm name from full charm url.
 
         Example: 'cs:focal/nova-compute-141' -> 'nova-compute'
         """
