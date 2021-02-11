@@ -87,10 +87,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--model', '-m', required=False,
                         help='Connect to specific model.')
     parser.add_argument('check', choices=BaseVerifier.supported_checks(),
-                        help='Check to verify.')
+                        type=str.lower, help='Check to verify.')
     parser.add_argument('units', nargs='+', help='Units to check.')
-    parser.add_argument('-l', '--log-level', help='Set amount of displayed '
-                                                  'information',
+    parser.add_argument('-l', '--log-level', type=str.lower,
+                        help='Set amount of displayed information',
                         default='info', choices=['trace', 'debug', 'info'])
 
     return parser.parse_args()
