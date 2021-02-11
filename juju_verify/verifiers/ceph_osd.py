@@ -14,11 +14,11 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
-
-"""ceph-osd verification"""
+"""ceph-osd verification."""
 from juju_verify.verifiers.base import BaseVerifier
 
 
 class CephOsd(BaseVerifier):
-    """Implementation of verification checks for the ceph-osd charm"""
+    """Implementation of verification checks for the ceph-osd charm."""
+
     NAME = 'ceph-osd'

@@ -14,9 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
-
-"""Base for other modules that implement verification checks for specific
-charms"""
+"""Base for other modules that implement verification checks for specific charms."""
 import logging
 from typing import Callable, Dict, List
 
@@ -28,11 +26,10 @@ logger = logging.getLogger(__name__)
 
 
 class Result:  # pylint: disable=too-few-public-methods
-    """Convenience class that represents result of the check"""
+    """Convenience class that represents result of the check."""
 
     def __init__(self, success: bool, reason: str = ''):
-        """
-        Set values of the check result.
+        """Set values of the check result.
 
         :param success: Indicates whether check passed or failed. True/False
         :param reason: Additional information about result. Can stay empty for
@@ -42,7 +39,7 @@ class Result:  # pylint: disable=too-few-public-methods
         self.reason = reason
 
     def format(self) -> str:
-        """Returns formatted string representing the result"""
+        """Return formatted string representing the result."""
         result = 'OK' if self.success else 'FAIL'
         output = 'Result: {}'.format(result)
         if self.reason:
@@ -60,6 +57,7 @@ class BaseVerifier:
     NotImplemented exception will be raised if attempt is made to perform check
     that is not implemented in child class.
     """
+
     NAME = ''
 
     def __init__(self, units: List[Unit]):
@@ -73,13 +71,16 @@ class BaseVerifier:
 
     @classmethod
     def supported_checks(cls) -> List[str]:
-        """Returns list of supported checks"""
+        """Return list of supported checks."""
         return list(cls._action_map().keys())
 
     @classmethod
     def _action_map(cls) -> Dict[str, Callable[['BaseVerifier'], Result]]:
-        """Returns map between verification check names and callable methods
-        that implement them."""
+        """Return verification checks mapper.
+
+        The key is the verification name. The value is a callable method that
+        implements the logic.
+        """
         return {
             'shutdown': cls.verify_shutdown,
             'reboot': cls.verify_reboot,
@@ -112,15 +113,19 @@ class BaseVerifier:
             raise err from exc
 
     def verify_shutdown(self) -> Result:
-        """Child classes must override this method with implementation of the
-        'shutdown' check"""
+        """Child classes must override this method with custom implementation.
+
+        'shutdown' check needs to be implemented on child classes.
+        """
         raise NotImplementedError('Requested check "shutdown" is not '
                                   'implemented for "{}" '
                                   'charm.'.format(self.NAME))
 
     def verify_reboot(self) -> Result:
-        """Child classes must override this method with implementation of the
-        'reboot' check"""
+        """Child classes must override this method with custom implementation.
+
+        'reboot' check needds to be implemented on child classes.
+        """
         raise NotImplementedError('Requested check "reboot" is not '
                                   'implemented for "{}" '
                                   'charm.'.format(self.NAME))

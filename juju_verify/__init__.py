@@ -15,8 +15,9 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 
-"""Juju 'verify' plugin that allows user to check whether it's safe to execute
-actions like 'stop' or 'reboot' on juju units without affecting availability
-and integrity
+"""Juju plugin to help verify the safety of maintenance operations.
+
+The tool allows users to check whether it's safe to execute operations like
+'shutdown' or 'reboot' on juju units without affecting availability and integrity.
 """
 from .juju_verify import main

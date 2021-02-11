@@ -14,14 +14,15 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
+"""Base class test suite."""
+
+from juju.model import Model
+from juju.unit import Unit
+
+from juju_verify.exceptions import VerificationError
+from juju_verify.verifiers.base import BaseVerifier, Result
 
 import pytest
-
-from juju.unit import Unit
-from juju.model import Model
-
-from juju_verify.verifiers.base import BaseVerifier, Result
-from juju_verify.exceptions import VerificationError
 
 
 @pytest.mark.parametrize('success, reason',
@@ -29,7 +30,7 @@ from juju_verify.exceptions import VerificationError
                           (True, ''),
                           (False, 'FailReason')])
 def test_result_formatting(success, reason):
-    """Test expected format of the Result.format()"""
+    """Test expected format of the Result.format()."""
     result = Result(success, reason)
     common_str = 'Result: '
     success_str = 'OK' if success else 'FAIL'
@@ -40,7 +41,7 @@ def test_result_formatting(success, reason):
 
 
 def test_base_verifier_verify_no_units():
-    """function 'verify' should fail if verifier has not units"""
+    """Function 'verify' should fail if verifier has not units."""
     expected_msg = 'Can not run verification. This verifier ' \
                    'is not associated with any units.'
     verifier = BaseVerifier([])
@@ -53,10 +54,10 @@ def test_base_verifier_verify_no_units():
 
 
 @pytest.mark.parametrize('check_name, check_method',
-                         [('shutdown','verify_shutdown'),
+                         [('shutdown', 'verify_shutdown'),
                           ('reboot', 'verify_reboot')])
 def test_base_verifier_supported_checks(mocker, check_name, check_method):
-    """Test that each supported check executes expected method"""
+    """Test that each supported check executes expected method."""
     unit = Unit('foo', Model())
     mock_method = mocker.patch.object(BaseVerifier, check_method)
 
@@ -67,7 +68,7 @@ def test_base_verifier_supported_checks(mocker, check_name, check_method):
 
 
 def test_base_verifier_unsupported_check():
-    """Raise exception if check is unknown/unsupported"""
+    """Raise exception if check is unknown/unsupported."""
     unit = Unit('foo', Model())
     bad_check = 'bar'
     expected_msg = 'Unsupported verification check "{}" for charm ' \
@@ -82,7 +83,7 @@ def test_base_verifier_unsupported_check():
 
 
 def test_base_verifier_not_implemented_checks():
-    """Test that all checks raise NotImplemented in BaseVerifier"""
+    """Test that all checks raise NotImplemented in BaseVerifier."""
     unit = Unit('foo', Model())
     verifier = BaseVerifier([unit])
 
@@ -92,7 +93,7 @@ def test_base_verifier_not_implemented_checks():
 
 
 def test_base_verifier_unexpected_verify_error(mocker):
-    """Test 'verify' raises VerificationError if case of unexpected failure"""
+    """Test 'verify' raises VerificationError if case of unexpected failure."""
     unit = Unit('foo', Model())
     verifier = BaseVerifier([unit])
     check = BaseVerifier.supported_checks()[0]

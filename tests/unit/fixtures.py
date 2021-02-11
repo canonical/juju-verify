@@ -14,27 +14,29 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
-from unittest.mock import PropertyMock, NonCallableMagicMock
+"""Available fixtures for juju_verify unit test suite."""
 from string import digits
+from unittest.mock import PropertyMock
 
-import pytest
 
 from juju.client.connector import Connector
-from juju.model import Model, ModelState
+from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify import juju_verify
 
+import pytest
+
 
 @pytest.fixture(scope='function')
 def fail(session_mocker):
-    """Mocks fail function that otherwise causes process to exit"""
+    """Mock fail function that otherwise causes process to exit."""
     return session_mocker.patch.object(juju_verify, 'fail')
 
 
 @pytest.fixture(scope='session')
 def all_units():
-    """List of units that are present in the 'model' fixture"""
+    """List of units that are present in the 'model' fixture."""
     return [
         'nova-compute/0',
         'nova-compute/1',
@@ -49,12 +51,12 @@ def all_units():
 
 @pytest.fixture(scope='session')
 def model(session_mocker, all_units):
-    """Fixture representing connected juju model"""
+    """Fixture representing connected juju model."""
     session_mocker.patch.object(Connector, 'is_connected').return_value = True
     model = Model()
     session_mocker.patch.object(Model, 'connect_current')
     session_mocker.patch.object(Model, 'connect_model')
-    session_mocker.patch.object(Unit , 'data')
+    session_mocker.patch.object(Unit, 'data')
     units = session_mocker.patch('juju.model.Model.units',
                                  new_callable=PropertyMock)
 
@@ -67,6 +69,3 @@ def model(session_mocker, all_units):
     units.return_value = unit_map
 
     return model
-
-
-

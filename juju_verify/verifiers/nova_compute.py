@@ -14,11 +14,11 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
-
-"""nova-compute verification"""
+"""nova-compute verification."""
 from juju_verify.verifiers.base import BaseVerifier
 
 
 class NovaCompute(BaseVerifier):
-    """Implementation of verification checks for the nova-compute charm"""
+    """Implementation of verification checks for the nova-compute charm."""
+
     NAME = 'nova-compute'
