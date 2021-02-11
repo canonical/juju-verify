@@ -22,7 +22,7 @@ import argparse
 import sys
 import logging
 
-from typing import Dict, List, Union
+from typing import List, Union
 
 from juju import loop
 from juju import errors
