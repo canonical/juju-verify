@@ -18,7 +18,6 @@
 """Base for other modules that implement verification checks for specific
 charms"""
 import logging
-from abc import ABC
 from typing import Callable, Dict, List
 
 from juju.unit import Unit
@@ -51,7 +50,7 @@ class Result:  # pylint: disable=too-few-public-methods
         return output
 
 
-class BaseVerifier(ABC):
+class BaseVerifier:
     """Base class for implementation of verification checks for specific charms.
 
     Classes that inherit from this base must override class variable 'NAME' to
@@ -92,8 +91,12 @@ class BaseVerifier(ABC):
         :param check: Check to execute
         :return: None
         :raises NotImplementedError: If requested check is unsupported/unknown
-        :raises VerificationError: If check fails in unexpected manner.
+        :raises VerificationError: If check fails in unexpected manner or if
+                                   list of self.units is empty
         """
+        if not self.units:
+            raise VerificationError('Can not run verification. This verifier'
+                                    ' is not associated with any units.')
         verify_action = self._action_map().get(check)
         if verify_action is None:
             raise NotImplementedError('Unsupported verification check "{}" for'

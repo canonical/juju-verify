@@ -22,7 +22,7 @@ import argparse
 import sys
 import logging
 
-from typing import Dict, List, Union
+from typing import List, Union
 
 from juju import loop
 from juju import errors
@@ -52,17 +52,10 @@ async def find_units(model: Model, units: List[str]) -> List[Unit]:
     :param units: List of unit names to search
     :return: List of matching juju.Unit objects
     """
-    all_units: Dict[str, Unit] = {}
     selected_units: List[Unit] = []
 
-    logger.debug('Units found in the model:')
-    for _, app in model.applications.items():
-        for unit in app.units:
-            logger.debug('  %s', unit.entity_id)
-            all_units[unit.entity_id] = unit
-
     for unit_name in units:
-        unit = all_units.get(unit_name)
+        unit = model.units.get(unit_name)
         if unit is None:
             fail('Unit "{}" not found in the model.'.format(unit_name))
         selected_units.append(unit)
@@ -94,10 +87,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--model', '-m', required=False,
                         help='Connect to specific model.')
     parser.add_argument('check', choices=BaseVerifier.supported_checks(),
-                        help='Check to verify.')
+                        type=str.lower, help='Check to verify.')
     parser.add_argument('units', nargs='+', help='Units to check.')
-    parser.add_argument('-l', '--log-level', help='Set amount of displayed '
-                                                  'information',
+    parser.add_argument('-l', '--log-level', type=str.lower,
+                        help='Set amount of displayed information',
                         default='info', choices=['trace', 'debug', 'info'])
 
     return parser.parse_args()
@@ -118,8 +111,7 @@ def config_logger(log_level: str) -> None:
         elif log_level == 'info':
             logger.setLevel(logging.INFO)
         else:
-            raise RuntimeError('Unsupported log level requested: '
-                               '"{}"'.format(log_level))
+            fail('Unsupported log level requested: "{}"'.format(log_level))
 
 
 def main() -> None:
@@ -136,5 +128,5 @@ def main() -> None:
         fail(str(exc))
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     main()
