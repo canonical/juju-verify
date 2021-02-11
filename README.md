@@ -60,4 +60,3 @@ If you prefer, file a bug or feature request at:
 checked
 * Allow targeting Juju machines, not just units for checks. e.g. `juju-verify
 shutdown --machine 0`
-* Add unit tests before moving on with further implementation
