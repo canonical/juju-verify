@@ -18,6 +18,7 @@
 import logging
 from typing import Callable, Dict, List
 
+from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError
@@ -66,8 +67,33 @@ class BaseVerifier:
         All the checks that the verifier implements must expect that the action
         that is being verified is intended to be performed on all juju units
         in the 'self.units' simultaneously.
+
+        :raises VerificationError: If 'units' parameter is empty
+        :raises VerificationError: If 'units' parameter contains units from
+                                   different models.
         """
         self.units = units
+        self.affected_machines = set()
+
+        if not self.units:
+            raise VerificationError('Can not run verification. This verifier'
+                                    ' is not associated with any units.')
+        for unit in self.units:
+            self.affected_machines.add(unit.machine.entity_id)
+
+        models = set()
+        for unit in self.units:
+            models.add(unit.model)
+        if len(models) > 1:
+            raise VerificationError('Verifier initiated with units from '
+                                    'multiple models.')
+        self.model: Model = models.pop()
+        self._unit_ids: List[str] = []
+
+    @property
+    def unit_ids(self) -> List[str]:
+        """Return entity IDs of self.units."""
+        return self._unit_ids or [unit.entity_id for unit in self.units]
 
     @classmethod
     def supported_checks(cls) -> List[str]:
@@ -86,6 +112,25 @@ class BaseVerifier:
             'reboot': cls.verify_reboot,
         }
 
+    def check_affected_machines(self) -> None:
+        """Check if affected machines run other principal units.
+
+        Log warning if machine that run units checked by this verifier also
+        runs other principal units that are not being checked.
+        """
+        machine_map: Dict = {machine: [] for machine in self.affected_machines}
+        for _, unit in self.model.units.items():
+            if unit.machine.entity_id in self.affected_machines \
+                    and not unit.data.get('subordinate'):
+                machine_map[unit.machine.entity_id].append(unit.entity_id)
+
+        for machine, unit_list in machine_map.items():
+            for unit in unit_list:
+                if unit not in self.unit_ids:
+                    logger.warning('Machine %s runs other principal unit that '
+                                   'is not being checked: '
+                                   '%s', machine, unit)
+
     def verify(self, check: str) -> Result:
         """Execute requested verification check.
 
@@ -95,13 +140,12 @@ class BaseVerifier:
         :raises VerificationError: If check fails in unexpected manner or if
                                    list of self.units is empty
         """
-        if not self.units:
-            raise VerificationError('Can not run verification. This verifier'
-                                    ' is not associated with any units.')
+        self.check_affected_machines()
         verify_action = self._action_map().get(check)
         if verify_action is None:
             raise NotImplementedError('Unsupported verification check "{}" for'
                                       ' charm {}'.format(check, self.NAME))
+
         try:
             logger.debug('Running check %s on units: %s', check,
                          ','.join([unit.entity_id for unit in self.units]))

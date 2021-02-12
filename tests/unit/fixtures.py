@@ -57,6 +57,7 @@ def model(session_mocker, all_units):
     session_mocker.patch.object(Model, 'connect_current')
     session_mocker.patch.object(Model, 'connect_model')
     session_mocker.patch.object(Unit, 'data')
+    session_mocker.patch.object(Unit, 'machine')
     units = session_mocker.patch('juju.model.Model.units',
                                  new_callable=PropertyMock)
 
