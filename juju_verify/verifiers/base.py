@@ -81,9 +81,7 @@ class BaseVerifier:
         for unit in self.units:
             self.affected_machines.add(unit.machine.entity_id)
 
-        models = set()
-        for unit in self.units:
-            models.add(unit.model)
+        models = {unit.model for unit in self.units}
         if len(models) > 1:
             raise VerificationError('Verifier initiated with units from '
                                     'multiple models.')
