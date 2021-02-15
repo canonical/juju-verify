@@ -163,8 +163,8 @@ def test_main_entrypoint(mocker):
     mocker.patch.object(juju_verify, 'parse_args').return_value = args
     mocker.patch.object(juju_verify, 'get_verifier').return_value = verifier
     mocker.patch.object(juju_verify, 'loop')
-    mocker.patch.object(juju_verify, 'connect_model')
-    mocker.patch.object(juju_verify, 'find_units')
+    mocker.patch.object(juju_verify, 'connect_model', new_callable=MagicMock())
+    mocker.patch.object(juju_verify, 'find_units', new_callable=MagicMock())
     logger = mocker.patch.object(juju_verify, 'logger')
 
     juju_verify.main()
@@ -185,8 +185,8 @@ def test_main_expected_failure(mocker, fail, error, error_msg):
     mocker.patch.object(juju_verify, 'parse_args')
     mocker.patch.object(juju_verify, 'config_logger')
     mocker.patch.object(juju_verify, 'loop')
-    mocker.patch.object(juju_verify, 'connect_model')
-    mocker.patch.object(juju_verify, 'find_units')
+    mocker.patch.object(juju_verify, 'connect_model', new_callable=MagicMock())
+    mocker.patch.object(juju_verify, 'find_units', new_callable=MagicMock())
     mocker.patch.object(juju_verify,
                         'get_verifier').side_effect = error(error_msg)
 
