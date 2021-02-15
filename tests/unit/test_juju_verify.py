@@ -19,6 +19,7 @@
 import argparse
 import logging
 import sys
+from asyncio import Future
 from unittest.mock import ANY, MagicMock
 
 from juju import errors
@@ -55,7 +56,9 @@ async def test_connect_model(mocker, fail, model_name, func_name):
     either call 'juju.model.Model().connect_current` if model_name is None,
     or `juju.model.Model().connect_model(model_name)` if model_name is provided
     """
-    connection_method = mocker.patch.object(Model, func_name)
+    connection_method = mocker.patch.object(juju_verify.Model, func_name)
+    connection_method.return_value = Future()
+    connection_method.return_value.set_result(None)
 
     model = await juju_verify.connect_model(model_name)
 
@@ -159,6 +162,7 @@ def test_main_entrypoint(mocker):
 
     mocker.patch.object(juju_verify, 'parse_args').return_value = args
     mocker.patch.object(juju_verify, 'get_verifier').return_value = verifier
+    mocker.patch.object(juju_verify, 'loop')
     mocker.patch.object(juju_verify, 'connect_model')
     mocker.patch.object(juju_verify, 'find_units')
     logger = mocker.patch.object(juju_verify, 'logger')
@@ -180,6 +184,7 @@ def test_main_expected_failure(mocker, fail, error, error_msg):
     """Verify handling of expected exceptions."""
     mocker.patch.object(juju_verify, 'parse_args')
     mocker.patch.object(juju_verify, 'config_logger')
+    mocker.patch.object(juju_verify, 'loop')
     mocker.patch.object(juju_verify, 'connect_model')
     mocker.patch.object(juju_verify, 'find_units')
     mocker.patch.object(juju_verify,
