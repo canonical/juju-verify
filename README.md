@@ -56,7 +56,6 @@ If you prefer, file a bug or feature request at:
 
 ## TODO
 
-* Check if machine runs other principal unties aside from those that are being
 checked
 * Allow targeting Juju machines, not just units for checks. e.g. `juju-verify
 shutdown --machine 0`
