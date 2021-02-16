@@ -81,6 +81,8 @@ class BaseVerifier:
         for unit in self.units:
             self.affected_machines.add(unit.machine.entity_id)
 
+        # Unit.model is mandatory property, so we end up either with one model
+        # (correct) or multiple models (incorrect) in the 'models' set.
         models = {unit.model for unit in self.units}
         if len(models) > 1:
             raise VerificationError('Verifier initiated with units from '
