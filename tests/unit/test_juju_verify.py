@@ -99,6 +99,32 @@ async def test_find_units(model, all_units, fail):
     fail.assert_called_once_with(expected_message)
 
 
+@pytest.mark.asyncio
+async def test_find_units_on_machine(model, all_units):
+    """Test that find_units_on_machine function returns correct units."""
+    machine_1_name = '0'
+    machine_2_name = '1'
+
+    machine_1 = MagicMock()
+    machine_1.entity_id = machine_1_name
+    machine_2 = MagicMock()
+    machine_2.entity_id = machine_2_name
+
+    machine_1_units = all_units[:3]
+    machine_2_units = all_units[3:]
+
+    for unit_name, unit in model.units.items():
+        if unit_name in machine_1_units:
+            unit.machine = machine_1
+        elif unit_name in machine_2_units:
+            unit.machine = machine_2
+
+    found_units = await juju_verify.find_units_on_machine(model,
+                                                          [machine_1_name])
+
+    assert machine_1_units == [unit.entity_id for unit in found_units]
+
+
 @pytest.mark.parametrize('log_level, log_constant',
                          [('debug', logging.DEBUG),
                           ('DEBUG', logging.DEBUG),
@@ -148,13 +174,14 @@ def test_parse_args(mocker):
     parser.assert_called_once()
 
 
-def test_main_entrypoint(mocker):
-    """Verify workflow if the main entrypoint."""
+def test_main_entrypoint_target_units(mocker):
+    """Verify workflow of the main entrypoint when script targets units."""
     args = MagicMock()
     args.log_level = 'info'
     args.model = None
     args.check = 'shutdown'
     args.units = ['nova-compute/0']
+    args.machines = None
 
     result = Result(True, 'Passed')
     verifier = MagicMock()
@@ -173,6 +200,56 @@ def test_main_entrypoint(mocker):
     juju_verify.find_units.assert_called_with(ANY, args.units)
     verifier.verify.asssert_called_with(args.check)
     logger.info.assert_called_with(result.format())
+
+
+def test_main_entrypoint_target_machine(mocker):
+    """Verify workflow of the main entrypoint when script targets machines."""
+    args = MagicMock()
+    args.log_level = 'info'
+    args.model = None
+    args.check = 'shutdown'
+    args.machines = ['0']
+    args.units = None
+    expected_units = ['nova-compute/0']
+
+    result = Result(True, 'Passed')
+    verifier = MagicMock()
+    verifier.verify.return_value = result
+
+    mocker.patch.object(juju_verify, 'parse_args').return_value = args
+    mocker.patch.object(juju_verify, 'get_verifier').return_value = verifier
+    mocker.patch.object(juju_verify, 'loop')
+    mocker.patch.object(juju_verify, 'connect_model', new_callable=MagicMock())
+    mocker.patch.object(juju_verify, 'find_units_on_machine',
+                        new_callable=MagicMock()).return_value = expected_units
+    logger = mocker.patch.object(juju_verify, 'logger')
+
+    juju_verify.main()
+
+    juju_verify.connect_model.assert_called_with(args.model)
+    juju_verify.find_units_on_machine.assert_called_with(ANY, args.machines)
+    verifier.verify.asssert_called_with(args.check)
+    logger.info.assert_called_with(result.format())
+
+
+def test_main_entrypoint_no_target_fail(mocker, fail):
+    """Test that main fails if not target (units/machines) is specified."""
+    args = MagicMock()
+    args.log_level = 'info'
+    args.model = None
+    args.check = 'shutdown'
+    args.machines = None
+    args.units = None
+
+    expected_msg = 'juju-verify must target either juju units or juju machines'
+
+    mocker.patch.object(juju_verify, 'parse_args').return_value = args
+    mocker.patch.object(juju_verify, 'connect_model', new_callable=MagicMock())
+    mocker.patch.object(juju_verify, 'loop')
+
+    juju_verify.main()
+
+    fail.assert_any_call(expected_msg)
 
 
 @pytest.mark.parametrize('error, error_msg',

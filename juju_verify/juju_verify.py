@@ -59,6 +59,18 @@ async def find_units(model: Model, units: List[str]) -> List[Unit]:
     return selected_units
 
 
+async def find_units_on_machine(model: Model, machines: List[str]) -> List[Unit]:
+    """Find all principal units that run on selected machines.
+
+    :param model: Juju model to search units in
+    :param machines: names of Juju machines on which to search units
+    :return: List of juju.Unit objects that match units running on the machines
+    """
+    return [unit for _, unit in model.units.items()
+            if unit.machine.entity_id in machines
+            and not unit.data.get("subordinate")]
+
+
 async def connect_model(model_name: Union[str, None]) -> Model:
     """Connect to a custom or default Juju model.
 
@@ -88,11 +100,15 @@ def parse_args() -> argparse.Namespace:
                         help='Connect to specific model.')
     parser.add_argument('check', choices=BaseVerifier.supported_checks(),
                         type=str.lower, help='Check to verify.')
-    parser.add_argument('units', nargs='+', help='Units to check.')
     parser.add_argument('-l', '--log-level', type=str.lower,
                         help='Set amount of displayed information',
                         default='info', choices=['trace', 'debug', 'info'])
 
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument('--units', '-u', nargs='+', type=str,
+                        help='Units to check.')
+    target.add_argument('--machines', '-M', nargs='+', type=str,
+                        help='Check all units on the machine.')
     return parser.parse_args()
 
 
@@ -119,7 +135,15 @@ def main() -> None:
     args = parse_args()
     config_logger(args.log_level)
     model = loop.run(connect_model(args.model))
-    units = loop.run(find_units(model, args.units))
+    units: List[Unit] = []
+
+    if args.units:
+        units = loop.run(find_units(model, args.units))
+    elif args.machines:
+        units = loop.run(find_units_on_machine(model, args.machines))
+    else:
+        fail('juju-verify must target either juju units or juju machines')
+
     try:
         verifier = get_verifier(units)
         result = verifier.verify(args.check)
