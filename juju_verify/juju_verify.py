@@ -66,11 +66,9 @@ async def find_units_on_machine(model: Model, machines: List[str]) -> List[Unit]
     :param machines: names of Juju machines on which to search units
     :return: List of juju.Unit objects that match units running on the machines
     """
-    units: List[Unit] = []
-    for _, unit in model.units.items():
-        if unit.machine.entity_id in machines and not unit.data.get('subordinate'):
-            units.append(unit)
-    return units
+    return [unit for _, unit in model.units.items()
+            if unit.machine.entity_id in machines
+            and not unit.data.get("subordinate")]
 
 
 async def connect_model(model_name: Union[str, None]) -> Model:
