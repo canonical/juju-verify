@@ -24,7 +24,7 @@ from juju.unit import Unit
 
 from juju_verify.exceptions import CharmException
 
-from .base import BaseVerifier
+from .base import BaseVerifier, Result
 from .ceph_osd import CephOsd
 from .nova_compute import NovaCompute
 

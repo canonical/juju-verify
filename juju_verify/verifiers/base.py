@@ -15,9 +15,11 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """Base for other modules that implement verification checks for specific charms."""
+import asyncio
 import logging
 from typing import Callable, Dict, List
 
+from juju.action import Action
 from juju.model import Model
 from juju.unit import Unit
 
@@ -39,13 +41,29 @@ class Result:  # pylint: disable=too-few-public-methods
         self.success = success
         self.reason = reason
 
-    def format(self) -> str:
+    def __str__(self) -> str:
         """Return formatted string representing the result."""
         result = 'OK' if self.success else 'FAIL'
         output = 'Result: {}'.format(result)
         if self.reason:
             output += '\nReason: {}'.format(self.reason)
         return output
+
+    def __add__(self, other: 'Result') -> 'Result':
+        """Add together two Result instances.
+
+        Boolean AND operation is applied on 'success' attribute and 'reason'
+        attributes are concatenated.
+        """
+        if not isinstance(other, Result):
+            raise NotImplementedError()
+
+        new_success = self.success and other.success
+        if other.reason and self.reason and not self.reason.endswith('\n'):
+            self.reason += '\n'
+        new_reason = self.reason + other.reason
+
+        return Result(new_success, new_reason)
 
 
 class BaseVerifier:
@@ -112,6 +130,30 @@ class BaseVerifier:
             'reboot': cls.verify_reboot,
         }
 
+    @staticmethod
+    def data_from_action(action: Action, key: str, default: str = '') -> str:
+        """Extract value from Action.data['results'] dictionary.
+
+        :param action: juju.Action instance
+        :param key: key to search for in action's results
+        :param default: default value to return if the 'key' is not found
+        :return: value from the action's result identified by 'key' or default
+        """
+        return action.data.get('results', {}).get(key, default)
+
+    def unit_from_id(self, unit_id: str) -> Unit:
+        """Search self.units for unit that matches 'unit_id'.
+
+        :param unit_id: ID of the unit to find
+        :return: Unit that matches 'unit_id'
+        """
+        for unit in self.units:
+            if unit.entity_id == unit_id:
+                return unit
+        else:
+            raise VerificationError('Unit {} was not found in {} verifier.'
+                                    ''.format(unit_id, self.NAME))
+
     def check_affected_machines(self) -> None:
         """Check if affected machines run other principal units.
 
@@ -155,6 +197,61 @@ class BaseVerifier:
         except Exception as exc:
             err = VerificationError('Verification failed: {}'.format(exc))
             raise err from exc
+
+    def run_action_on_all(self, action: str,
+                          **params: str) -> Dict[str, Action]:
+        """Run juju action on all units in self.units.
+
+        For more info, see docstring for 'run_action_on_units'.
+        """
+        return self.run_action_on_units(self.unit_ids, action, **params)
+
+    def run_action_on_unit(self, unit: str, action: str,
+                           **params: str) -> Action:
+        """Run juju action on single unit.
+
+        For more info, see docstring for 'run_action_on_units'. The only
+        difference is that this function returns Action object directly, not
+        dict {unit_id: action}.
+        """
+        results = self.run_action_on_units([unit], action, **params)
+        return results[unit]
+
+    def run_action_on_units(self, units: List[str], action: str,
+                            **params: str) -> Dict[str, Action]:
+        """Run juju action on specified units.
+
+        Units are specified by string that must match Unit.entity_id in
+        self.units. All actions that are executed are also awaited, if any
+        of the actions fails, VerificationError is raised.
+
+        :param units: List of unit IDs on which to run action
+        :param action: Action to run on units
+        :param params: Additional parameters for the action
+        :return: Dict in format {unit_id: action} where unit_ids are strings
+                 provided in 'units' and actions are their matching,
+                 juju.Action objects that have been executed and awaited.
+        """
+        target_units = [self.unit_from_id(unit_id) for unit_id in units]
+        task_map = {unit.entity_id: unit.run_action(action, **params)
+                    for unit in target_units}
+
+        loop = asyncio.get_event_loop()
+        tasks = asyncio.gather(*task_map.values())
+        actions = loop.run_until_complete(tasks)
+        action_futures = asyncio.gather(*[action.wait() for action in actions])
+        results: List[Action] = loop.run_until_complete(action_futures)
+
+        result_map = dict(zip(task_map.keys(), results))
+
+        for unit, action_result in result_map.items():
+            if action_result.status != 'completed':
+                err_msg = 'Action {0} (ID: {1}) failed to complete on unit ' \
+                          '{2}. For more info see "juju show-action-output ' \
+                          '{1}"'.format(action, action_result.entity_id,
+                                        unit)
+                raise VerificationError(err_msg)
+        return dict(zip(task_map.keys(), results))
 
     def verify_shutdown(self) -> Result:
         """Child classes must override this method with custom implementation.

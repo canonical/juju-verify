@@ -16,8 +16,10 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """Base class test suite."""
 
-from unittest.mock import MagicMock, PropertyMock
+import asyncio
+from unittest.mock import MagicMock, PropertyMock, call
 
+from juju.action import Action
 from juju.model import Model
 from juju.unit import Unit
 
@@ -39,7 +41,22 @@ def test_result_formatting(success, reason):
     reason_str = '\nReason: {}'.format(reason) if reason else ''
 
     expected_msg = common_str + success_str + reason_str
-    assert result.format() == expected_msg
+    assert str(result) == expected_msg
+
+
+@pytest.mark.parametrize('success_1, reason_1, success_2, reason_2, '
+                         'expect_success, expect_reason',
+                         [(True, 'foo', True, 'bar', True, 'foo\nbar'),
+                          (True, '', False, 'foo', False, 'foo'),
+                          (False, 'foo', True, '', False, 'foo'),
+                          (False, 'foo\n', False, 'bar', False, 'foo\nbar')])
+def test_result_add(success_1, reason_1, success_2, reason_2, expect_success,
+                    expect_reason):
+    """Test '+' operator on Result objects."""
+    result = Result(success_1, reason_1) + Result(success_2, reason_2)
+
+    assert result.success == expect_success
+    assert result.reason == expect_reason
 
 
 def test_base_verifier_verify_no_units():
@@ -177,3 +194,169 @@ def test_base_verifier_unexpected_verify_error(mocker):
         verifier.verify(check)
 
     assert str(exc.value) == expected_msg
+
+
+def test_base_verifier_unit_from_id():
+    """Test finding units in verifier by their IDs."""
+    present_unit = 'compute/0'
+    missing_unit = 'compute/1'
+    expected_msg = 'Unit {} was not found in {} ' \
+                   'verifier.'.format(missing_unit, BaseVerifier.NAME)
+    unit = Unit(present_unit, Model())
+    verifier = BaseVerifier([unit])
+
+    found_unit = verifier.unit_from_id(present_unit)
+
+    assert found_unit == unit
+
+    # raise error when querying non-existent unit
+
+    with pytest.raises(VerificationError) as exc:
+        verifier.unit_from_id(missing_unit)
+
+    assert str(exc.value) == expected_msg
+
+
+def test_base_verifier_data_from_action(mocker):
+    """Test helper function that parses data from Action.data.results dict."""
+    host_key = 'host'
+    host_value = 'compute.0'
+    data = {'results': {host_key: host_value}}
+    default = 'default'
+
+    mocker.patch.object(Action, 'data',
+                        new_callable=PropertyMock(return_value=data))
+    action = Action('0', Model())
+
+    output = BaseVerifier.data_from_action(action, host_key, default)
+    assert output == host_value
+
+    # return default on missing key
+
+    output = BaseVerifier.data_from_action(action, 'foo', default)
+    assert output == default
+
+
+def test_base_verifier_run_action_on_units(mocker, model, all_units):
+    """Test running action on list of units and returning results."""
+    # Mock async lib calls
+    loop = MagicMock()
+    mocker.patch.object(asyncio, 'get_event_loop').return_value = loop
+    mocker.patch.object(asyncio, 'gather')
+
+    # Put spy on unit_id resolution
+    id_to_unit = mocker.spy(BaseVerifier, 'unit_from_id')
+
+    # Prepare units and actions data
+    action = 'unit-action'
+    action_params = {'force': True, 'debug': False}
+    juju_actions = []
+    juju_actions_wait = []
+    run_on_unit_ids = all_units[:2]
+    run_on_units = [model.units[unit] for unit in run_on_unit_ids]
+
+    # Prepare mocks of juju actions.
+    # In the live code, we need to run/await each action twice. First call
+    # creates an action on the controller (Unit.run_action()) and the second
+    # call waits for action result (Action.wait()). These two sets of calls
+    # are mocked as two lists of Action objects 'juju_actions' and
+    # juju_actions_wait'.
+    for i, unit in enumerate(run_on_units):
+        juju_action = Action(str(i), model)
+        juju_action_wait = Action(str(i) + '-wait', model)
+        juju_action_wait.status = 'completed'
+
+        juju_actions.append(juju_action)
+        juju_actions_wait.append(juju_action_wait)
+
+    Unit.run_action.side_effect = juju_actions
+    Action.wait.side_effect = juju_actions_wait
+
+    loop.run_until_complete.return_value = juju_actions_wait
+    asyncio.gather.side_effect = [juju_actions, juju_actions_wait]
+
+    # create verifier and run actions
+    verifier = BaseVerifier(run_on_units)
+    results = verifier.run_action_on_units(run_on_unit_ids, action,
+                                           **action_params)
+
+    # verify results and expected calls
+    id_to_unit.assert_has_calls([call(verifier, id_) for id_
+                                 in run_on_unit_ids])
+
+    for unit in run_on_units:
+        unit.run_action.assert_called_with(action, **action_params)
+
+    expected_gather_calls = [
+        call(*juju_actions),
+        call(*juju_actions_wait)
+    ]
+
+    expected_run_loop_calls = [
+        call(juju_actions),
+        call(juju_actions_wait),
+    ]
+
+    asyncio.gather.assert_has_calls(expected_gather_calls)
+    loop.run_until_complete.assert_has_calls(expected_run_loop_calls)
+
+    assert results == dict(zip(run_on_unit_ids, juju_actions_wait))
+
+    # Raise error if one of the actions failed
+    failed_action = juju_actions_wait[0]
+    failed_action.status = 'failed'
+    failed_unit = run_on_unit_ids[0]
+
+    expect_err = 'Action {0} (ID: {1}) failed to complete on unit {2}. For ' \
+                 'more info see "juju show-action-output {1}"' \
+                 ''.format(action, failed_action.entity_id, failed_unit)
+
+    Unit.run_action.side_effect = juju_actions
+    Action.wait.side_effect = juju_actions_wait
+    asyncio.gather.side_effect = [juju_actions, juju_actions_wait]
+
+    with pytest.raises(VerificationError) as exc:
+        verifier.run_action_on_units(run_on_unit_ids, action, **action_params)
+        assert str(exc.value()) == expect_err
+
+
+def test_base_verifier_run_action_on_unit(mocker):
+    """Test running action on single unit from the verifier."""
+    unit_name = 'nova-compute/0'
+    action = 'unit-action'
+    action_params = {'force': True, 'debug': False}
+    action_result = Action('0', Model())
+    mocker.patch.object(BaseVerifier, 'run_action_on_units'
+                        ).return_value = {unit_name: action_result}
+
+    unit = Unit(unit_name, Model())
+
+    verifier = BaseVerifier([unit])
+    result = verifier.run_action_on_unit(unit_name, action, **action_params)
+
+    verifier.run_action_on_units.assert_called_with([unit_name],
+                                                    action,
+                                                    **action_params)
+    assert result == action_result
+
+
+def test_base_verifier_run_action_on_all_units(mocker):
+    """Test running action on all units in verifier."""
+    model = Model()
+    action = 'unit-action'
+    action_params = {'force': True, 'debug': False}
+    unit_names = ['nova_compute/0', 'nova-compute/1']
+    result_map = {unit: Action('0', model) for unit in unit_names}
+    units = [Unit(name, model) for name in unit_names]
+
+    mocker.patch.object(BaseVerifier, 'run_action_on_units'
+                        ).return_value = result_map
+
+    verifier = BaseVerifier(units)
+    result = verifier.run_action_on_all(action, **action_params)
+
+    verifier.run_action_on_units.assert_called_with(unit_names,
+                                                    action,
+                                                    **action_params)
+
+    assert result == result_map
