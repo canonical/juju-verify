@@ -13,17 +13,26 @@ lint:
 	@echo "Running flake8 and mypy"
 	@tox -e lint
 
-test: lint unittest
-
 unittest:
 	@tox -e unit
 
-release: clean
+test: lint unittest
+
+build:
+	@echo "Building python package"
+	@tox -e build
+
+build-verify:
+	@echo "Verifying built python package"
+	@tox -e build-verify
+
+release: clean build build-verify
 	@echo "Release procedure not yet supported"
+	@echo "Hint: twine upload dist/*"
 
 clean:
 	@echo "Cleaning files"
-	@git clean -fxd
+	@git clean -fxd -e '!.idea'
 
 # The targets below don't depend on a file
-.PHONY: lint test unittest release clean help
+.PHONY: lint test unittest release clean help build build-verify

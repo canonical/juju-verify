@@ -52,10 +52,9 @@ make test
 
 If you prefer, file a bug or feature request at:
 
- * https://bugs.launchpad.net/juju-verify
+* https://bugs.launchpad.net/juju-verify
 
 ## TODO
 
-checked
-* Allow targeting Juju machines, not just units for checks. e.g. `juju-verify
-shutdown --machine 0`
+* Allow targeting Juju machines, not just units for checks. e.g.
+  `juju-verify shutdown --machine 0`
