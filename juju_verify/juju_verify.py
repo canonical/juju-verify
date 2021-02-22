@@ -147,7 +147,7 @@ def main() -> None:
     try:
         verifier = get_verifier(units)
         result = verifier.verify(args.check)
-        logger.info(result.format())
+        logger.info(str(result))
     except (CharmException, VerificationError, NotImplementedError) as exc:
         fail(str(exc))
 

@@ -6,7 +6,7 @@ or `reboot`.
 
 ## Supported charms
 
-* nova-compute (WIP)
+* nova-compute (WIP) (Usable with [this nova-compute charm](https://jaas.ai/u/martin-kalcok/charm-nova-compute/1))
 * ceph-osd (WIP)
 
 ## Supported checks

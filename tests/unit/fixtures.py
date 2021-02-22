@@ -16,9 +16,10 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """Available fixtures for juju_verify unit test suite."""
 from string import digits
-from unittest.mock import PropertyMock
+from unittest.mock import MagicMock, PropertyMock
 
 
+from juju.action import Action
 from juju.client.connector import Connector
 from juju.model import Model
 from juju.unit import Unit
@@ -58,6 +59,10 @@ def model(session_mocker, all_units):
     session_mocker.patch.object(Model, 'connect_model')
     session_mocker.patch.object(Unit, 'data')
     session_mocker.patch.object(Unit, 'machine')
+    session_mocker.patch.object(Unit, 'run_action', new_callable=MagicMock)
+    session_mocker.patch.object(Action, 'wait', new_callable=MagicMock)
+    session_mocker.patch.object(Action, 'status').return_value = 'pending'
+    session_mocker.patch.object(Action, 'data')
     units = session_mocker.patch('juju.model.Model.units',
                                  new_callable=PropertyMock)
 
@@ -67,6 +72,7 @@ def model(session_mocker, all_units):
         charm_name = unit_id.rstrip(digits + '/')
         unit.data = {'charm-url': 'cs:focal/{}-1'.format(charm_name)}
         unit_map[unit_id] = unit
+        unit.run_action.return_value = Action(unit_id + '-action', model)
     units.return_value = unit_map
 
     return model

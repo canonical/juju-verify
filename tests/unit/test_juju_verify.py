@@ -199,7 +199,7 @@ def test_main_entrypoint_target_units(mocker):
     juju_verify.connect_model.assert_called_with(args.model)
     juju_verify.find_units.assert_called_with(ANY, args.units)
     verifier.verify.asssert_called_with(args.check)
-    logger.info.assert_called_with(result.format())
+    logger.info.assert_called_with(str(result))
 
 
 def test_main_entrypoint_target_machine(mocker):
@@ -229,7 +229,7 @@ def test_main_entrypoint_target_machine(mocker):
     juju_verify.connect_model.assert_called_with(args.model)
     juju_verify.find_units_on_machine.assert_called_with(ANY, args.machines)
     verifier.verify.asssert_called_with(args.check)
-    logger.info.assert_called_with(result.format())
+    logger.info.assert_called_with(str(result))
 
 
 def test_main_entrypoint_no_target_fail(mocker, fail):
