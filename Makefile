@@ -32,7 +32,7 @@ release: clean build build-verify
 
 clean:
 	@echo "Cleaning files"
-	@git clean -fxd
+	@git clean -fxd -e '!.idea'
 
 # The targets below don't depend on a file
 .PHONY: lint test unittest release clean help build build-verify
