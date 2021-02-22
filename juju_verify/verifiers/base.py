@@ -141,6 +141,17 @@ class BaseVerifier:
         """
         return action.data.get('results', {}).get(key, default)
 
+    @staticmethod
+    def aggregate_results(*results: Result) -> Result:
+        """Return aggregate value of multiple results."""
+        result_list = list(results)
+        final_result = result_list.pop(0)
+
+        for result in result_list:
+            final_result += result
+
+        return final_result
+
     def unit_from_id(self, unit_id: str) -> Unit:
         """Search self.units for unit that matches 'unit_id'.
 
@@ -244,14 +255,20 @@ class BaseVerifier:
 
         result_map = dict(zip(task_map.keys(), results))
 
+        failed_actions_msg = []
         for unit, action_result in result_map.items():
             if action_result.status != 'completed':
-                err_msg = 'Action {0} (ID: {1}) failed to complete on unit ' \
-                          '{2}. For more info see "juju show-action-output ' \
-                          '{1}"'.format(action, action_result.entity_id,
-                                        unit)
-                raise VerificationError(err_msg)
-        return dict(zip(task_map.keys(), results))
+                failed_actions_msg.append('Action {0} (ID: {1}) failed to '
+                                          'complete on unit {2}. For more info'
+                                          ' see "juju show-action-output {1}"'
+                                          ''.format(action,
+                                                    action_result.entity_id,
+                                                    unit))
+
+        if failed_actions_msg:
+            raise VerificationError('\n'.join(failed_actions_msg))
+
+        return result_map
 
     def verify_shutdown(self) -> Result:
         """Child classes must override this method with custom implementation.
