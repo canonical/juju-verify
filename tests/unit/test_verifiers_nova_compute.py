@@ -129,3 +129,14 @@ def test_verify_reboot(mocker, vm_count_result, empty_az_result, final_result):
     verifier = NovaCompute([Unit('nova-compute/0', Model())])
     result = verifier.verify_reboot()
     assert result.success == final_result.success
+
+
+def test_verify_shutdown(mocker):
+    """Test that verify_shutdown links to verify_reboot."""
+    mocker.patch.object(NovaCompute, 'verify_reboot')
+    unit = Unit('nova-compute/0', Model())
+
+    verifier = NovaCompute([unit])
+    verifier.verify_shutdown()
+
+    verifier.verify_reboot.assert_called_once()

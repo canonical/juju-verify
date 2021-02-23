@@ -73,3 +73,7 @@ class NovaCompute(BaseVerifier):
         """Verify that it's safe to reboot selected nova-compute units."""
         return self.aggregate_results(self.check_no_running_vms(),
                                       self.check_no_empty_az())
+
+    def verify_shutdown(self) -> Result:
+        """Verify that it's safe to shutdown selected nova-compute units."""
+        return self.verify_reboot()

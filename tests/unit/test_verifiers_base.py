@@ -59,6 +59,12 @@ def test_result_add(success_1, reason_1, success_2, reason_2, expect_success,
     assert result.reason == expect_reason
 
 
+def test_result_add_raises_not_implemented():
+    """Test that '+' operator raises error if both operands aren't Result."""
+    with pytest.raises(NotImplementedError):
+        Result(True) + False
+
+
 def test_base_verifier_verify_no_units():
     """Function 'verify' should fail if verifier has not units."""
     expected_msg = 'Can not run verification. This verifier ' \
@@ -317,7 +323,7 @@ def test_base_verifier_run_action_on_units(mocker, model, all_units):
 
     with pytest.raises(VerificationError) as exc:
         verifier.run_action_on_units(run_on_unit_ids, action, **action_params)
-        assert str(exc.value()) == expect_err
+    assert str(exc.value) == expect_err
 
 
 def test_base_verifier_run_action_on_unit(mocker):

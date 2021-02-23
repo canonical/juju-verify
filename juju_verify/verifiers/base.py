@@ -161,9 +161,8 @@ class BaseVerifier:
         for unit in self.units:
             if unit.entity_id == unit_id:
                 return unit
-        else:
-            raise VerificationError('Unit {} was not found in {} verifier.'
-                                    ''.format(unit_id, self.NAME))
+        raise VerificationError('Unit {} was not found in {} verifier.'
+                                ''.format(unit_id, self.NAME))
 
     def check_affected_machines(self) -> None:
         """Check if affected machines run other principal units.
