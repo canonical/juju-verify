@@ -17,7 +17,7 @@
 """Base class test suite."""
 
 import asyncio
-from unittest.mock import MagicMock, PropertyMock, call
+from unittest.mock import ANY, MagicMock, PropertyMock, call
 
 from juju.action import Action
 from juju.model import Model
@@ -57,6 +57,12 @@ def test_result_add(success_1, reason_1, success_2, reason_2, expect_success,
 
     assert result.success == expect_success
     assert result.reason == expect_reason
+
+
+def test_result_add_raises_not_implemented():
+    """Test that '+' operator raises error if both operands aren't Result."""
+    with pytest.raises(NotImplementedError):
+        Result(True) + False
 
 
 def test_base_verifier_verify_no_units():
@@ -317,7 +323,7 @@ def test_base_verifier_run_action_on_units(mocker, model, all_units):
 
     with pytest.raises(VerificationError) as exc:
         verifier.run_action_on_units(run_on_unit_ids, action, **action_params)
-        assert str(exc.value()) == expect_err
+    assert str(exc.value) == expect_err
 
 
 def test_base_verifier_run_action_on_unit(mocker):
@@ -360,3 +366,21 @@ def test_base_verifier_run_action_on_all_units(mocker):
                                                     **action_params)
 
     assert result == result_map
+
+
+@pytest.mark.parametrize('result_list',
+                         [([Result(False)]),
+                          ([Result(True), Result(True)]),
+                          ([Result(True), Result(False), Result(True)])
+                          ])
+def test_base_verifier_aggregate_results(mocker, result_list):
+    """Test helper method that aggregates Result instances."""
+    spy_on_add = mocker.spy(Result, '__add__')
+    expected_calls = [call(ANY, result) for result in result_list[1:]]
+    expected_result = all([result.success for result in result_list])
+
+    final_result = BaseVerifier.aggregate_results(*result_list)
+
+    spy_on_add.assert_has_calls(expected_calls)
+    assert isinstance(final_result, Result)
+    assert final_result.success == expected_result

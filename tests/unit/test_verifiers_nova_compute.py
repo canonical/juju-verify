@@ -26,6 +26,7 @@ from juju_verify.verifiers import NovaCompute
 from juju_verify.verifiers import Result
 
 import pytest
+from pytest import param
 
 
 @pytest.mark.parametrize('vm_count, expect_result',
@@ -112,11 +113,12 @@ def test_nova_compute_empty_az(mocker, hosts_in_zone, hosts_to_remove,
         assert result.reason == fail_reason
 
 
-@pytest.mark.parametrize('vm_count_result, empty_az_result, final_result',
-                         [(Result(True), Result(True), Result(True)),
-                          (Result(False), Result(True), Result(False)),
-                          (Result(True), Result(False), Result(False)),
-                          (Result(False), Result(False), Result(False))])
+@pytest.mark.parametrize('vm_count_result, empty_az_result, final_result', [
+    param(Result(True), Result(True), Result(True), id="all-checks-Pass"),
+    param(Result(False), Result(True), Result(False), id="only-empty_az-Pass"),
+    param(Result(True), Result(False), Result(False), id="only-vm_count-Pass"),
+    param(Result(False), Result(False), Result(False), id="all-checks-Failed"),
+])
 def test_verify_reboot(mocker, vm_count_result, empty_az_result, final_result):
     """Test results of the verify_reboot method in NovaCompute."""
     mocker.patch.object(NovaCompute, 'check_no_running_vms'
@@ -127,3 +129,14 @@ def test_verify_reboot(mocker, vm_count_result, empty_az_result, final_result):
     verifier = NovaCompute([Unit('nova-compute/0', Model())])
     result = verifier.verify_reboot()
     assert result.success == final_result.success
+
+
+def test_verify_shutdown(mocker):
+    """Test that verify_shutdown links to verify_reboot."""
+    mocker.patch.object(NovaCompute, 'verify_reboot')
+    unit = Unit('nova-compute/0', Model())
+
+    verifier = NovaCompute([unit])
+    verifier.verify_shutdown()
+
+    verifier.verify_reboot.assert_called_once()

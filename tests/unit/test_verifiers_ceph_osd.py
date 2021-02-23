@@ -14,19 +14,34 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
-"""ceph-osd verification."""
-from juju_verify.verifiers.base import BaseVerifier, Result
+"""CephOsd verifier class test suite."""
+from juju.model import Model
+from juju.unit import Unit
+
+from juju_verify.verifiers import CephOsd
+
+import pytest
 
 
-class CephOsd(BaseVerifier):
-    """Implementation of verification checks for the ceph-osd charm."""
+def test_verify_reboot():
+    """Test reboot verification on CephOsd.
 
-    NAME = 'ceph-osd'
+    This is a placeholder unit test.
+    """
+    unit = Unit('ceph-osd/0', Model())
+    verifier = CephOsd([unit])
 
-    def verify_reboot(self) -> Result:
-        """Verify that it's safe to reboot selected nova-compute units."""
-        raise NotImplementedError()
+    with pytest.raises(NotImplementedError):
+        verifier.verify_reboot()
 
-    def verify_shutdown(self) -> Result:
-        """Verify that it's safe to shutdown selected nova-compute units."""
-        raise NotImplementedError()
+
+def test_verify_shutdown():
+    """Test shutdown verification on CephOsd.
+
+    This is a placeholder unit test.
+    """
+    unit = Unit('ceph-osd/0', Model())
+    verifier = CephOsd([unit])
+
+    with pytest.raises(NotImplementedError):
+        verifier.verify_shutdown()
