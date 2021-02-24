@@ -45,6 +45,8 @@ class NovaCompute(BaseVerifier):
 
     def check_no_empty_az(self) -> Result:
         """Check that removing units wont cause empty availability zone."""
+        def is_active(node: dict) -> bool:
+            return node['state'] == 'up' and node['status'] == 'enabled'
         result = Result(True)
 
         node_name_actions = self.run_action_on_all('node-name')
@@ -56,10 +58,13 @@ class NovaCompute(BaseVerifier):
         compute_nodes = json.loads(self.data_from_action(action,
                                                          'compute-nodes'))
 
-        original_zones = {node['zone'] for node in compute_nodes}
+        affected_zones = {node['zone'] for node in compute_nodes
+                          if node['host'] in target_nodes}
         zones_after_change = {node['zone'] for node in compute_nodes
-                              if node['host'] not in target_nodes}
-        empty_zones = original_zones - zones_after_change
+                              if node['host'] not in target_nodes and
+                              is_active(node)}
+
+        empty_zones = affected_zones - zones_after_change
 
         if empty_zones:
             result.success = False

@@ -18,7 +18,6 @@
 import json
 from unittest.mock import MagicMock
 
-
 from juju.model import Model
 from juju.unit import Unit
 
@@ -61,17 +60,42 @@ def test_nova_compute_no_running_vms(mocker, vm_count, expect_result):
         assert result.reason == fail_reason
 
 
-@pytest.mark.parametrize('hosts_in_zone, hosts_to_remove, expect_result',
-                         [(2, 2, Result(False)),
-                          (3, 2, Result(True))])
-def test_nova_compute_empty_az(mocker, hosts_in_zone, hosts_to_remove,
-                               expect_result):
-    """Test expected Result when trying to remove all nodes from AZ."""
+@pytest.mark.parametrize('all_hosts, remove_hosts, host_state, host_status, '
+                         'expect_result', [
+                             param(2, 2, 'up', 'enabled', Result(False),
+                                   id='fail-on-empty-az'),
+                             param(3, 2, 'up', 'enabled', Result(True),
+                                   id='success-non-empty-az'),
+                             param(3, 2, 'down', 'enabled', Result(False),
+                                   id='fail-down-host-left'),
+                             param(3, 2, 'up', 'disabled', Result(False),
+                                   id='fail-disabled-host-left'),
+                             param(3, 2, 'down', 'disabled', Result(False),
+                                   id='fail-down-disabled-host-left'),
+                         ])
+def test_nova_compute_empty_az(mocker, all_hosts, remove_hosts, host_state,
+                               host_status, expect_result):
+    """Test expected Result when trying to remove all nodes from AZ.
+
+    Following scenarios are tested:
+        * fail-on-empty-az - Removing nodes would cause AZ to go empty.
+                             Expected result is Fail.
+        * success-non-empty-az - Removing nodes will leave at least one active
+                                 node in AZ. Expected result is Pass.
+        * fail-down-host-left - Removing nodes would leave AZ only with hosts
+                                that are 'down'. Expected result is Fail.
+        * fail-disabled-host-left - Removing nodes would leave AZ only with
+                                    hosts that are 'disabled'. Expected result
+                                    is Fail.
+        * fail-down-disabled-host-left - Removing nodes would leave AZ only
+                                         with hosts that are 'down' and
+                                         disabled. Expected result is Fail.
+    """
     unit_pool = ['nova-compute/0', 'nova-compute/1', 'nova-compute/2']
     host_pool = ['compute.0', 'compute.1', 'compute.2']
 
     # prepare Units for verifier. Number of units to remove is parametrized.
-    unit_names = unit_pool[:hosts_to_remove]
+    unit_names = unit_pool[:remove_hosts]
     model = Model()
     units = [Unit(name, model) for name in unit_names]
     zone = 'nova'
@@ -81,7 +105,7 @@ def test_nova_compute_empty_az(mocker, hosts_in_zone, hosts_to_remove,
 
     # mock results of 'node-names' action on all verified units
     node_name_results = []
-    for node in host_pool[:hosts_to_remove]:
+    for node in host_pool[:remove_hosts]:
         result_mock = MagicMock()
         result_mock.data = {'results': {'node-name': node}}
         node_name_results.append(result_mock)
@@ -92,8 +116,11 @@ def test_nova_compute_empty_az(mocker, hosts_in_zone, hosts_to_remove,
 
     # mock result 'list-compute-nodes' action. Number of nodes in zone
     # is parametrized.
-    raw_compute_nodes = [{'host': host, 'zone': zone} for host in
-                         host_pool[:hosts_in_zone]]
+    raw_compute_nodes = [{'host': host,
+                          'zone': zone,
+                          'state': host_state,
+                          'status': host_status}
+                         for host in host_pool[:all_hosts]]
 
     compute_nodes_data = {'results': {
         'compute-nodes': json.dumps(raw_compute_nodes)}}
