@@ -47,7 +47,7 @@ def get_verifier(units: List[Unit]) -> BaseVerifier:
     :param units: Juju unit(s) for which you want to produce verifier
     :return: Correct verifier for given unit(s)
     :raises CharmException: Raised if units do not belong to the same charm or
-    if the charm is unsupported for verification
+        if the charm is unsupported for verification
     """
 
     def parse_charm_name(charm_url: str) -> str:
