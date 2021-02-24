@@ -6,7 +6,7 @@ or `reboot`.
 
 ## Supported charms
 
-* nova-compute (WIP) (Usable with [this nova-compute charm](https://jaas.ai/u/martin-kalcok/charm-nova-compute/1))
+* nova-compute (WIP) (Usable with [this nova-compute charm](https://jaas.ai/u/martin-kalcok/nova-compute/0))
 * ceph-osd (WIP)
 
 ## Supported checks
@@ -53,8 +53,3 @@ make test
 If you prefer, file a bug or feature request at:
 
 * https://bugs.launchpad.net/juju-verify
-
-## TODO
-
-* Allow targeting Juju machines, not just units for checks. e.g.
-  `juju-verify shutdown --machine 0`
