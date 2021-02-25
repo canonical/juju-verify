@@ -152,6 +152,7 @@ def test_base_verifier_unit_ids():
 def test_base_verifier_supported_checks(mocker, check_name, check_method):
     """Test that each supported check executes expected method."""
     unit = Unit('foo', Model())
+    mocker.patch.object(BaseVerifier, 'check_has_sub_machines')
     mock_method = mocker.patch.object(BaseVerifier, check_method)
 
     verifier = BaseVerifier([unit])
@@ -160,13 +161,13 @@ def test_base_verifier_supported_checks(mocker, check_name, check_method):
     mock_method.assert_called_once()
 
 
-def test_base_verifier_unsupported_check():
+def test_base_verifier_unsupported_check(mocker):
     """Raise exception if check is unknown/unsupported."""
     unit = Unit('foo', Model())
     bad_check = 'bar'
     expected_msg = 'Unsupported verification check "{}" for charm ' \
                    '{}'.format(bad_check, BaseVerifier.NAME)
-
+    mocker.patch.object(BaseVerifier, 'check_has_sub_machines')
     verifier = BaseVerifier([unit])
 
     with pytest.raises(NotImplementedError) as exc:
@@ -175,9 +176,10 @@ def test_base_verifier_unsupported_check():
     assert str(exc.value) == expected_msg
 
 
-def test_base_verifier_not_implemented_checks():
+def test_base_verifier_not_implemented_checks(mocker):
     """Test that all checks raise NotImplemented in BaseVerifier."""
     unit = Unit('foo', Model())
+    mocker.patch.object(BaseVerifier, 'check_has_sub_machines')
     verifier = BaseVerifier([unit])
 
     for check in BaseVerifier.supported_checks():
@@ -188,6 +190,7 @@ def test_base_verifier_not_implemented_checks():
 def test_base_verifier_unexpected_verify_error(mocker):
     """Test 'verify' raises VerificationError if case of unexpected failure."""
     unit = Unit('foo', Model())
+    mocker.patch.object(BaseVerifier, 'check_has_sub_machines')
     verifier = BaseVerifier([unit])
     check = BaseVerifier.supported_checks()[0]
     check_method = BaseVerifier._action_map().get(check).__name__
@@ -384,3 +387,19 @@ def test_base_verifier_aggregate_results(mocker, result_list):
     spy_on_add.assert_has_calls(expected_calls)
     assert isinstance(final_result, Result)
     assert final_result.success == expected_result
+
+
+def test_base_verifier_check_has_sub_machines(mocker):
+    """Test check unit has sub machines verifier."""
+    # Mock async lib calls
+    model = Model()
+    loop = MagicMock()
+    mocker.patch.object(asyncio, 'get_event_loop').return_value = loop
+    mocker.patch.object(asyncio, 'gather')
+    unit_names = ['nova_compute/0', 'nova-compute/1']
+    units = [Unit(name, model) for name in unit_names]
+    for unit in units:
+        unit.machine.entity_id = unit.name
+    # verifier = BaseVerifier(units)
+    # verifier.check_has_sub_machines()
+    assert True

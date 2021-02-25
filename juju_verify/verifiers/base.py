@@ -18,7 +18,9 @@
 import asyncio
 import logging
 import os
+
 from collections import defaultdict
+from collections import namedtuple
 from typing import Callable, Dict, List
 
 from juju.action import Action
@@ -187,6 +189,43 @@ class BaseVerifier:
                                    'is not being checked: '
                                    '%s', machine, unit)
 
+    def check_has_sub_machines(self) -> Result:
+        """Check for principle units running on current machine."""
+        result = Result(True)
+        parent_child_pairs = {}
+        parents = []
+        ParentChildPair = namedtuple('ParentChildPair', 'child parent')
+
+        for to_check in self.units:
+            for _, temp in self.model.units.items():
+                temp_entity_id = temp.machine.entity_id
+                if temp_entity_id.startswith(to_check.machine.entity_id + "/"):
+                    result.success = False
+                    parents.append(to_check.entity_id)
+                    parent_child_pairs[temp.entity_id] = ParentChildPair(child=temp,
+                                                                         parent=to_check)
+
+        task_map = {child_tag: parent_child_pair.child.is_leader_from_status()
+                    for child_tag, parent_child_pair in parent_child_pairs.items()}
+
+        loop = asyncio.get_event_loop()
+        tasks = asyncio.gather(*task_map.values())
+        results = loop.run_until_complete(tasks)
+        result_map = dict(zip(task_map.keys(), results))
+
+        for check_unit_entity_id in set(parents):
+            temp_list = []
+            for _, child_parent_pair in parent_child_pairs.items():
+                if child_parent_pair.parent.entity_id == check_unit_entity_id:
+                    child_tag = child_parent_pair.child.entity_id
+                    child_tag += "*" if result_map[child_tag] else ""
+                    temp_list.append(child_tag)
+            msg = check_unit_entity_id
+            msg += " has child machines: {}".format(', '.join(temp_list))
+            logger.warning(msg)
+
+        return result
+
     def verify(self, check: str) -> Result:
         """Execute requested verification check.
 
@@ -198,6 +237,7 @@ class BaseVerifier:
         """
         self.check_affected_machines()
         verify_action = self._action_map().get(check)
+        self.check_has_sub_machines()
         if verify_action is None:
             raise NotImplementedError('Unsupported verification check "{}" for'
                                       ' charm {}'.format(check, self.NAME))
