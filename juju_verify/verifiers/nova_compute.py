@@ -17,6 +17,7 @@
 """nova-compute verification."""
 import json
 import logging
+import os
 
 from juju_verify.verifiers.base import BaseVerifier, Result
 
@@ -38,8 +39,8 @@ class NovaCompute(BaseVerifier):
             running_vms = int(self.data_from_action(action, 'instance-count'))
             if running_vms != 0:
                 result.success = False
-                result.reason += 'Unit {} is running {} ' \
-                                 'VMs.\n'.format(unit_id, running_vms)
+                result.reason += 'Unit {} is running {} VMs.' \
+                                 '{}'.format(unit_id, running_vms, os.linesep)
 
         return result
 
