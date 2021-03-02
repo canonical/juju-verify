@@ -15,12 +15,11 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """CephOsd verifier class test suite."""
+import pytest
 from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.verifiers import CephOsd
-
-import pytest
 
 
 def test_verify_reboot():

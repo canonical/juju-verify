@@ -18,14 +18,13 @@
 import json
 from unittest.mock import MagicMock
 
+import pytest
 from juju.model import Model
 from juju.unit import Unit
+from pytest import param
 
 from juju_verify.verifiers import NovaCompute
 from juju_verify.verifiers import Result
-
-import pytest
-from pytest import param
 
 
 @pytest.mark.parametrize('vm_count, expect_result',

@@ -19,14 +19,13 @@
 import asyncio
 from unittest.mock import ANY, MagicMock, PropertyMock, call
 
+import pytest
 from juju.action import Action
 from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError
 from juju_verify.verifiers.base import BaseVerifier, Result, logger
-
-import pytest
 
 
 @pytest.mark.parametrize('success, reason',

@@ -22,6 +22,7 @@ import sys
 from asyncio import Future
 from unittest.mock import ANY, MagicMock
 
+import pytest
 from juju import errors
 from juju.model import Model
 from juju.unit import Unit
@@ -29,8 +30,6 @@ from juju.unit import Unit
 from juju_verify import juju_verify
 from juju_verify.exceptions import CharmException, VerificationError
 from juju_verify.verifiers.base import Result
-
-import pytest
 
 
 def test_fail(mocker):
