@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """Verifiers __init__ test suite."""
+import os
+
 import pytest
 from juju.unit import Unit
 
@@ -49,9 +51,10 @@ def test_get_verifier_unsupported_charm(mocker, model):
     charm_name = 'unsupported-charm'
     unit_name = '{}/0'.format(charm_name)
     charm_url = 'cs:focal/{}-1'.format(charm_name)
-    supported_charms = '\n'.join(SUPPORTED_CHARMS.keys())
+    supported_charms = os.linesep.join(SUPPORTED_CHARMS.keys())
     expected_msg = 'Charm "{}" is not supported by juju-verify. Supported ' \
-                   'charms:\n{}'.format(charm_name, supported_charms)
+                   'charms:{}{}'.format(charm_name, os.linesep,
+                                        supported_charms)
 
     mocker.patch.object(Unit, 'data')
 

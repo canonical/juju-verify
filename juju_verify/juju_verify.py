@@ -81,7 +81,7 @@ async def connect_model(model_name: Union[str, None]) -> Model:
     model = Model()
     try:
         if model_name:
-            logger.debug('Connecting to model "{}".'.format(model_name))
+            logger.debug('Connecting to model "%s".', model_name)
             await model.connect_model(model_name)
         else:
             logger.debug('Connecting to currently active model.')
