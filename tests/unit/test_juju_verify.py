@@ -34,14 +34,14 @@ from juju_verify.verifiers.base import Result
 
 def test_fail(mocker):
     """Test that fail function logs message and exits program."""
-    exit = mocker.patch.object(sys, 'exit')
+    mock_exit = mocker.patch.object(sys, 'exit')
     mocker.patch.object(juju_verify, 'logger')
     msg = 'test_fail'
 
     juju_verify.fail(msg)
 
     juju_verify.logger.error.assert_called_with(msg)
-    exit.assert_called_with(1)
+    mock_exit.assert_called_with(1)
 
 
 @pytest.mark.asyncio
