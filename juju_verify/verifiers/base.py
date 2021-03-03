@@ -18,7 +18,6 @@
 import asyncio
 import logging
 import os
-
 from collections import defaultdict
 from collections import namedtuple
 from typing import Callable, Dict, List
@@ -197,7 +196,7 @@ class BaseVerifier:
         """
         ParentChildPair = namedtuple("ParentChildPair", "child parent")
         parent_child_pairs = {}
-        parents = []
+        parents = set()
 
         # Search for child machines
         for parent_unit in self.units:
@@ -205,7 +204,7 @@ class BaseVerifier:
             for _, potential_child in self.model.units.items():
                 if potential_child.machine.entity_id.startswith(
                         parent_unit.machine.entity_id + "/"):
-                    parents.append(parent_unit.entity_id)
+                    parents.add(parent_unit.entity_id)
                     parent_child_pairs[potential_child.entity_id] = ParentChildPair(
                         child=potential_child,
                         parent=parent_unit
@@ -220,7 +219,7 @@ class BaseVerifier:
         result_map = dict(zip(task_map.keys(), results))
 
         # loop through list of parents, format a message
-        for check_unit_entity_id in set(parents):
+        for check_unit_entity_id in parents:
             temp_list = []
             for _, child_parent_pair in parent_child_pairs.items():
                 if child_parent_pair.parent.entity_id == check_unit_entity_id:
