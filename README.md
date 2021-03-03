@@ -8,6 +8,7 @@ or `reboot`.
 
 * nova-compute (WIP) (Usable with [this nova-compute charm](https://jaas.ai/u/martin-kalcok/nova-compute/0))
 * ceph-osd (WIP)
+* neutron-gateway (WIP)
 
 ## Supported checks
 
@@ -23,12 +24,18 @@ To verify that it is safe to stop/shutdown units `nova-compute/0` and
 run the following.
 
 ```bash
-$ juju-verify shutdown nova-compute/0 nova-compute/1
+$ juju-verify shutdown --units nova-compute/0 nova-compute/1
 ```
 
 **NOTE:** If you run check on multiple units at the same time, they must all run
-the same charm. Trying, for example, `juju-verify shutdown nova-compute/1
+the same charm. Trying, for example, `juju-verify shutdown --units nova-compute/1
 ceph-osd/0` will result in error.
+
+Alternatively, a machine can be targeted:
+
+```bash
+$ juju-verify shutdown --machines 0
+```
 
 ## How to contribute
 
