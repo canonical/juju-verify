@@ -72,8 +72,8 @@ def test_nova_compute_no_running_vms(mocker, vm_count, expect_result):
                              param(3, 2, 'down', 'disabled', Result(False),
                                    id='fail-down-disabled-host-left'),
                          ])
-def test_nova_compute_empty_az(mocker, all_hosts, remove_hosts, host_state,
-                               host_status, expect_result):
+def test_nova_compute_empty_az(all_hosts, remove_hosts, host_state,
+                               host_status, expect_result, mocker):
     """Test expected Result when trying to remove all nodes from AZ.
 
     Following scenarios are tested:
