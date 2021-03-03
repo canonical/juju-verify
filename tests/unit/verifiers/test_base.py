@@ -392,14 +392,44 @@ def test_base_verifier_aggregate_results(mocker, result_list):
 def test_base_verifier_check_has_sub_machines(mocker):
     """Test check unit has sub machines verifier."""
     # Mock async lib calls
-    model = Model()
     loop = MagicMock()
     mocker.patch.object(asyncio, 'get_event_loop').return_value = loop
-    mocker.patch.object(asyncio, 'gather')
-    unit_names = ['nova_compute/0', 'nova-compute/1']
-    units = [Unit(name, model) for name in unit_names]
+
+    # Generic mock for all units
+    model = Model()
+    unit_data = {'subordinate': False}
+    mocker.patch.object(Unit, 'data',
+                        new_callable=PropertyMock(return_value=unit_data))
+
+    log_warning = mocker.patch.object(logger, 'warning')
+
+    # dict of units/machines to test with
+    mocker.patch.object(Model, 'units')
+    units = [
+        {'name': 'nova-compute/0', 'machine': '0', 'leader': True},
+        {'name': 'child-unit/0', 'machine': '0/lxd/0', 'leader': True},
+    ]
+
+    # is_leader_from_status result for every child
+    mocker.patch.object(loop, 'run_until_complete').return_value = [True]
+
+    unit_list = []
     for unit in units:
-        unit.machine.entity_id = unit.name
-    # verifier = BaseVerifier(units)
-    # verifier.check_has_sub_machines()
-    assert True
+        unit['unit_object'] = Unit(unit['name'], model)
+        unit_list.append((unit['name'], unit['unit_object']))
+        mocker.patch.object(
+            unit['unit_object'], 'machine',
+            new_callable=PropertyMock(return_value=MagicMock()),
+        )
+        mocker.patch.object(
+            unit['unit_object'].machine, 'entity_id', unit['machine']
+        )
+
+    mocker.patch.object(Model.units, 'items').return_value = unit_list
+
+    expected_msg = '%s has units running on child machines: %s'
+    # Run verifier against the first unit in the list
+    verifier = BaseVerifier([units[0]['unit_object']])
+    verifier.check_has_sub_machines()
+
+    log_warning.assert_called_with(expected_msg, 'nova-compute/0', 'child-unit/0*')
