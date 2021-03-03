@@ -16,6 +16,7 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """NovaCompute verifier class test suite."""
 import json
+import os
 from unittest.mock import MagicMock
 
 import pytest
@@ -47,7 +48,8 @@ def test_nova_compute_no_running_vms(mocker, vm_count, expect_result):
 
     fail_reason = ''
     for unit in unit_names:
-        fail_reason += 'Unit {} is running {} VMs.\n'.format(unit, vm_count)
+        fail_reason += 'Unit {} is running {} VMs.{}'.format(unit, vm_count,
+                                                             os.linesep)
 
     # Create and run verifier
     verifier = NovaCompute(units)

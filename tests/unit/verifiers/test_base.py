@@ -17,6 +17,7 @@
 """Base class test suite."""
 
 import asyncio
+import os
 from unittest.mock import ANY, MagicMock, PropertyMock, call
 
 import pytest
@@ -37,7 +38,7 @@ def test_result_formatting(success, reason):
     result = Result(success, reason)
     common_str = 'Result: '
     success_str = 'OK' if success else 'FAIL'
-    reason_str = '\nReason: {}'.format(reason) if reason else ''
+    reason_str = '{}Reason: {}'.format(os.linesep, reason) if reason else ''
 
     expected_msg = common_str + success_str + reason_str
     assert str(result) == expected_msg
@@ -45,13 +46,11 @@ def test_result_formatting(success, reason):
 
 @pytest.mark.parametrize('result_1, result_2, expect_result',
                          [(Result(True, 'foo'), Result(True, 'bar'),
-                           Result(True, 'foo\nbar')),
-                          (Result(True, ''), Result(False, 'foo'),
-                           Result(False, 'foo')),
-                          (Result(False, 'foo'), Result(True, ''),
-                           Result(False, 'foo')),
-                          (Result(False, 'foo\n'), Result(False, 'bar'),
-                           Result(False, 'foo\nbar'))])
+                           Result(True, f'foo{os.linesep}bar')),
+                          (Result(True, ''), Result(False, 'foo'), Result(False, 'foo')),
+                          (Result(False, 'foo'), Result(True, ''), Result(False, 'foo')),
+                          (Result(False, f'foo{os.linesep}'), Result(False, 'bar'),
+                           Result(False, f'foo{os.linesep}bar'))])
 def test_result_add(result_1, result_2, expect_result):
     """Test '+' operator on Result objects."""
     result = result_1 + result_2

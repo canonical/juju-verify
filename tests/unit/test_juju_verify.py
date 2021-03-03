@@ -18,6 +18,7 @@
 
 import argparse
 import logging
+import os
 import sys
 from asyncio import Future
 from unittest.mock import ANY, MagicMock
@@ -69,7 +70,8 @@ async def test_connect_model(mocker, fail, model_name, func_name):
 
     err_msg = 'foo'
     connection_method.side_effect = errors.JujuError(err_msg)
-    expected_msg = 'Failed to connect to the model.\n{}'.format(err_msg)
+    expected_msg = 'Failed to connect to the model.{}{}'.format(os.linesep,
+                                                                err_msg)
 
     await juju_verify.connect_model(model_name)
 

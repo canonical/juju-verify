@@ -17,6 +17,8 @@
 """Base for other modules that implement verification checks for specific charms."""
 import asyncio
 import logging
+import os
+from collections import defaultdict
 from typing import Callable, Dict, List
 
 from juju.action import Action
@@ -46,7 +48,7 @@ class Result:  # pylint: disable=too-few-public-methods
         result = 'OK' if self.success else 'FAIL'
         output = 'Result: {}'.format(result)
         if self.reason:
-            output += '\nReason: {}'.format(self.reason)
+            output += '{}Reason: {}'.format(os.linesep, self.reason)
         return output
 
     def __add__(self, other: 'Result') -> 'Result':
@@ -59,8 +61,9 @@ class Result:  # pylint: disable=too-few-public-methods
             raise NotImplementedError()
 
         new_success = self.success and other.success
-        if other.reason and self.reason and not self.reason.endswith('\n'):
-            self.reason += '\n'
+        if other.reason and self.reason and not self.reason.endswith(
+                os.linesep):
+            self.reason += os.linesep
         new_reason = self.reason + other.reason
 
         return Result(new_success, new_reason)
@@ -92,16 +95,17 @@ class BaseVerifier:
         """
         self.units = units
         self.affected_machines = set()
+        models = set()
 
         if not self.units:
             raise VerificationError('Can not run verification. This verifier'
                                     ' is not associated with any units.')
         for unit in self.units:
             self.affected_machines.add(unit.machine.entity_id)
+            models.add(unit.model)
 
         # Unit.model is mandatory property, so we end up either with one model
         # (correct) or multiple models (incorrect) in the 'models' set.
-        models = {unit.model for unit in self.units}
         if len(models) > 1:
             raise VerificationError('Verifier initiated with units from '
                                     'multiple models.')
@@ -170,8 +174,8 @@ class BaseVerifier:
         Log warning if machine that run units checked by this verifier also
         runs other principal units that are not being checked.
         """
-        machine_map: Dict = {machine: [] for machine in self.affected_machines}
-        for _, unit in self.model.units.items():
+        machine_map: Dict = defaultdict(list)
+        for unit in self.model.units.values():
             if unit.machine.entity_id in self.affected_machines \
                     and not unit.data.get('subordinate'):
                 machine_map[unit.machine.entity_id].append(unit.entity_id)
@@ -200,7 +204,7 @@ class BaseVerifier:
 
         try:
             logger.debug('Running check %s on units: %s', check,
-                         ','.join([unit.entity_id for unit in self.units]))
+                         ','.join(self.unit_ids))
             return verify_action(self)
         except NotImplementedError as exc:
             raise exc
@@ -265,7 +269,7 @@ class BaseVerifier:
                                                     unit))
 
         if failed_actions_msg:
-            raise VerificationError('\n'.join(failed_actions_msg))
+            raise VerificationError(os.linesep.join(failed_actions_msg))
 
         return result_map
 

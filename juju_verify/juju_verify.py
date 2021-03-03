@@ -20,6 +20,7 @@
 """Entrypoint to the 'juju-verify' plugin."""
 import argparse
 import logging
+import os
 import sys
 from typing import List, Union
 
@@ -86,7 +87,7 @@ async def connect_model(model_name: Union[str, None]) -> Model:
             logger.debug('Connecting to currently active model.')
             await model.connect_current()
     except errors.JujuError as exc:
-        fail("Failed to connect to the model.\n{}".format(exc))
+        fail("Failed to connect to the model.{}{}".format(os.linesep, exc))
     return model
 
 

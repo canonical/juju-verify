@@ -17,6 +17,7 @@
 
 """Package with classes implementing verification methods for various charms."""
 import logging
+import os
 import re
 from typing import List
 
@@ -80,10 +81,10 @@ def get_verifier(units: List[Unit]) -> BaseVerifier:
     verifier = SUPPORTED_CHARMS.get(charm)
 
     if verifier is None:
-        supported_charms = '\n'.join(SUPPORTED_CHARMS.keys())
+        supported_charms = os.linesep.join(SUPPORTED_CHARMS.keys())
         raise CharmException('Charm "{}" is not supported by juju-verify. '
-                             'Supported charms:\n'
-                             '{}'.format(charm, supported_charms))
+                             'Supported charms:{}'
+                             '{}'.format(charm, os.linesep, supported_charms))
     logger.debug('Initiating verifier instance of class: %s',
                  verifier.__name__)
     return verifier(units=units)
