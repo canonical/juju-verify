@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """Verifiers __init__ test suite."""
-
+import pytest
 from juju.unit import Unit
 
 from juju_verify.exceptions import CharmException
@@ -25,8 +25,6 @@ from juju_verify.verifiers import (
     SUPPORTED_CHARMS,
     get_verifier,
 )
-
-import pytest
 
 
 @pytest.mark.parametrize('charm, verifier_type',

@@ -19,14 +19,13 @@
 import asyncio
 from unittest.mock import ANY, MagicMock, PropertyMock, call
 
+import pytest
 from juju.action import Action
 from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError
 from juju_verify.verifiers.base import BaseVerifier, Result, logger
-
-import pytest
 
 
 @pytest.mark.parametrize('success, reason',
@@ -44,25 +43,27 @@ def test_result_formatting(success, reason):
     assert str(result) == expected_msg
 
 
-@pytest.mark.parametrize('success_1, reason_1, success_2, reason_2, '
-                         'expect_success, expect_reason',
-                         [(True, 'foo', True, 'bar', True, 'foo\nbar'),
-                          (True, '', False, 'foo', False, 'foo'),
-                          (False, 'foo', True, '', False, 'foo'),
-                          (False, 'foo\n', False, 'bar', False, 'foo\nbar')])
-def test_result_add(success_1, reason_1, success_2, reason_2, expect_success,
-                    expect_reason):
+@pytest.mark.parametrize('result_1, result_2, expect_result',
+                         [(Result(True, 'foo'), Result(True, 'bar'),
+                           Result(True, 'foo\nbar')),
+                          (Result(True, ''), Result(False, 'foo'),
+                           Result(False, 'foo')),
+                          (Result(False, 'foo'), Result(True, ''),
+                           Result(False, 'foo')),
+                          (Result(False, 'foo\n'), Result(False, 'bar'),
+                           Result(False, 'foo\nbar'))])
+def test_result_add(result_1, result_2, expect_result):
     """Test '+' operator on Result objects."""
-    result = Result(success_1, reason_1) + Result(success_2, reason_2)
+    result = result_1 + result_2
 
-    assert result.success == expect_success
-    assert result.reason == expect_reason
+    assert result.success == expect_result.success
+    assert result.reason == expect_result.reason
 
 
 def test_result_add_raises_not_implemented():
     """Test that '+' operator raises error if both operands aren't Result."""
     with pytest.raises(NotImplementedError):
-        Result(True) + False
+        _ = Result(True) + False
 
 
 def test_base_verifier_verify_no_units():
@@ -377,7 +378,7 @@ def test_base_verifier_aggregate_results(mocker, result_list):
     """Test helper method that aggregates Result instances."""
     spy_on_add = mocker.spy(Result, '__add__')
     expected_calls = [call(ANY, result) for result in result_list[1:]]
-    expected_result = all([result.success for result in result_list])
+    expected_result = all(result.success for result in result_list)
 
     final_result = BaseVerifier.aggregate_results(*result_list)
 
