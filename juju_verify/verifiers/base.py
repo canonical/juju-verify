@@ -19,6 +19,7 @@ import asyncio
 import logging
 import os
 from collections import defaultdict
+from collections import namedtuple
 from typing import Callable, Dict, List
 
 from juju.action import Action
@@ -187,6 +188,47 @@ class BaseVerifier:
                                    'is not being checked: '
                                    '%s', machine, unit)
 
+    def check_has_sub_machines(self) -> None:
+        """Check if the machine hosts containers or VMs.
+
+        Logs warning if there are units running on sub machines that are children of the
+        affected machines.
+        """
+        ParentChildPair = namedtuple("ParentChildPair", "child parent")
+        parent_child_pairs = {}
+        parents = set()
+
+        # Search for child machines
+        for parent_unit in self.units:
+            # search the list of units for any that have the unit"s machine as a parent
+            for _, potential_child in self.model.units.items():
+                if potential_child.machine.entity_id.startswith(
+                        parent_unit.machine.entity_id + "/"):
+                    parents.add(parent_unit.entity_id)
+                    parent_child_pairs[potential_child.entity_id] = ParentChildPair(
+                        child=potential_child,
+                        parent=parent_unit
+                    )
+
+        task_map = {child_tag: parent_child_pair.child.is_leader_from_status()
+                    for child_tag, parent_child_pair in parent_child_pairs.items()}
+
+        loop = asyncio.get_event_loop()
+
+        results = loop.run_until_complete(asyncio.gather(*task_map.values()))
+        result_map = dict(zip(task_map.keys(), results))
+
+        # loop through list of parents, format a message
+        for check_unit_entity_id in parents:
+            temp_list = []
+            for _, child_parent_pair in parent_child_pairs.items():
+                if child_parent_pair.parent.entity_id == check_unit_entity_id:
+                    child_tag = child_parent_pair.child.entity_id
+                    child_tag += "*" if result_map[child_tag] else ""
+                    temp_list.append(child_tag)
+            logger.warning("%s has units running on child machines: %s",
+                           check_unit_entity_id, ", ".join(temp_list))
+
     def verify(self, check: str) -> Result:
         """Execute requested verification check.
 
@@ -197,6 +239,7 @@ class BaseVerifier:
                                    list of self.units is empty
         """
         self.check_affected_machines()
+        self.check_has_sub_machines()
         verify_action = self._action_map().get(check)
         if verify_action is None:
             raise NotImplementedError('Unsupported verification check "{}" for'
