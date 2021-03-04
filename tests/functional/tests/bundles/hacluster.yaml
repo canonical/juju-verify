@@ -1,7 +1,7 @@
 series: xenial
 applications:
   dashboard-hacluster:
-    charm: cs:~xavpaice/hacluster-0
+    charm: cs:~xavpaice/hacluster
   keystone:
     charm: cs:keystone
     num_units: 1

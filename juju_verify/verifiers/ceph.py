@@ -15,15 +15,17 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """ceph-osd verification."""
+
+import json
 import logging
 from typing import Dict, Optional
 
 from juju.unit import Unit
 
 from juju_verify.utils.action import data_from_action
-from juju_verify.utils.unit import verify_charm_unit, run_action_on_units
+from juju_verify.utils.unit import run_action_on_units, verify_charm_unit
 from juju_verify.verifiers.base import BaseVerifier
-from juju_verify.verifiers.result import aggregate_results, Result
+from juju_verify.verifiers.result import Result, aggregate_results
 
 logger = logging.getLogger()
 
@@ -40,6 +42,7 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
         verify_charm_unit("ceph-mon", *units)
         result = Result(success=True)
         action_map = run_action_on_units(list(units), "get-health")
+
         for unit, action in action_map.items():
             cluster_health = data_from_action(action, "message")
             logger.debug("Unit (%s): Ceph cluster health '%s'", unit, cluster_health)
@@ -60,7 +63,7 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
 class CephOsd(CephCommon):
     """Implementation of verification checks for the ceph-osd charm."""
 
-    NAME = 'ceph-osd'
+    NAME = "ceph-osd"
 
     def _get_ceph_mon_unit(self, app_name: str) -> Optional[Unit]:
         """Get first ceph-mon unit from relation."""
@@ -105,3 +108,73 @@ class CephOsd(CephCommon):
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected ceph-osd units."""
         return self.verify_reboot()
+
+
+class CephMon(CephCommon):
+    """Implementation of verification checks for the ceph-mon charm."""
+
+    NAME = "ceph-mon"
+
+    def verify_reboot(self) -> Result:
+        """Verify that it's safe to reboot selected ceph-mon units."""
+        return aggregate_results(
+            self.check_quorum(), self.check_cluster_health(*self.units)
+        )
+
+    def verify_shutdown(self) -> Result:
+        """Verify that it's safe to shutdown selected units."""
+        return self.verify_reboot()
+
+    def check_quorum(self) -> Result:
+        """Check that the shutdown does not result in <50% mons alive."""
+        result = Result(success=True)
+
+        action_name = "get-quorum-status"
+        action_results = self.run_action_on_all(action_name)
+
+        mons = {}
+        affected_hosts = set()
+
+        for unit in self.units:
+            # set of affected hostnames needs to be fully populated early
+            # from online mons
+
+            if unit.machine.hostname:
+                affected_hosts.update(
+                    [unit.machine.hostname]
+                )
+            else:
+                # we don't have a hostname for this unit
+                logger.error(
+                    "The machine for unit %s did not return a hostname", unit.entity_id
+                )
+                result.success = False
+                result.reason += (
+                    "The machine for unit {} does not have a hostname attribute, please"
+                    "ensure that Juju is 2.8.10+\n".format(unit.entity_id)
+                )
+
+        # populate a list of known mons, online mons and hostnames per unit
+        for unit_id, action in action_results.items():
+            # run this per unit because we might have multiple clusters
+            mons[unit_id] = {
+                "known": set(
+                    json.loads(data_from_action(action, "knownmons").replace("'", '"'))
+                ),
+                "online": set(
+                    json.loads(data_from_action(action, "onlinemons").replace("'", '"'))
+                ),
+            }
+
+        for unit in self.units:
+            mon_count = len(mons[unit.entity_id]["known"])
+            mons_after_change = len(mons[unit.entity_id]["online"] - affected_hosts)
+
+            if mons_after_change <= mon_count / 2:
+                result.success = False
+                result.reason += (
+                    "Removing unit {} will lose Ceph mon "
+                    "quorum\n".format(unit.entity_id)
+                )
+
+        return result
