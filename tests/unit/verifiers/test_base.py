@@ -226,26 +226,6 @@ def test_base_verifier_unit_from_id():
     assert str(exc.value) == expected_msg
 
 
-def test_base_verifier_data_from_action(mocker):
-    """Test helper function that parses data from Action.data.results dict."""
-    host_key = 'host'
-    host_value = 'compute.0'
-    data = {'results': {host_key: host_value}}
-    default = 'default'
-
-    mocker.patch.object(Action, 'data',
-                        new_callable=PropertyMock(return_value=data))
-    action = Action('0', Model())
-
-    output = BaseVerifier.data_from_action(action, host_key, default)
-    assert output == host_value
-
-    # return default on missing key
-
-    output = BaseVerifier.data_from_action(action, 'foo', default)
-    assert output == default
-
-
 def test_base_verifier_run_action_on_units(mocker, model, all_units):
     """Test running action on list of units and returning results."""
     # Mock async lib calls
