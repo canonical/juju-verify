@@ -17,7 +17,6 @@
 """Base for other modules that implement verification checks for specific charms."""
 import asyncio
 import logging
-import os
 from collections import defaultdict
 from collections import namedtuple
 from typing import Callable, Dict, List
@@ -28,47 +27,9 @@ from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError
 from juju_verify.utils.unit import run_action_on_units
+from juju_verify.verifiers.result import Result
 
 logger = logging.getLogger(__name__)
-
-
-class Result:  # pylint: disable=too-few-public-methods
-    """Convenience class that represents result of the check."""
-
-    def __init__(self, success: bool, reason: str = ''):
-        """Set values of the check result.
-
-        :param success: Indicates whether check passed or failed. True/False
-        :param reason: Additional information about result. Can stay empty for
-        positive results
-        """
-        self.success = success
-        self.reason = reason
-
-    def __str__(self) -> str:
-        """Return formatted string representing the result."""
-        result = 'OK' if self.success else 'FAIL'
-        output = 'Result: {}'.format(result)
-        if self.reason:
-            output += '{}Reason: {}'.format(os.linesep, self.reason)
-        return output
-
-    def __add__(self, other: 'Result') -> 'Result':
-        """Add together two Result instances.
-
-        Boolean AND operation is applied on 'success' attribute and 'reason'
-        attributes are concatenated.
-        """
-        if not isinstance(other, Result):
-            raise NotImplementedError()
-
-        new_success = self.success and other.success
-        if other.reason and self.reason and not self.reason.endswith(
-                os.linesep):
-            self.reason += os.linesep
-        new_reason = self.reason + other.reason
-
-        return Result(new_success, new_reason)
 
 
 class BaseVerifier:
@@ -135,17 +96,6 @@ class BaseVerifier:
             'shutdown': cls.verify_shutdown,
             'reboot': cls.verify_reboot,
         }
-
-    @staticmethod
-    def aggregate_results(*results: Result) -> Result:
-        """Return aggregate value of multiple results."""
-        result_list = list(results)
-        final_result = result_list.pop(0)
-
-        for result in result_list:
-            final_result += result
-
-        return final_result
 
     def unit_from_id(self, unit_id: str) -> Unit:
         """Search self.units for unit that matches 'unit_id'.
