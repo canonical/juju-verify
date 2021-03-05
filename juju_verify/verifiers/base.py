@@ -27,6 +27,7 @@ from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError
+from juju_verify.utils.unit import run_action_on_units
 
 logger = logging.getLogger(__name__)
 
@@ -279,31 +280,7 @@ class BaseVerifier:
                  juju.Action objects that have been executed and awaited.
         """
         target_units = [self.unit_from_id(unit_id) for unit_id in units]
-        task_map = {unit.entity_id: unit.run_action(action, **params)
-                    for unit in target_units}
-
-        loop = asyncio.get_event_loop()
-        tasks = asyncio.gather(*task_map.values())
-        actions = loop.run_until_complete(tasks)
-        action_futures = asyncio.gather(*[action.wait() for action in actions])
-        results: List[Action] = loop.run_until_complete(action_futures)
-
-        result_map = dict(zip(task_map.keys(), results))
-
-        failed_actions_msg = []
-        for unit, action_result in result_map.items():
-            if action_result.status != 'completed':
-                failed_actions_msg.append('Action {0} (ID: {1}) failed to '
-                                          'complete on unit {2}. For more info'
-                                          ' see "juju show-action-output {1}"'
-                                          ''.format(action,
-                                                    action_result.entity_id,
-                                                    unit))
-
-        if failed_actions_msg:
-            raise VerificationError(os.linesep.join(failed_actions_msg))
-
-        return result_map
+        return run_action_on_units(target_units, action=action, **params)
 
     def verify_shutdown(self) -> Result:
         """Child classes must override this method with custom implementation.
