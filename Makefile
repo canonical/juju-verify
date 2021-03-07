@@ -34,5 +34,9 @@ clean:
 	@echo "Cleaning files"
 	@git clean -fxd -e '!.idea'
 
+functional: build
+	@echo "Executing functional tests"
+	@tox -e func
+
 # The targets below don't depend on a file
 .PHONY: lint test unittest release clean help build build-verify

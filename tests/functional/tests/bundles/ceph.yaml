@@ -1,0 +1,16 @@
+series: xenial
+applications:
+  ceph-mon:
+    charm: cs:~xavpaice/ceph-mon-0  # https://review.opendev.org/c/openstack/charm-ceph-mon/+/778837
+    num_units: 3
+    options:
+      expected-osd-count: 3
+      monitor-count: 3
+  ceph-osd:
+    charm: cs:ceph-osd
+    num_units: 3
+    options:
+      osd-devices: /srv/osd
+relations:
+- - ceph-osd:mon
+  - ceph-mon:osd
