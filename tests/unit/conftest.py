@@ -69,7 +69,8 @@ def model(session_mocker, all_units):
     for unit_id in all_units:
         unit = Unit(unit_id, mock_model)
         charm_name = unit_id.rstrip(digits + '/')
-        unit.data = {'charm-url': 'cs:focal/{}-1'.format(charm_name)}
+        unit.data = {'charm-url': 'cs:focal/{}-1'.format(charm_name),
+                     "application": charm_name}
         unit_map[unit_id] = unit
         unit.run_action.return_value = Action(unit_id + '-action', mock_model)
     units.return_value = unit_map
