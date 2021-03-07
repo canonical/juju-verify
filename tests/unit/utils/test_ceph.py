@@ -23,8 +23,7 @@ import pytest
 
 from juju_verify.exceptions import CharmException
 from juju_verify.utils.ceph import verify_ceph_mon_unit, check_cluster_health
-from juju_verify.verifiers import Result
-from juju_verify.verifiers.result import compare_results
+from juju_verify.verifiers.result import compare_results, Result
 
 
 def test_verify_ceph_mon_unit(model):

@@ -15,7 +15,16 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """ceph-osd verification."""
-from juju_verify.verifiers.base import BaseVerifier, Result
+import logging
+from typing import Set
+
+from juju.unit import Unit
+
+from juju_verify.utils.ceph import check_cluster_health
+from juju_verify.verifiers.base import BaseVerifier
+from juju_verify.verifiers.result import aggregate_results, Result
+
+logger = logging.getLogger()
 
 
 class CephOsd(BaseVerifier):
@@ -23,10 +32,35 @@ class CephOsd(BaseVerifier):
 
     NAME = 'ceph-osd'
 
+    def get_ceph_mon_units(self) -> Set[Unit]:
+        """Get Ceph-mon units related to verified units.
+
+        1. get all distinct ceph-osd applications from provides units
+        2. get all relationships based on found apps or ceph-mon
+        3. get the first unit from the application providing the relation
+        """
+        # get all affected ceph-osd applications
+        applications = {unit.application for unit in self.units}
+        logger.debug("affected applications %s", map(str, applications))
+        applications.add("ceph-osd")
+
+        # get all relation between ceph-osd and ceph-mon
+        relations = [relation for relation in self.model.relations
+                     if any(relation.matches(f"{application}:mon")
+                            for application in applications)]
+        logger.debug("found relations %s", map(str, relations))
+
+        # get first ceph-mon unit from relation
+        ceph_mon_units = {relation.provides.application.units[0]
+                          for relation in relations}
+        logger.debug("found units %s", map(str, ceph_mon_units))
+
+        return ceph_mon_units
+
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected nova-compute units."""
-        raise NotImplementedError()
+        return aggregate_results(check_cluster_health(*self.get_ceph_mon_units()))
 
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected nova-compute units."""
-        raise NotImplementedError()
+        return self.verify_reboot()

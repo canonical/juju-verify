@@ -24,10 +24,10 @@ from typing import List
 from juju.unit import Unit
 
 from juju_verify.exceptions import CharmException
-from juju_verify.verifiers.base import BaseVerifier, Result
+from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.ceph_osd import CephOsd
 from juju_verify.verifiers.nova_compute import NovaCompute
-
+from juju_verify.verifiers.result import Result
 
 logger = logging.getLogger(__name__)
 

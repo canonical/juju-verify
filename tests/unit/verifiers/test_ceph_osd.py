@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """CephOsd verifier class test suite."""
-import pytest
 from juju.model import Model
 from juju.unit import Unit
 
@@ -30,8 +29,7 @@ def test_verify_reboot():
     unit = Unit('ceph-osd/0', Model())
     verifier = CephOsd([unit])
 
-    with pytest.raises(NotImplementedError):
-        verifier.verify_reboot()
+    verifier.verify_reboot()
 
 
 def test_verify_shutdown():
@@ -42,5 +40,4 @@ def test_verify_shutdown():
     unit = Unit('ceph-osd/0', Model())
     verifier = CephOsd([unit])
 
-    with pytest.raises(NotImplementedError):
-        verifier.verify_shutdown()
+    verifier.verify_shutdown()

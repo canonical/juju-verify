@@ -58,4 +58,3 @@ def check_cluster_health(*units: Unit) -> Result:
         result = Result(success=False, reason="Ceph cluster is in an unknown state")
 
     return result
-
