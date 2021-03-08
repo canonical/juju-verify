@@ -23,7 +23,7 @@ import pytest
 
 from juju_verify.exceptions import CharmException
 from juju_verify.utils.ceph import verify_ceph_mon_unit, check_cluster_health
-from juju_verify.verifiers.result import compare_results, Result
+from juju_verify.verifiers.result import Result
 
 
 def test_verify_ceph_mon_unit(model):
@@ -50,7 +50,7 @@ def test_check_cluster_health(mock_run_action_on_units, message, exp_result, mod
 
     result = check_cluster_health(model.units["ceph-mon/0"])
 
-    assert compare_results(result, exp_result)
+    assert result == exp_result
 
 
 @mock.patch("juju_verify.utils.ceph.run_action_on_units")
@@ -68,7 +68,7 @@ def test_check_cluster_health_combination(mock_run_action_on_units, model):
 
     result = check_cluster_health(model.units["ceph-mon/0"], model.units["ceph-mon/1"])
 
-    assert compare_results(result, exp_result)
+    assert result == exp_result
 
 
 @mock.patch("juju_verify.utils.ceph.run_action_on_units")
@@ -78,4 +78,4 @@ def test_check_cluster_health_unknown_state(mock_run_action_on_units, model):
 
     result = check_cluster_health(model.units["ceph-mon/0"], model.units["ceph-mon/1"])
 
-    assert compare_results(result, Result(False, "Ceph cluster is in an unknown state"))
+    assert result == Result(False, "Ceph cluster is in an unknown state")
