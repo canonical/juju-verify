@@ -45,9 +45,9 @@ class CephOsd(BaseVerifier):
         applications.add("ceph-osd")
 
         # get all relation between ceph-osd and ceph-mon
-        relations = [relation for relation in self.model.relations
+        relations = {relation for relation in self.model.relations
                      if any(relation.matches(f"{application}:mon")
-                            for application in applications)]
+                            for application in applications)}
         logger.debug("found relations %s", map(str, relations))
 
         # get first ceph-mon unit from relation
