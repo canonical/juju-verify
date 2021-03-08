@@ -16,7 +16,6 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """Base class test suite."""
 import asyncio
-import os
 from unittest import mock
 from unittest.mock import MagicMock, PropertyMock, call
 
@@ -25,43 +24,7 @@ from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError
-from juju_verify.verifiers.base import BaseVerifier, logger, Result
-
-
-@pytest.mark.parametrize('success, reason',
-                         [(True, 'Congratulation'),
-                          (True, ''),
-                          (False, 'FailReason')])
-def test_result_formatting(success, reason):
-    """Test expected format of the Result.format()."""
-    result = Result(success, reason)
-    common_str = 'Result: '
-    success_str = 'OK' if success else 'FAIL'
-    reason_str = '{}Reason: {}'.format(os.linesep, reason) if reason else ''
-
-    expected_msg = common_str + success_str + reason_str
-    assert str(result) == expected_msg
-
-
-@pytest.mark.parametrize('result_1, result_2, expect_result',
-                         [(Result(True, 'foo'), Result(True, 'bar'),
-                           Result(True, f'foo{os.linesep}bar')),
-                          (Result(True, ''), Result(False, 'foo'), Result(False, 'foo')),
-                          (Result(False, 'foo'), Result(True, ''), Result(False, 'foo')),
-                          (Result(False, f'foo{os.linesep}'), Result(False, 'bar'),
-                           Result(False, f'foo{os.linesep}bar'))])
-def test_result_add(result_1, result_2, expect_result):
-    """Test '+' operator on Result objects."""
-    result = result_1 + result_2
-
-    assert result.success == expect_result.success
-    assert result.reason == expect_result.reason
-
-
-def test_result_add_raises_not_implemented():
-    """Test that '+' operator raises error if both operands aren't Result."""
-    with pytest.raises(NotImplementedError):
-        _ = Result(True) + False
+from juju_verify.verifiers.base import BaseVerifier, logger
 
 
 def test_base_verifier_verify_no_units():

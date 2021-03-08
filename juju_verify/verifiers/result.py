@@ -17,11 +17,12 @@
 """Juju-verify verification result."""
 import logging
 import os
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class Result:  # pylint: disable=too-few-public-methods
+class Result:
     """Convenience class that represents result of the check."""
 
     def __init__(self, success: bool, reason: str = ''):
@@ -59,6 +60,13 @@ class Result:  # pylint: disable=too-few-public-methods
 
         return Result(new_success, new_reason)
 
+    def __eq__(self, other: Any) -> bool:
+        """Compare two Result instances."""
+        if not isinstance(other, Result):
+            return False
+
+        return self.reason == other.reason and self.success == other.success
+
 
 def aggregate_results(*results: Result) -> Result:
     """Return aggregate value of multiple results."""
@@ -69,16 +77,3 @@ def aggregate_results(*results: Result) -> Result:
         final_result += result
 
     return final_result
-
-
-def compare_results(*results: Result) -> bool:
-    """Return boolean value if results are same."""
-    result_list = list(results)
-    comparative_result = result_list.pop(0)
-
-    for result in results:
-        if (comparative_result.success != result.success or
-                comparative_result.reason != result.reason):
-            return False
-
-    return True
