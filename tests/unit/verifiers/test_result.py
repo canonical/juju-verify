@@ -78,7 +78,8 @@ def test_result_eq(result_1, result_2, exp_eq):
 ])
 def test_result_eq_fail(result, other):
     """Test comparing result with object isn't Result."""
-    assert (result == other) is False
+    with pytest.raises(NotImplementedError):
+        _ = (result == other)
 
 
 @pytest.mark.parametrize("results, exp_result", [

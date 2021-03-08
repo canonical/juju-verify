@@ -63,7 +63,7 @@ class Result:
     def __eq__(self, other: Any) -> bool:
         """Compare two Result instances."""
         if not isinstance(other, Result):
-            return False
+            raise NotImplementedError()
 
         return self.reason == other.reason and self.success == other.success
 
