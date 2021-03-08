@@ -17,7 +17,6 @@
 """Base for other modules that implement verification checks for specific charms."""
 import asyncio
 import logging
-import os
 from collections import defaultdict
 from collections import namedtuple
 from typing import Callable, Dict, List
@@ -27,47 +26,10 @@ from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError
+from juju_verify.utils.unit import run_action_on_units
+from juju_verify.verifiers.result import Result
 
 logger = logging.getLogger(__name__)
-
-
-class Result:  # pylint: disable=too-few-public-methods
-    """Convenience class that represents result of the check."""
-
-    def __init__(self, success: bool, reason: str = ''):
-        """Set values of the check result.
-
-        :param success: Indicates whether check passed or failed. True/False
-        :param reason: Additional information about result. Can stay empty for
-        positive results
-        """
-        self.success = success
-        self.reason = reason
-
-    def __str__(self) -> str:
-        """Return formatted string representing the result."""
-        result = 'OK' if self.success else 'FAIL'
-        output = 'Result: {}'.format(result)
-        if self.reason:
-            output += '{}Reason: {}'.format(os.linesep, self.reason)
-        return output
-
-    def __add__(self, other: 'Result') -> 'Result':
-        """Add together two Result instances.
-
-        Boolean AND operation is applied on 'success' attribute and 'reason'
-        attributes are concatenated.
-        """
-        if not isinstance(other, Result):
-            raise NotImplementedError()
-
-        new_success = self.success and other.success
-        if other.reason and self.reason and not self.reason.endswith(
-                os.linesep):
-            self.reason += os.linesep
-        new_reason = self.reason + other.reason
-
-        return Result(new_success, new_reason)
 
 
 class BaseVerifier:
@@ -134,28 +96,6 @@ class BaseVerifier:
             'shutdown': cls.verify_shutdown,
             'reboot': cls.verify_reboot,
         }
-
-    @staticmethod
-    def data_from_action(action: Action, key: str, default: str = '') -> str:
-        """Extract value from Action.data['results'] dictionary.
-
-        :param action: juju.Action instance
-        :param key: key to search for in action's results
-        :param default: default value to return if the 'key' is not found
-        :return: value from the action's result identified by 'key' or default
-        """
-        return action.data.get('results', {}).get(key, default)
-
-    @staticmethod
-    def aggregate_results(*results: Result) -> Result:
-        """Return aggregate value of multiple results."""
-        result_list = list(results)
-        final_result = result_list.pop(0)
-
-        for result in result_list:
-            final_result += result
-
-        return final_result
 
     def unit_from_id(self, unit_id: str) -> Unit:
         """Search self.units for unit that matches 'unit_id'.
@@ -290,31 +230,7 @@ class BaseVerifier:
                  juju.Action objects that have been executed and awaited.
         """
         target_units = [self.unit_from_id(unit_id) for unit_id in units]
-        task_map = {unit.entity_id: unit.run_action(action, **params)
-                    for unit in target_units}
-
-        loop = asyncio.get_event_loop()
-        tasks = asyncio.gather(*task_map.values())
-        actions = loop.run_until_complete(tasks)
-        action_futures = asyncio.gather(*[action.wait() for action in actions])
-        results: List[Action] = loop.run_until_complete(action_futures)
-
-        result_map = dict(zip(task_map.keys(), results))
-
-        failed_actions_msg = []
-        for unit, action_result in result_map.items():
-            if action_result.status != 'completed':
-                failed_actions_msg.append('Action {0} (ID: {1}) failed to '
-                                          'complete on unit {2}. For more info'
-                                          ' see "juju show-action-output {1}"'
-                                          ''.format(action,
-                                                    action_result.entity_id,
-                                                    unit))
-
-        if failed_actions_msg:
-            raise VerificationError(os.linesep.join(failed_actions_msg))
-
-        return result_map
+        return run_action_on_units(target_units, action=action, **params)
 
     def verify_shutdown(self) -> Result:
         """Child classes must override this method with custom implementation.

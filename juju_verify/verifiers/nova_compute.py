@@ -19,7 +19,9 @@ import json
 import logging
 import os
 
+from juju_verify.utils.action import data_from_action
 from juju_verify.verifiers.base import BaseVerifier, Result
+from juju_verify.verifiers.result import aggregate_results
 
 logger = logging.getLogger()
 
@@ -36,7 +38,7 @@ class NovaCompute(BaseVerifier):
         instance_count_results = self.run_action_on_all(instance_count_action)
 
         for unit_id, action in instance_count_results.items():
-            running_vms = int(self.data_from_action(action, 'instance-count'))
+            running_vms = int(data_from_action(action, 'instance-count'))
             if running_vms != 0:
                 result.success = False
                 result.reason += 'Unit {} is running {} VMs.' \
@@ -51,13 +53,12 @@ class NovaCompute(BaseVerifier):
         result = Result(True)
 
         node_name_actions = self.run_action_on_all('node-name')
-        target_nodes = [self.data_from_action(action, 'node-name')
+        target_nodes = [data_from_action(action, 'node-name')
                         for _, action in node_name_actions.items()]
 
         nova_unit = self.units[0].entity_id
         action = self.run_action_on_unit(nova_unit, 'list-compute-nodes')
-        compute_nodes = json.loads(self.data_from_action(action,
-                                                         'compute-nodes'))
+        compute_nodes = json.loads(data_from_action(action, 'compute-nodes'))
 
         affected_zones = {node['zone'] for node in compute_nodes
                           if node['host'] in target_nodes}
@@ -77,8 +78,8 @@ class NovaCompute(BaseVerifier):
 
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected nova-compute units."""
-        return self.aggregate_results(self.check_no_running_vms(),
-                                      self.check_no_empty_az())
+        return aggregate_results(self.check_no_running_vms(),
+                                 self.check_no_empty_az())
 
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected nova-compute units."""
