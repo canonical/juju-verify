@@ -54,7 +54,7 @@ def test_result_add(result_1, result_2, expect_result):
 
 def test_result_add_raises_not_implemented():
     """Test that '+' operator raises error if both operands aren't Result."""
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(TypeError):
         _ = Result(True) + False
 
 
@@ -64,22 +64,14 @@ def test_result_add_raises_not_implemented():
     (Result(True, reason="test_1"), Result(True, reason="test_2"), False),
     (Result(True), Result(True), True),
     (Result(True, reason="test"), Result(True, reason="test"), True),
+    (Result(True), 0, False),
+    (Result(True), 0.0, False),
+    (Result(True), "test", False),
+    (Result(True), False, False),
 ])
 def test_result_eq(result_1, result_2, exp_eq):
     """Test comparing two results."""
     assert (result_1 == result_2) == exp_eq
-
-
-@pytest.mark.parametrize("result, other", [
-    (Result(True), 0),
-    (Result(True), 0.0),
-    (Result(True), "test"),
-    (Result(True), False),
-])
-def test_result_eq_fail(result, other):
-    """Test comparing result with object isn't Result."""
-    with pytest.raises(NotImplementedError):
-        _ = (result == other)
 
 
 @pytest.mark.parametrize("results, exp_result", [

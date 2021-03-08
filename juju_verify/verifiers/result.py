@@ -17,7 +17,6 @@
 """Juju-verify verification result."""
 import logging
 import os
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -43,14 +42,14 @@ class Result:
             output += '{}Reason: {}'.format(os.linesep, self.reason)
         return output
 
-    def __add__(self, other: 'Result') -> 'Result':
+    def __add__(self, other: object) -> 'Result':
         """Add together two Result instances.
 
         Boolean AND operation is applied on 'success' attribute and 'reason'
         attributes are concatenated.
         """
         if not isinstance(other, Result):
-            raise NotImplementedError()
+            return NotImplemented
 
         new_success = self.success and other.success
         if other.reason and self.reason and not self.reason.endswith(
@@ -60,10 +59,10 @@ class Result:
 
         return Result(new_success, new_reason)
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Compare two Result instances."""
         if not isinstance(other, Result):
-            raise NotImplementedError()
+            return NotImplemented
 
         return self.reason == other.reason and self.success == other.success
 
