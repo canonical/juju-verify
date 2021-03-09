@@ -20,7 +20,7 @@ import logging
 from juju.unit import Unit
 
 from juju_verify.utils.action import data_from_action
-from juju_verify.utils.unit import run_action_on_units, verify_unit_application
+from juju_verify.utils.unit import run_action_on_units, verify_charm_unit
 from juju_verify.verifiers.base import Result
 
 logger = logging.getLogger()
@@ -31,7 +31,7 @@ def check_cluster_health(*units: Unit) -> Result:
 
     This will execute `get-health` against each unit provided.
     """
-    verify_unit_application("ceph-mon", *units)
+    verify_charm_unit("ceph-mon", *units)
     result = Result(success=True)
     action_map = run_action_on_units(list(units), "get-health")
     for unit, action in action_map.items():

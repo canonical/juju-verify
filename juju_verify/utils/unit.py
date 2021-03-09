@@ -75,9 +75,9 @@ def parse_charm_name(charm_url: str) -> str:
     return match.group('charm')
 
 
-def verify_unit_application(application: str, *units: Unit) -> None:
-    """Verify that units are from required application."""
+def verify_charm_unit(charm_name: str, *units: Unit) -> None:
+    """Verify that units are based on required charm."""
     for unit in units:
-        if not unit.application.startswith(application):
+        if not parse_charm_name(unit.charm_url) == charm_name:
             raise CharmException(f"The unit {unit.entity_id} does not belong to the "
-                                 f"application {application}.")
+                                 f"charm {charm_name}.")
