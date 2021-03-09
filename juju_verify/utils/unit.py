@@ -16,12 +16,15 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """Helper function to manage Juju unit."""
 import asyncio
+import re
 from typing import List, Dict
 
 from juju.action import Action
 from juju.unit import Unit
 
-from juju_verify.exceptions import VerificationError
+from juju_verify.exceptions import VerificationError, CharmException
+
+CHARM_URL_PATTERN = re.compile(r'^(.*):(.*/)?(?P<charm>.*)(-\d+)$')
 
 
 def run_action_on_units(units: List[Unit], action: str,
@@ -59,3 +62,22 @@ def run_action_on_units(units: List[Unit], action: str,
         raise VerificationError('\n'.join(failed_actions_msg))
 
     return result_map
+
+
+def parse_charm_name(charm_url: str) -> str:
+    """Parse charm name from full charm url.
+
+    Example: 'cs:focal/nova-compute-141' -> 'nova-compute'
+    """
+    match = CHARM_URL_PATTERN.match(charm_url)
+    if match is None:
+        raise CharmException(f'Failed to parse charm-url: "{charm_url}"')
+    return match.group('charm')
+
+
+def verify_unit_application(application: str, *units: Unit) -> None:
+    """Verify that units are from required application."""
+    for unit in units:
+        if not unit.application.startswith(application):
+            raise CharmException(f"The unit {unit.entity_id} does not belong to the "
+                                 f"application {application}.")

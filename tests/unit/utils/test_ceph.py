@@ -21,17 +21,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from juju_verify.exceptions import CharmException
-from juju_verify.utils.ceph import verify_ceph_mon_unit, check_cluster_health
+from juju_verify.utils.ceph import check_cluster_health
+from juju_verify.utils.unit import parse_charm_name
 from juju_verify.verifiers.result import Result
-
-
-def test_verify_ceph_mon_unit(model):
-    """Test verify Ceph mon unit."""
-    verify_ceph_mon_unit(model.units["ceph-mon/0"], model.units["ceph-mon/1"])
-
-    with pytest.raises(CharmException):
-        verify_ceph_mon_unit(model.units["ceph-osd/0"])
 
 
 @mock.patch("juju_verify.utils.ceph.run_action_on_units")
@@ -79,3 +71,12 @@ def test_check_cluster_health_unknown_state(mock_run_action_on_units, model):
     result = check_cluster_health(model.units["ceph-mon/0"], model.units["ceph-mon/1"])
 
     assert result == Result(False, "Ceph cluster is in an unknown state")
+
+
+@pytest.mark.parametrize("charm_url, exp_name", [
+    ("cs:focal/nova-compute-141", "nova-compute"),
+    ("cs:hacluster-74", "hacluster"),
+])
+def test_parse_charm_name(charm_url, exp_name):
+    """Test function for parsing charm name from charm-ulr."""
+    assert parse_charm_name(charm_url) == exp_name

@@ -16,14 +16,16 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """Utils unit test suite."""
 import asyncio
+from typing import List
 from unittest.mock import MagicMock, call
 
+import pytest
 from juju.action import Action
 from juju.unit import Unit
 from pytest import raises
 
-from juju_verify.exceptions import VerificationError
-from juju_verify.utils.unit import run_action_on_units
+from juju_verify.exceptions import VerificationError, CharmException
+from juju_verify.utils.unit import run_action_on_units, verify_unit_application
 
 
 def test_run_action_on_units(mocker, model, all_units):
@@ -99,3 +101,40 @@ def test_run_action_on_units(mocker, model, all_units):
         run_action_on_units(run_on_units, action, **action_params)
 
     assert str(exc.value) == expect_err
+
+
+@pytest.mark.parametrize("application, units", [
+    ("ceph-osd", ["ceph-osd/0"]),
+    ("ceph-osd", ["ceph-osd/0", "ceph-osd/1"]),
+    ("ceph-osd", ["ceph-osd-cluster-1/0", "ceph-osd-cluster-2/0"]),
+    ("ceph-osd-cluster-1", ["ceph-osd-cluster-1/0"]),
+])
+def test_verify_unit_application(application: str, units: List[str]):
+    """Test function to verify if units are from application."""
+    mock_units = []
+    for entity_id in units:
+        unit = MagicMock()
+        unit.entity_id = entity_id
+        unit.application, _ = entity_id.split("/")
+        mock_units.append(unit)
+
+    verify_unit_application(application, *mock_units)
+
+
+@pytest.mark.parametrize("application, units", [
+    ("ceph-osd", ["ceph-mon/0"]),
+    ("ceph-osd", ["ceph-mon/0", "ceph-mon/1"]),
+    ("ceph-osd-cluster-3", ["ceph-osd-cluster-1/0", "ceph-osd-cluster-2/0"]),
+    ("ceph-osd-cluster-1", ["ceph-osd/0"]),
+])
+def test_verify_unit_application_fail(application: str, units: List[str]):
+    """Test function to verify if units are from application raise an error."""
+    mock_units = []
+    for entity_id in units:
+        unit = MagicMock()
+        unit.entity_id = entity_id
+        unit.application, _ = entity_id.split("/")
+        mock_units.append(unit)
+
+    with pytest.raises(CharmException):
+        verify_unit_application(application, *mock_units)
