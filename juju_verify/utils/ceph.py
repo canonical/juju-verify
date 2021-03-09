@@ -36,7 +36,7 @@ def check_cluster_health(*units: Unit) -> Result:
     action_map = run_action_on_units(list(units), "get-health")
     for unit, action in action_map.items():
         cluster_health = data_from_action(action, "message")
-        logger.info("Unit (%s): Ceph cluster health '%s'", unit, cluster_health)
+        logger.debug("Unit (%s): Ceph cluster health '%s'", unit, cluster_health)
 
         if "HEALTH_OK" in cluster_health and result.success:
             result += Result(True, f"{unit}: Ceph cluster is healthy")
