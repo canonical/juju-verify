@@ -18,16 +18,16 @@
 """Package with classes implementing verification methods for various charms."""
 import logging
 import os
-import re
 from typing import List
 
 from juju.unit import Unit
 
 from juju_verify.exceptions import CharmException
-from juju_verify.verifiers.base import BaseVerifier, Result
-from juju_verify.verifiers.ceph_osd import CephOsd
+from juju_verify.utils.unit import parse_charm_name
+from juju_verify.verifiers.base import BaseVerifier
+from juju_verify.verifiers.ceph import CephOsd
 from juju_verify.verifiers.nova_compute import NovaCompute
-
+from juju_verify.verifiers.result import Result
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +38,6 @@ SUPPORTED_CHARMS = {
 }
 
 
-CHARM_URL_PATTERN = re.compile(r'^(.*):(.*/)?(?P<charm>.*)(-\d+)$')
-
-
 def get_verifier(units: List[Unit]) -> BaseVerifier:
     """Implement Factory function "verifier" creator for the supplied units.
 
@@ -49,18 +46,6 @@ def get_verifier(units: List[Unit]) -> BaseVerifier:
     :raises CharmException: Raised if units do not belong to the same charm or
         if the charm is unsupported for verification
     """
-
-    def parse_charm_name(charm_url: str) -> str:
-        """Parse charm name from full charm url.
-
-        Example: 'cs:focal/nova-compute-141' -> 'nova-compute'
-        """
-        match = CHARM_URL_PATTERN.match(charm_url)
-        if match is None:
-            raise CharmException('Failed to parse charm-url: '
-                                 '"{}"'.format(charm_url))
-        return match.group('charm')
-
     charm_types = set()
 
     if not units:

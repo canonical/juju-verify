@@ -16,14 +16,17 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """Utils unit test suite."""
 import asyncio
+from typing import List
 from unittest.mock import MagicMock, call
 
+import pytest
 from juju.action import Action
 from juju.unit import Unit
 from pytest import raises
 
-from juju_verify.exceptions import VerificationError
-from juju_verify.utils.unit import run_action_on_units
+from juju_verify.exceptions import VerificationError, CharmException
+from juju_verify.utils.unit import (run_action_on_units, verify_charm_unit,
+                                    parse_charm_name)
 
 
 def test_run_action_on_units(mocker, model, all_units):
@@ -99,3 +102,46 @@ def test_run_action_on_units(mocker, model, all_units):
         run_action_on_units(run_on_units, action, **action_params)
 
     assert str(exc.value) == expect_err
+
+
+@pytest.mark.parametrize("charm_url, exp_name", [
+    ("cs:focal/nova-compute-141", "nova-compute"),
+    ("cs:hacluster-74", "hacluster"),
+])
+def test_parse_charm_name(charm_url, exp_name):
+    """Test function for parsing charm name from charm-ulr."""
+    assert parse_charm_name(charm_url) == exp_name
+
+
+@pytest.mark.parametrize("charm_name, units", [
+    ("ceph-osd", [("ceph-osd", "ceph-osd/0")]),
+    ("ceph-osd", [("ceph-osd", "ceph-osd/0"), ("ceph-osd", "ceph-osd/1")]),
+    ("ceph-osd", [("ceph-osd", "ceph-osd-cluster-1/0"),
+                  ("ceph-osd", "ceph-osd-cluster-2/0")]),
+])
+def test_verify_charm_unit(charm_name: str, units: List[str]):
+    """Test function to verify if units are based on required charm."""
+    mock_units = []
+    for _charm_name, entity_id in units:
+        unit = MagicMock()
+        unit.entity_id = entity_id
+        unit.charm_url = f"local:focal/{_charm_name}-1"
+        mock_units.append(unit)
+
+    verify_charm_unit(charm_name, *mock_units)
+
+
+@pytest.mark.parametrize("charm_name, units", [
+    ("ceph-osd", [("ceph-mon", "ceph-mon/0")]),
+])
+def test_verify_charm_unit_fail(charm_name: str, units: List[str]):
+    """Test function to raise an error if units aren't base on charm."""
+    mock_units = []
+    for _charm_name, entity_id in units:
+        unit = MagicMock()
+        unit.entity_id = entity_id
+        unit.charm_url = f"local:focal/{_charm_name}-1"
+        mock_units.append(unit)
+
+    with pytest.raises(CharmException):
+        verify_charm_unit(charm_name, *mock_units)
