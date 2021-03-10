@@ -88,9 +88,9 @@ class CephOsd(CephCommon):
         return ceph_mon_units
 
     def verify_reboot(self) -> Result:
-        """Verify that it's safe to reboot selected nova-compute units."""
+        """Verify that it's safe to reboot selected ceph-osd units."""
         return aggregate_results(self.check_cluster_health(*self.get_ceph_mon_units()))
 
     def verify_shutdown(self) -> Result:
-        """Verify that it's safe to shutdown selected nova-compute units."""
+        """Verify that it's safe to shutdown selected ceph-osd units."""
         return self.verify_reboot()
