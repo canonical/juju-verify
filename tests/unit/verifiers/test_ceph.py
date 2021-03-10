@@ -14,19 +14,18 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
-"""Ceph helper test suite."""
+"""CephOsd verifier class test suite."""
 import os
 from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
 
-from juju_verify.utils.ceph import check_cluster_health
-from juju_verify.utils.unit import parse_charm_name
-from juju_verify.verifiers.result import Result
+from juju_verify.verifiers import CephOsd, Result
+from juju_verify.verifiers.ceph import CephCommon
 
 
-@mock.patch("juju_verify.utils.ceph.run_action_on_units")
+@mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
 @pytest.mark.parametrize("message, exp_result", [
     ("HEALTH_OK ...", Result(True, "ceph-mon/0: Ceph cluster is healthy")),
     ("HEALTH_WARN ...", Result(False, "ceph-mon/0: Ceph cluster is unhealthy")),
@@ -40,12 +39,12 @@ def test_check_cluster_health(mock_run_action_on_units, message, exp_result, mod
     action.data.get.side_effect = {"results": {"message": message}}.get
     mock_run_action_on_units.return_value = {"ceph-mon/0": action}
 
-    result = check_cluster_health(model.units["ceph-mon/0"])
+    result = CephCommon.check_cluster_health(model.units["ceph-mon/0"])
 
     assert result == exp_result
 
 
-@mock.patch("juju_verify.utils.ceph.run_action_on_units")
+@mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
 def test_check_cluster_health_combination(mock_run_action_on_units, model):
     """Test check Ceph cluster health combination of two diff state."""
     exp_result = Result(False,
@@ -58,25 +57,56 @@ def test_check_cluster_health_combination(mock_run_action_on_units, model):
     mock_run_action_on_units.return_value = {"ceph-mon/0": action_healthy,
                                              "ceph-mon/1": action_unhealthy}
 
-    result = check_cluster_health(model.units["ceph-mon/0"], model.units["ceph-mon/1"])
+    result = CephCommon.check_cluster_health(model.units["ceph-mon/0"],
+                                             model.units["ceph-mon/1"])
 
     assert result == exp_result
 
 
-@mock.patch("juju_verify.utils.ceph.run_action_on_units")
+@mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
 def test_check_cluster_health_unknown_state(mock_run_action_on_units, model):
     """Test check Ceph cluster health in unknown state."""
     mock_run_action_on_units.return_value = {}
 
-    result = check_cluster_health(model.units["ceph-mon/0"], model.units["ceph-mon/1"])
+    result = CephCommon.check_cluster_health(model.units["ceph-mon/0"],
+                                             model.units["ceph-mon/1"])
 
     assert result == Result(False, "Ceph cluster is in an unknown state")
 
 
-@pytest.mark.parametrize("charm_url, exp_name", [
-    ("cs:focal/nova-compute-141", "nova-compute"),
-    ("cs:hacluster-74", "hacluster"),
-])
-def test_parse_charm_name(charm_url, exp_name):
-    """Test function for parsing charm name from charm-ulr."""
-    assert parse_charm_name(charm_url) == exp_name
+def test_get_ceph_mon_units(model):
+    """Test function to get ceph-mon units related to verified units."""
+    ceph_osd_units = [model.units["ceph-osd/0"], model.units["ceph-osd/1"]]
+    ceph_mon_units = [model.units["ceph-mon/0"], model.units["ceph-mon/1"],
+                      model.units["ceph-mon/2"]]
+    mock_relation = MagicMock()
+    mock_relation.matches = {"ceph-osd:mon": True}.get
+    mock_relation.provides.application.units = ceph_mon_units
+    model.relations = [mock_relation]
+
+    units = CephOsd(ceph_osd_units).get_ceph_mon_units()
+    assert {ceph_mon_units[0]} == units
+
+
+@mock.patch("juju_verify.verifiers.ceph.CephOsd.get_ceph_mon_units")
+@mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
+def test_verify_reboot(mock_check_cluster_health, mock_get_ceph_mon_units, model):
+    """Test reboot verification on CephOsd."""
+    mock_get_ceph_mon_units.return_value = [model.units["ceph-mon/0"]]
+    mock_check_cluster_health.return_value = Result(True, "Ceph cluster is healthy")
+
+    result = CephOsd([model.units["ceph-osd/0"]]).verify_reboot()
+
+    assert result == Result(True, "Ceph cluster is healthy")
+
+
+@mock.patch("juju_verify.verifiers.ceph.CephOsd.get_ceph_mon_units")
+@mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
+def test_verify_shutdown(mock_check_cluster_health, mock_get_ceph_mon_units, model):
+    """Test shutdown verification on CephOsd."""
+    mock_get_ceph_mon_units.return_value = [model.units["ceph-mon/0"]]
+    mock_check_cluster_health.return_value = Result(True, "Ceph cluster is healthy")
+
+    result = CephOsd([model.units["ceph-osd/0"]]).verify_shutdown()
+
+    assert result == Result(True, "Ceph cluster is healthy")

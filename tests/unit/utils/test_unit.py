@@ -25,7 +25,8 @@ from juju.unit import Unit
 from pytest import raises
 
 from juju_verify.exceptions import VerificationError, CharmException
-from juju_verify.utils.unit import run_action_on_units, verify_charm_unit
+from juju_verify.utils.unit import (run_action_on_units, verify_charm_unit,
+                                    parse_charm_name)
 
 
 def test_run_action_on_units(mocker, model, all_units):
@@ -101,6 +102,15 @@ def test_run_action_on_units(mocker, model, all_units):
         run_action_on_units(run_on_units, action, **action_params)
 
     assert str(exc.value) == expect_err
+
+
+@pytest.mark.parametrize("charm_url, exp_name", [
+    ("cs:focal/nova-compute-141", "nova-compute"),
+    ("cs:hacluster-74", "hacluster"),
+])
+def test_parse_charm_name(charm_url, exp_name):
+    """Test function for parsing charm name from charm-ulr."""
+    assert parse_charm_name(charm_url) == exp_name
 
 
 @pytest.mark.parametrize("charm_name, units", [

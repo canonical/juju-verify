@@ -20,14 +20,44 @@ from typing import Set
 
 from juju.unit import Unit
 
-from juju_verify.utils.ceph import check_cluster_health
+from juju_verify.utils.action import data_from_action
+from juju_verify.utils.unit import verify_charm_unit, run_action_on_units
 from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.result import aggregate_results, Result
 
 logger = logging.getLogger()
 
 
-class CephOsd(BaseVerifier):
+class CephCommon(BaseVerifier):  # pylint: disable=W0223
+    """Parent class for CephMon and CephOsd verifier."""
+
+    @classmethod
+    def check_cluster_health(cls, *units: Unit) -> Result:
+        """Check Ceph cluster health for specific units.
+
+        This will execute `get-health` against each unit provided.
+        """
+        verify_charm_unit("ceph-mon", *units)
+        result = Result(success=True)
+        action_map = run_action_on_units(list(units), "get-health")
+        for unit, action in action_map.items():
+            cluster_health = data_from_action(action, "message")
+            logger.debug("Unit (%s): Ceph cluster health '%s'", unit, cluster_health)
+
+            if "HEALTH_OK" in cluster_health and result.success:
+                result += Result(True, f"{unit}: Ceph cluster is healthy")
+            elif "HEALTH_WARN" in cluster_health or "HEALTH_ERR" in cluster_health:
+                result += Result(False, f"{unit}: Ceph cluster is unhealthy")
+            else:
+                result += Result(False, f"{unit}: Ceph cluster is in an unknown state")
+
+        if not action_map:
+            result = Result(success=False, reason="Ceph cluster is in an unknown state")
+
+        return result
+
+
+class CephOsd(CephCommon):
     """Implementation of verification checks for the ceph-osd charm."""
 
     NAME = 'ceph-osd'
@@ -59,7 +89,7 @@ class CephOsd(BaseVerifier):
 
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected nova-compute units."""
-        return aggregate_results(check_cluster_health(*self.get_ceph_mon_units()))
+        return aggregate_results(self.check_cluster_health(*self.get_ceph_mon_units()))
 
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected nova-compute units."""
