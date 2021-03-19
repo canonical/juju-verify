@@ -16,7 +16,7 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """ceph-osd verification."""
 import logging
-from typing import Dict
+from typing import Dict, Optional
 
 from juju.unit import Unit
 
@@ -62,30 +62,42 @@ class CephOsd(CephCommon):
 
     NAME = 'ceph-osd'
 
-    def get_ceph_mon_units(self) -> Dict[Unit, Unit]:
+    def _get_ceph_mon_unit(self, app_name: str) -> Optional[Unit]:
+        """Get first ceph-mon unit from relation."""
+        try:
+            for relation in self.model.applications[app_name].relations:
+                if relation.matches(f"{app_name}:mon"):
+                    # selecting the first unit from the application provided by relation
+                    return relation.provides.application.units[0]
+        except (IndexError, KeyError) as error:
+            logger.debug("Error to get ceph-mon unit from relations: %s", error)
+
+        return None
+
+    def get_ceph_mon_units(self) -> Dict[str, Unit]:
         """Get first ceph-mon units related to verified units.
 
-        This function goes through the verified units and finds the relation
-        `<unit.application>:mon`. The first unit of ceph-mon will be obtained from this
-        relationship.
+        This function groups by distinct application names for verified units, and then
+        finds the relation ("<application>:mon") between the application and ceph-mon.
+        The first unit of ceph-mon will be obtained from this relation.
         :returns: Map between verified and ceph-mon units
         """
-        ceph_mon_unit_map = {}
-        for unit in self.units:
-            for relation in self.model.relations:
-                if relation.matches(f"{unit.application}:mon"):
-                    # selecting the first unit from the application provided by relation
-                    ceph_mon_unit_map[unit] = relation.provides.application.units[0]
-                    break
+        applications = {unit.application for unit in self.units}
+        logger.debug("affected applications %s", map(str, applications))
 
-        logger.debug("found units %s", map(str, ceph_mon_unit_map.values()))
+        ceph_mon_app_map = dict(map(
+            lambda app_name: (app_name, self._get_ceph_mon_unit(app_name)),
+            applications))
+        logger.debug("found units %s", map(str, ceph_mon_app_map.values()))
 
-        return ceph_mon_unit_map
+        return ceph_mon_app_map
 
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected ceph-osd units."""
-        ceph_mon_unit_map = self.get_ceph_mon_units()
-        return aggregate_results(self.check_cluster_health(*ceph_mon_unit_map.values()))
+        ceph_mon_app_map = self.get_ceph_mon_units()
+        # get unique ceph-mon units
+        unique_ceph_mon_units = {unit for unit in ceph_mon_app_map.values() if unit}
+        return aggregate_results(self.check_cluster_health(*unique_ceph_mon_units))
 
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected ceph-osd units."""

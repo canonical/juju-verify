@@ -56,7 +56,7 @@ def model(session_mocker, all_units):
     mock_model = Model()
     session_mocker.patch.object(Model, 'connect_current')
     session_mocker.patch.object(Model, 'connect_model')
-    session_mocker.patch.object(Model, 'relations')
+    session_mocker.patch.object(Model, 'applications')
     session_mocker.patch.object(Unit, 'data')
     session_mocker.patch.object(Unit, 'machine')
     session_mocker.patch.object(Unit, 'run_action', new_callable=MagicMock)
