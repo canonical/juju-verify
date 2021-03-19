@@ -85,9 +85,12 @@ class CephOsd(CephCommon):
         applications = {unit.application for unit in self.units}
         logger.debug("affected applications %s", map(str, applications))
 
-        ceph_mon_app_map = dict(map(
-            lambda app_name: (app_name, self._get_ceph_mon_unit(app_name)),
-            applications))
+        ceph_mon_app_map = {}
+        for app_name in applications:
+            unit = self._get_ceph_mon_unit(app_name)
+            if unit is not None:
+                ceph_mon_app_map[app_name] = unit
+
         logger.debug("found units %s", map(str, ceph_mon_app_map.values()))
 
         return ceph_mon_app_map
@@ -96,7 +99,7 @@ class CephOsd(CephCommon):
         """Verify that it's safe to reboot selected ceph-osd units."""
         ceph_mon_app_map = self.get_ceph_mon_units()
         # get unique ceph-mon units
-        unique_ceph_mon_units = {unit for unit in ceph_mon_app_map.values() if unit}
+        unique_ceph_mon_units = set(ceph_mon_app_map.values())
         return aggregate_results(self.check_cluster_health(*unique_ceph_mon_units))
 
     def verify_shutdown(self) -> Result:
