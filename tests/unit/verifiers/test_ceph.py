@@ -85,17 +85,19 @@ def test_get_ceph_mon_units(model):
     model.relations = [mock_relation]
 
     units = CephOsd(ceph_osd_units).get_ceph_mon_units()
-    assert {ceph_mon_units[0]} == units
+    assert units == {unit: ceph_mon_units[0] for unit in ceph_osd_units}
 
 
 @mock.patch("juju_verify.verifiers.ceph.CephOsd.get_ceph_mon_units")
 @mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
 def test_verify_reboot(mock_check_cluster_health, mock_get_ceph_mon_units, model):
     """Test reboot verification on CephOsd."""
-    mock_get_ceph_mon_units.return_value = [model.units["ceph-mon/0"]]
+    units = [model.units["ceph-osd/0"]]
+    mock_get_ceph_mon_units.return_value = {unit: model.units["ceph-mon/0"]
+                                            for unit in units}
     mock_check_cluster_health.return_value = Result(True, "Ceph cluster is healthy")
 
-    result = CephOsd([model.units["ceph-osd/0"]]).verify_reboot()
+    result = CephOsd(units).verify_reboot()
 
     assert result == Result(True, "Ceph cluster is healthy")
 
@@ -104,9 +106,11 @@ def test_verify_reboot(mock_check_cluster_health, mock_get_ceph_mon_units, model
 @mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
 def test_verify_shutdown(mock_check_cluster_health, mock_get_ceph_mon_units, model):
     """Test shutdown verification on CephOsd."""
-    mock_get_ceph_mon_units.return_value = [model.units["ceph-mon/0"]]
+    units = [model.units["ceph-osd/0"]]
+    mock_get_ceph_mon_units.return_value = {unit: model.units["ceph-mon/0"]
+                                            for unit in units}
     mock_check_cluster_health.return_value = Result(True, "Ceph cluster is healthy")
 
-    result = CephOsd([model.units["ceph-osd/0"]]).verify_shutdown()
+    result = CephOsd(units).verify_shutdown()
 
     assert result == Result(True, "Ceph cluster is healthy")
