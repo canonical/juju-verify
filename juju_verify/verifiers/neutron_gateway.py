@@ -88,3 +88,8 @@ class NeutronGateway(BaseVerifier):
         self.cache_action_resource_list_map[get_resource_action_name] = resource_list
         return resource_list
 
+    def get_shutdown_resource_list(self, get_resource_action_name):
+        """Return a list of resources matching action that are going to be shutdown."""
+        res_list = self.get_resource_list(get_resource_action_name)
+        return [r for r in res_list if r["shutdown"] and r["status"] == "ACTIVE"]
+
