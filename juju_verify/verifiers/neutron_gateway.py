@@ -16,6 +16,9 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """neutron-gateway verification."""
 import json
+from typing import Dict, List
+
+from juju.unit import Unit
 
 from juju_verify.verifiers.base import BaseVerifier, Result
 from juju_verify.verifiers.result import aggregate_results
@@ -23,7 +26,7 @@ from juju_verify.utils.action import data_from_action
 from juju_verify.utils.unit import run_action_on_unit
 
 
-def get_unit_hostname(unit):
+def get_unit_hostname(unit: Unit) -> str:
     """Return name of the host on which the unit is running."""
     get_hostname_action = run_action_on_unit(unit, "node-name")
     hostname = data_from_action(get_hostname_action, "node-name")
@@ -45,12 +48,12 @@ class NeutronGateway(BaseVerifier):
                                                         "found: {}. LBaasV2 does not "
                                                         "offer HA.")}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, units: List[Unit]) -> None:
         """Neutron Gateway verifier constructor."""
-        super().__init__(*args, **kwargs)
-        self.cache_action_resource_list_map = {}
+        super().__init__(units)
+        self.cache_action_resource_list_map: Dict[str, List] = {}
 
-    def get_all_ngw_units(self):
+    def get_all_ngw_units(self) -> List[Unit]:
         """Get all neutron-gateway units, including those not being shutdown."""
         application_name = NeutronGateway.NAME
         for rel in self.model.relations:
@@ -59,15 +62,16 @@ class NeutronGateway(BaseVerifier):
                 all_ngw_units = application.units
         return all_ngw_units
 
-    def get_unit_resource_list(self, u, get_resource_action_name):
+    def get_unit_resource_list(self, unit: Unit,
+                               get_resource_action_name: str) -> List[dict]:
         """Given a get resource action, return the relevant resources on the unit."""
-        get_resource_action = run_action_on_unit(u, get_resource_action_name)
+        get_resource_action = run_action_on_unit(unit, get_resource_action_name)
         action_name_res = NeutronGateway.action_name_result_map[get_resource_action_name]
         resource_list_json = data_from_action(get_resource_action, action_name_res)
         resource_list = json.loads(resource_list_json)
         return resource_list
 
-    def get_resource_list(self, get_resource_action_name):
+    def get_resource_list(self, get_resource_action_name: str) -> List[dict]:
         """Given a get resource action, return matching resources from all units."""
         try:
             return self.cache_action_resource_list_map[get_resource_action_name]
@@ -77,14 +81,15 @@ class NeutronGateway(BaseVerifier):
         resource_list = []
         shutdown_hostname_list = [get_unit_hostname(unit) for unit in self.units]
 
-        for u in self.get_all_ngw_units():
-            hostname = get_unit_hostname(u)
-            host_resource_list = self.get_unit_resource_list(u, get_resource_action_name)
+        for unit in self.get_all_ngw_units():
+            hostname = get_unit_hostname(unit)
+            host_resource_list = self.get_unit_resource_list(unit,
+                                                             get_resource_action_name)
 
             # add host metadata to resource
             for resource in host_resource_list:
                 resource["host"] = hostname
-                resource["juju-entity-id"] = u.entity_id
+                resource["juju-entity-id"] = unit.entity_id
                 resource["shutdown"] = False
 
                 if hostname in shutdown_hostname_list:
@@ -95,24 +100,24 @@ class NeutronGateway(BaseVerifier):
         self.cache_action_resource_list_map[get_resource_action_name] = resource_list
         return resource_list
 
-    def get_shutdown_resource_list(self, get_resource_action_name):
+    def get_shutdown_resource_list(self, get_resource_action_name: str) -> List[dict]:
         """Return a list of resources matching action that are going to be shutdown."""
         res_list = self.get_resource_list(get_resource_action_name)
         return [r for r in res_list if r["shutdown"] and r["status"] == "ACTIVE"]
 
-    def get_online_resource_list(self, get_resource_action_name):
+    def get_online_resource_list(self, get_resource_action_name: str) -> List[dict]:
         """Return a list of resources matching action, that will remain online."""
         res_list = self.get_resource_list(get_resource_action_name)
         return [r for r in res_list if not r["shutdown"] and r["status"] == "ACTIVE"]
 
-    def check_non_redundant_resource(self, action_name):
+    def check_non_redundant_resource(self, action_name: str) -> Result:
         """Check that there are no non-redundant resources matching the resource type."""
         result = Result(True)
         shutdown_resource_list = self.get_shutdown_resource_list(action_name)
         redundant_resource_list = self.get_online_resource_list(action_name)
 
-        shutdown_resource_set = set([r["id"] for r in shutdown_resource_list])
-        redundant_resource_set = set([r["id"] for r in redundant_resource_list])
+        shutdown_resource_set = set(r["id"] for r in shutdown_resource_list)
+        redundant_resource_set = set(r["id"] for r in redundant_resource_list)
         non_redundant_list = shutdown_resource_set - redundant_resource_set
         if non_redundant_list:
             result.success = False
@@ -120,7 +125,7 @@ class NeutronGateway(BaseVerifier):
             result.reason = failure_string.format(", ".join(non_redundant_list))
         return result
 
-    def warn_router_ha(self):
+    def warn_router_ha(self) -> Result:
         """Warn that HA routers should be manually failed over."""
         action_name = "get-status-routers"
         result = Result(True)

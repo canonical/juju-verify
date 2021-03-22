@@ -17,7 +17,7 @@
 """Helper function to manage Juju unit."""
 import asyncio
 import re
-from typing import List, Dict
+from typing import List, Dict, Any
 
 from juju.action import Action
 from juju.unit import Unit
@@ -64,7 +64,7 @@ def run_action_on_units(units: List[Unit], action: str,
     return result_map
 
 
-def run_action_on_unit(unit, action, **params):
+def run_action_on_unit(unit: Unit, action: str, **params: str) -> Any:
     """Run Juju action on single unit, returning the result."""
     results = run_action_on_units([unit], action=action, **params)
     return results[unit.entity_id]
