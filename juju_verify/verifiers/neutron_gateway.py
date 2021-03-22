@@ -15,3 +15,14 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """neutron-gateway verification."""
+from juju_verify.utils.action import data_from_action
+from juju_verify.utils.unit import run_action_on_unit
+
+
+def get_unit_hostname(unit):
+    """Return name of the host on which the unit is running."""
+    get_hostname_action = run_action_on_unit(unit, "node-name")
+    hostname = data_from_action(get_hostname_action, "node-name")
+    return hostname
+
+
