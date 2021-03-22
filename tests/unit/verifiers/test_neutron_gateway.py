@@ -228,3 +228,37 @@ def test_check_non_redundant_resource(mock_get_unit_hostname,
     mock_data[1]["shutdown"] = False
 
 
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
+@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
+def test_warn_router_ha(mock_get_unit_hostname,
+                        mock_get_all_ngw_units,
+                        mock_get_unit_resource_list):
+    """Test existence of warning messages to manually failover HA routers when found."""
+    mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
+                                          all_ngw_host_names)
+    mock_get_all_ngw_units.return_value = all_ngw_units
+    mock_get_unit_resource_list.side_effect = get_resource_lists()
+
+    ngw_verifier = get_ngw_verifier()
+
+    result = ngw_verifier.warn_router_ha()
+    # no HA to failover, lack of redundancy is detected by check_non_redundant_resource
+    assert(result.reason == "")
+
+    # Find router0 set it to HA
+    for h in mock_data:
+        for r in h["routers"]:
+            if r["id"] == "router0":
+                r["ha"] = True
+
+    mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
+                                          all_ngw_host_names)
+    mock_get_all_ngw_units.return_value = all_ngw_units
+    mock_get_unit_resource_list.side_effect = get_resource_lists()
+
+    ngw_verifier = get_ngw_verifier()
+
+    result = ngw_verifier.warn_router_ha()
+    # router is in HA, given instructions to failover
+    assert(result.reason)
