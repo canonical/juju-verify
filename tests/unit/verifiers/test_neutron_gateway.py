@@ -138,3 +138,40 @@ def test_get_shutdown_resource_list(mock_get_unit_hostname,
     set_router_status("router0", "ACTIVE")
 
 
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
+@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
+def test_get_online_resource_list(mock_get_unit_hostname,
+                                  mock_get_all_ngw_units,
+                                  mock_get_unit_resource_list):
+    """Test validity of resources that will remain online."""
+    mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
+                                          all_ngw_host_names)
+    mock_get_all_ngw_units.return_value = all_ngw_units
+    mock_get_unit_resource_list.side_effect = get_resource_lists()
+
+    ngw_verifier = get_ngw_verifier()
+
+    router_online_count = 0
+    for h in mock_data:
+        if not h["shutdown"]:
+            router_online_count += len(h["routers"])
+
+    online_routers = ngw_verifier.get_online_resource_list("get-status-routers")
+    assert(len(online_routers) == router_online_count)
+
+    # test that NOT ACTIVE resources are not being listed as online/available
+    set_router_status("router2", "NOTACTIVE")
+
+    mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
+                                          all_ngw_host_names)
+    mock_get_all_ngw_units.return_value = all_ngw_units
+    mock_get_unit_resource_list.side_effect = get_resource_lists()
+
+    online_routers = ngw_verifier.get_online_resource_list("get-status-routers")
+    assert(len(online_routers) == router_online_count - 1)
+
+    # set router2 back to active
+    set_router_status("router2", "ACTIVE")
+
+
