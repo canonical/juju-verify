@@ -142,3 +142,13 @@ class NeutronGateway(BaseVerifier):
 
         return result
 
+    def verify_reboot(self) -> Result:
+        """Verify that it's safe to reboot selected neutron-gateway units."""
+        return self.verify_shutdown()
+
+    def verify_shutdown(self) -> Result:
+        """Verify that it's safe to shutdown selected neutron-gateway units."""
+        return aggregate_results(self.warn_router_ha(),
+                                 self.check_non_redundant_resource("get-status-routers"),
+                                 self.check_non_redundant_resource("get-status-dhcp"),
+                                 self.check_non_redundant_resource("get-status-lb"))
