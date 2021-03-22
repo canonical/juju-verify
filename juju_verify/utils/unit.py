@@ -64,6 +64,12 @@ def run_action_on_units(units: List[Unit], action: str,
     return result_map
 
 
+def run_action_on_unit(unit, action, **params):
+    """Run Juju action on single unit, returning the result."""
+    results = run_action_on_units([unit], action=action, **params)
+    return results[unit.entity_id]
+
+
 def parse_charm_name(charm_url: str) -> str:
     """Parse charm name from full charm url.
 
