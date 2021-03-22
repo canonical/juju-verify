@@ -55,3 +55,25 @@ class NeutronGateway(BaseVerifier):
         resource_list = json.loads(resource_list_json)
         return resource_list
 
+    def get_resource_list(self, get_resource_action_name):
+        """Given a get resource action, return matching resources from all units."""
+        resource_list = []
+        shutdown_hostname_list = [get_unit_hostname(unit) for unit in self.units]
+
+        for u in self.get_all_ngw_units():
+            hostname = get_unit_hostname(u)
+            host_resource_list = self.get_unit_resource_list(u, get_resource_action_name)
+
+            # add host metadata to resource
+            for resource in host_resource_list:
+                resource["host"] = hostname
+                resource["juju-entity-id"] = u.entity_id
+                resource["shutdown"] = False
+
+                if hostname in shutdown_hostname_list:
+                    resource["shutdown"] = True
+
+                resource_list.append(resource)
+
+        return resource_list
+
