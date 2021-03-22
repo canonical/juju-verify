@@ -38,6 +38,11 @@ class NeutronGateway(BaseVerifier):
                               "get-status-dhcp": "dhcp-networks",
                               "get-status-lb": "load-balancers"}
 
+    def __init__(self, *args, **kwargs):
+        """Neutron Gateway verifier constructor."""
+        super().__init__(*args, **kwargs)
+        self.cache_action_resource_list_map = {}
+
     def get_all_ngw_units(self):
         """Get all neutron-gateway units, including those not being shutdown."""
         application_name = NeutronGateway.NAME
@@ -57,6 +62,11 @@ class NeutronGateway(BaseVerifier):
 
     def get_resource_list(self, get_resource_action_name):
         """Given a get resource action, return matching resources from all units."""
+        try:
+            return self.cache_action_resource_list_map[get_resource_action_name]
+        except KeyError:
+            pass
+
         resource_list = []
         shutdown_hostname_list = [get_unit_hostname(unit) for unit in self.units]
 
@@ -75,5 +85,6 @@ class NeutronGateway(BaseVerifier):
 
                 resource_list.append(resource)
 
+        self.cache_action_resource_list_map[get_resource_action_name] = resource_list
         return resource_list
 
