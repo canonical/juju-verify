@@ -16,7 +16,7 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """ceph-osd verification."""
 import logging
-from typing import Set
+from typing import Dict, Optional
 
 from juju.unit import Unit
 
@@ -62,34 +62,45 @@ class CephOsd(CephCommon):
 
     NAME = 'ceph-osd'
 
-    def get_ceph_mon_units(self) -> Set[Unit]:
-        """Get Ceph-mon units related to verified units.
+    def _get_ceph_mon_unit(self, app_name: str) -> Optional[Unit]:
+        """Get first ceph-mon unit from relation."""
+        try:
+            for relation in self.model.applications[app_name].relations:
+                if relation.matches(f"{app_name}:mon"):
+                    # selecting the first unit from the application provided by relation
+                    return relation.provides.application.units[0]
+        except (IndexError, KeyError) as error:
+            logger.debug("Error to get ceph-mon unit from relations: %s", error)
 
-        1. get all distinct ceph-osd applications from provides units
-        2. get all relationships based on found apps or ceph-mon
-        3. get the first unit from the application providing the relation
+        return None
+
+    def get_ceph_mon_units(self) -> Dict[str, Unit]:
+        """Get first ceph-mon units related to verified units.
+
+        This function groups by distinct application names for verified units, and then
+        finds the relation ("<application>:mon") between the application and ceph-mon.
+        The first unit of ceph-mon will be obtained from this relation.
+        :returns: Map between verified and ceph-mon units
         """
-        # get all affected ceph-osd applications
         applications = {unit.application for unit in self.units}
         logger.debug("affected applications %s", map(str, applications))
-        applications.add("ceph-osd")
 
-        # get all relation between ceph-osd and ceph-mon
-        relations = {relation for relation in self.model.relations
-                     if any(relation.matches(f"{application}:mon")
-                            for application in applications)}
-        logger.debug("found relations %s", map(str, relations))
+        ceph_mon_app_map = {}
+        for app_name in applications:
+            unit = self._get_ceph_mon_unit(app_name)
+            if unit is not None:
+                ceph_mon_app_map[app_name] = unit
 
-        # get first ceph-mon unit from relation
-        ceph_mon_units = {relation.provides.application.units[0]
-                          for relation in relations}
-        logger.debug("found units %s", map(str, ceph_mon_units))
+        logger.debug("found units %s", map(str, ceph_mon_app_map.values()))
 
-        return ceph_mon_units
+        return ceph_mon_app_map
 
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected ceph-osd units."""
-        return aggregate_results(self.check_cluster_health(*self.get_ceph_mon_units()))
+        ceph_mon_app_map = self.get_ceph_mon_units()
+        # get unique ceph-mon units
+        unique_ceph_mon_units = set(ceph_mon_app_map.values())
+        return aggregate_results(self.check_cluster_health(*unique_ceph_mon_units))
 
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected ceph-osd units."""

@@ -74,25 +74,49 @@ def test_check_cluster_health_unknown_state(mock_run_action_on_units, model):
     assert result == Result(False, "Ceph cluster is in an unknown state")
 
 
-def test_get_ceph_mon_units(model):
-    """Test function to get ceph-mon units related to verified units."""
-    ceph_osd_units = [model.units["ceph-osd/0"], model.units["ceph-osd/1"]]
+def test_get_ceph_mon_unit(model):
+    """Test get ceph-mon unit related to application."""
     ceph_mon_units = [model.units["ceph-mon/0"], model.units["ceph-mon/1"],
                       model.units["ceph-mon/2"]]
     mock_relation = MagicMock()
     mock_relation.matches = {"ceph-osd:mon": True}.get
     mock_relation.provides.application.units = ceph_mon_units
-    model.relations = [mock_relation]
+    mock_relations = MagicMock()
+    mock_relations.relations = [mock_relation]
+    model.applications = {"ceph-osd": mock_relations}
+
+    # return first ceph-mon unit in "ceph-osd:mon" relations
+    unit = CephOsd([model.units["ceph-osd/0"]])._get_ceph_mon_unit("ceph-osd")
+    assert unit == ceph_mon_units[0]
+
+    # return none for non-existent application name
+    model.applications = {"ceph-osd-cluster": mock_relations}
+    unit = CephOsd([model.units["ceph-osd/0"]])._get_ceph_mon_unit("ceph-osd")
+    assert unit is None
+
+    # return none for application with no units
+    mock_relation.provides.application.units = []
+    model.applications = {"ceph-osd": mock_relations}
+    unit = CephOsd([model.units["ceph-osd/0"]])._get_ceph_mon_unit("ceph-osd")
+    assert unit is None
+
+
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_unit")
+def test_get_ceph_mon_units(mock_get_ceph_mon_unit, model):
+    """Test function to get ceph-mon units related to verified units."""
+    ceph_osd_units = [model.units["ceph-osd/0"], model.units["ceph-osd/1"]]
+    mock_get_ceph_mon_unit.return_value = model.units["ceph-mon/0"]
 
     units = CephOsd(ceph_osd_units).get_ceph_mon_units()
-    assert {ceph_mon_units[0]} == units
+
+    assert units == {"ceph-osd": model.units["ceph-mon/0"]}
 
 
 @mock.patch("juju_verify.verifiers.ceph.CephOsd.get_ceph_mon_units")
 @mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
 def test_verify_reboot(mock_check_cluster_health, mock_get_ceph_mon_units, model):
     """Test reboot verification on CephOsd."""
-    mock_get_ceph_mon_units.return_value = [model.units["ceph-mon/0"]]
+    mock_get_ceph_mon_units.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
     mock_check_cluster_health.return_value = Result(True, "Ceph cluster is healthy")
 
     result = CephOsd([model.units["ceph-osd/0"]]).verify_reboot()
@@ -104,7 +128,7 @@ def test_verify_reboot(mock_check_cluster_health, mock_get_ceph_mon_units, model
 @mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
 def test_verify_shutdown(mock_check_cluster_health, mock_get_ceph_mon_units, model):
     """Test shutdown verification on CephOsd."""
-    mock_get_ceph_mon_units.return_value = [model.units["ceph-mon/0"]]
+    mock_get_ceph_mon_units.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
     mock_check_cluster_health.return_value = Result(True, "Ceph cluster is healthy")
 
     result = CephOsd([model.units["ceph-osd/0"]]).verify_shutdown()
