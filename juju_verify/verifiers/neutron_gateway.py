@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """neutron-gateway verification."""
+from juju_verify.verifiers.base import BaseVerifier, Result
+from juju_verify.verifiers.result import aggregate_results
 from juju_verify.utils.action import data_from_action
 from juju_verify.utils.unit import run_action_on_unit
 
@@ -26,3 +28,7 @@ def get_unit_hostname(unit):
     return hostname
 
 
+class NeutronGateway(BaseVerifier):
+    """Implementation of verification checks for the neutron-gateway charm."""
+
+    NAME = 'neutron-gateway'
