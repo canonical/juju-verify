@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """neutron-gateway verification."""
+import json
+
 from juju_verify.verifiers.base import BaseVerifier, Result
 from juju_verify.verifiers.result import aggregate_results
 from juju_verify.utils.action import data_from_action
@@ -32,6 +34,9 @@ class NeutronGateway(BaseVerifier):
     """Implementation of verification checks for the neutron-gateway charm."""
 
     NAME = 'neutron-gateway'
+    action_name_result_map = {"get-status-routers": "router-list",
+                              "get-status-dhcp": "dhcp-networks",
+                              "get-status-lb": "load-balancers"}
 
     def get_all_ngw_units(self):
         """Get all neutron-gateway units, including those not being shutdown."""
@@ -41,4 +46,12 @@ class NeutronGateway(BaseVerifier):
                 application = rel.applications.pop()
                 all_ngw_units = application.units
         return all_ngw_units
+
+    def get_unit_resource_list(self, u, get_resource_action_name):
+        """Given a get resource action, return the relevant resources on the unit."""
+        get_resource_action = run_action_on_unit(u, get_resource_action_name)
+        action_name_res = NeutronGateway.action_name_result_map[get_resource_action_name]
+        resource_list_json = data_from_action(get_resource_action, action_name_res)
+        resource_list = json.loads(resource_list_json)
+        return resource_list
 
