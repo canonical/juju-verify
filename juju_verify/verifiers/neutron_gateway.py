@@ -93,3 +93,8 @@ class NeutronGateway(BaseVerifier):
         res_list = self.get_resource_list(get_resource_action_name)
         return [r for r in res_list if r["shutdown"] and r["status"] == "ACTIVE"]
 
+    def get_online_resource_list(self, get_resource_action_name):
+        """Return a list of resources matching action, that will remain online."""
+        res_list = self.get_resource_list(get_resource_action_name)
+        return [r for r in res_list if not r["shutdown"] and r["status"] == "ACTIVE"]
+
