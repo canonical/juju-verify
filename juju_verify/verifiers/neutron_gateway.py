@@ -120,3 +120,25 @@ class NeutronGateway(BaseVerifier):
             result.reason = failure_string.format(", ".join(non_redundant_list))
         return result
 
+    def warn_router_ha(self):
+        """Warn that HA routers should be manually failed over."""
+        action_name = "get-status-routers"
+        result = Result(True)
+        shutdown_resource_list = self.get_shutdown_resource_list(action_name)
+
+        router_failover_err_list = []
+        for router in shutdown_resource_list:
+            if router["ha"]:
+                _id = router["id"]
+                entity_id = router["juju-entity-id"]
+                host = router["host"]
+                error_string = "{} (on {}, hostname: {})".format(_id, entity_id, host)
+                router_failover_err_list.append(error_string)
+
+        if router_failover_err_list:
+            error_string = ("It's recommended that you manually failover the following "
+                            "routers: {}")
+            result.reason = error_string.format(", ".join(router_failover_err_list))
+
+        return result
+
