@@ -37,6 +37,13 @@ class NeutronGateway(BaseVerifier):
     action_name_result_map = {"get-status-routers": "router-list",
                               "get-status-dhcp": "dhcp-networks",
                               "get-status-lb": "load-balancers"}
+    action_name_failure_string_map = {"get-status-routers": ("The following routers are "
+                                                             "non-redundant: {}."),
+                                      "get-status-dhcp": ("The following DHCP networks "
+                                                          "are non-redundant: {}"),
+                                      "get-status-lb": ("The following LBaasV2 LBs were "
+                                                        "found: {}. LBaasV2 does not "
+                                                        "offer HA.")}
 
     def __init__(self, *args, **kwargs):
         """Neutron Gateway verifier constructor."""
@@ -97,4 +104,19 @@ class NeutronGateway(BaseVerifier):
         """Return a list of resources matching action, that will remain online."""
         res_list = self.get_resource_list(get_resource_action_name)
         return [r for r in res_list if not r["shutdown"] and r["status"] == "ACTIVE"]
+
+    def check_non_redundant_resource(self, action_name):
+        """Check that there are no non-redundant resources matching the resource type."""
+        result = Result(True)
+        shutdown_resource_list = self.get_shutdown_resource_list(action_name)
+        redundant_resource_list = self.get_online_resource_list(action_name)
+
+        shutdown_resource_set = set([r["id"] for r in shutdown_resource_list])
+        redundant_resource_set = set([r["id"] for r in redundant_resource_list])
+        non_redundant_list = shutdown_resource_set - redundant_resource_set
+        if non_redundant_list:
+            result.success = False
+            failure_string = NeutronGateway.action_name_failure_string_map[action_name]
+            result.reason = failure_string.format(", ".join(non_redundant_list))
+        return result
 
