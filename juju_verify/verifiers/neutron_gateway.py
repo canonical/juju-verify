@@ -32,3 +32,13 @@ class NeutronGateway(BaseVerifier):
     """Implementation of verification checks for the neutron-gateway charm."""
 
     NAME = 'neutron-gateway'
+
+    def get_all_ngw_units(self):
+        """Get all neutron-gateway units, including those not being shutdown."""
+        application_name = NeutronGateway.NAME
+        for rel in self.model.relations:
+            if rel.matches("{}:cluster".format(application_name)):
+                application = rel.applications.pop()
+                all_ngw_units = application.units
+        return all_ngw_units
+
