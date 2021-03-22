@@ -175,3 +175,56 @@ def test_get_online_resource_list(mock_get_unit_hostname,
     set_router_status("router2", "ACTIVE")
 
 
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
+@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
+def test_check_non_redundant_resource(mock_get_unit_hostname,
+                                      mock_get_all_ngw_units,
+                                      mock_get_unit_resource_list):
+    """Test validity of list of resources determined to not be redundant."""
+    mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
+                                          all_ngw_host_names)
+    mock_get_all_ngw_units.return_value = all_ngw_units
+    mock_get_unit_resource_list.side_effect = get_resource_lists()
+
+    ngw_verifier = get_ngw_verifier()
+
+    # host0 being shutdown, with no redundancy for its routers (router0, router1)
+    result = ngw_verifier.check_non_redundant_resource("get-status-routers")
+    assert(result.success is False)
+
+    mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
+                                          all_ngw_host_names)
+    mock_get_all_ngw_units.return_value = all_ngw_units
+    mock_get_unit_resource_list.side_effect = get_resource_lists()
+
+    ngw_verifier = get_ngw_verifier()
+
+    # add redundancy (but not HA) for router0, router1 onto non-shutdown hosts
+    mock_data[1]["routers"].append({"id": "router0", "ha": False, "status": "ACTIVE"})
+    mock_data[2]["routers"].append({"id": "router1", "ha": False, "status": "ACTIVE"})
+    mock_get_unit_resource_list.side_effect = get_resource_lists()
+    result = ngw_verifier.check_non_redundant_resource("get-status-routers")
+    assert(result.success)
+
+    # test setting redundant redundant router0 to NOTACTIVE will result in failure
+    mock_data[1]["routers"][-1]["status"] = "NOTACTIVE"
+    mock_get_unit_resource_list.side_effect = get_resource_lists()
+    result = ngw_verifier.check_non_redundant_resource("get-status-routers")
+    assert(result.success is False)
+
+    # test shutdown host1, which will take down the redundant router0
+    mock_data[1]["shutdown"] = True
+    mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
+                                          all_ngw_host_names)
+    mock_get_all_ngw_units.return_value = all_ngw_units
+    mock_get_unit_resource_list.side_effect = get_resource_lists()
+
+    ngw_verifier = get_ngw_verifier()
+    result = ngw_verifier.check_non_redundant_resource("get-status-routers")
+    assert(result.success is False)
+
+    # reset shutdown for next tests
+    mock_data[1]["shutdown"] = False
+
+
