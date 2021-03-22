@@ -74,13 +74,13 @@ def get_shutdown_host_name_list():
 
 def set_router_status(routerid, status):
     """Set status of given router id in mock data."""
-    for h in mock_data:
-        for r in h["routers"]:
-            if r["id"] == routerid:
-                r["status"] = status
+    for host in mock_data:
+        for router in host["routers"]:
+            if router["id"] == routerid:
+                router["status"] = status
 
 
-@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501
+@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_resource_list")
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
 @mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
 def test_get_resource_list(mock_get_unit_hostname,
@@ -96,12 +96,12 @@ def test_get_resource_list(mock_get_unit_hostname,
     router_list = ngw_verifier.get_resource_list("get-status-routers")
 
     router_count = 0
-    for h in mock_data:
-        router_count += len(h["routers"])
-    assert(len(router_list) == router_count)
+    for host in mock_data:
+        router_count += len(host["routers"])
+    assert len(router_list) == router_count
 
 
-@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501
+@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_resource_list")
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
 @mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
 def test_get_shutdown_resource_list(mock_get_unit_hostname,
@@ -116,12 +116,12 @@ def test_get_shutdown_resource_list(mock_get_unit_hostname,
     ngw_verifier = get_ngw_verifier()
 
     router_shutdown_count = 0
-    for h in mock_data:
-        if h["shutdown"]:
-            router_shutdown_count += len(h["routers"])
+    for host in mock_data:
+        if host["shutdown"]:
+            router_shutdown_count += len(host["routers"])
 
     shutdown_routers = ngw_verifier.get_shutdown_resource_list("get-status-routers")
-    assert(len(shutdown_routers) == router_shutdown_count)
+    assert len(shutdown_routers) == router_shutdown_count
 
     # test that inactive resources are not being listed as being shutdown
     set_router_status("router0", "NOTACTIVE")
@@ -132,13 +132,13 @@ def test_get_shutdown_resource_list(mock_get_unit_hostname,
     mock_get_unit_resource_list.side_effect = get_resource_lists()
 
     shutdown_routers = ngw_verifier.get_shutdown_resource_list("get-status-routers")
-    assert(len(shutdown_routers) == router_shutdown_count - 1)
+    assert len(shutdown_routers) == router_shutdown_count - 1
 
     # set router0 back to active
     set_router_status("router0", "ACTIVE")
 
 
-@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501
+@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_resource_list")
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
 @mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
 def test_get_online_resource_list(mock_get_unit_hostname,
@@ -153,12 +153,12 @@ def test_get_online_resource_list(mock_get_unit_hostname,
     ngw_verifier = get_ngw_verifier()
 
     router_online_count = 0
-    for h in mock_data:
-        if not h["shutdown"]:
-            router_online_count += len(h["routers"])
+    for host in mock_data:
+        if not host["shutdown"]:
+            router_online_count += len(host["routers"])
 
     online_routers = ngw_verifier.get_online_resource_list("get-status-routers")
-    assert(len(online_routers) == router_online_count)
+    assert len(online_routers) == router_online_count
 
     # test that NOT ACTIVE resources are not being listed as online/available
     set_router_status("router2", "NOTACTIVE")
@@ -169,13 +169,13 @@ def test_get_online_resource_list(mock_get_unit_hostname,
     mock_get_unit_resource_list.side_effect = get_resource_lists()
 
     online_routers = ngw_verifier.get_online_resource_list("get-status-routers")
-    assert(len(online_routers) == router_online_count - 1)
+    assert len(online_routers) == router_online_count - 1
 
     # set router2 back to active
     set_router_status("router2", "ACTIVE")
 
 
-@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501
+@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_resource_list")
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
 @mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
 def test_check_non_redundant_resource(mock_get_unit_hostname,
@@ -191,7 +191,7 @@ def test_check_non_redundant_resource(mock_get_unit_hostname,
 
     # host0 being shutdown, with no redundancy for its routers (router0, router1)
     result = ngw_verifier.check_non_redundant_resource("get-status-routers")
-    assert(result.success is False)
+    assert result.success is False
 
     mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
                                           all_ngw_host_names)
@@ -205,13 +205,13 @@ def test_check_non_redundant_resource(mock_get_unit_hostname,
     mock_data[2]["routers"].append({"id": "router1", "ha": False, "status": "ACTIVE"})
     mock_get_unit_resource_list.side_effect = get_resource_lists()
     result = ngw_verifier.check_non_redundant_resource("get-status-routers")
-    assert(result.success)
+    assert result.success
 
     # test setting redundant redundant router0 to NOTACTIVE will result in failure
     mock_data[1]["routers"][-1]["status"] = "NOTACTIVE"
     mock_get_unit_resource_list.side_effect = get_resource_lists()
     result = ngw_verifier.check_non_redundant_resource("get-status-routers")
-    assert(result.success is False)
+    assert result.success is False
 
     # test shutdown host1, which will take down the redundant router0
     mock_data[1]["shutdown"] = True
@@ -222,13 +222,13 @@ def test_check_non_redundant_resource(mock_get_unit_hostname,
 
     ngw_verifier = get_ngw_verifier()
     result = ngw_verifier.check_non_redundant_resource("get-status-routers")
-    assert(result.success is False)
+    assert result.success is False
 
     # reset shutdown for next tests
     mock_data[1]["shutdown"] = False
 
 
-@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501
+@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_resource_list")
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
 @mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
 def test_warn_router_ha(mock_get_unit_hostname,
@@ -244,13 +244,13 @@ def test_warn_router_ha(mock_get_unit_hostname,
 
     result = ngw_verifier.warn_router_ha()
     # no HA to failover, lack of redundancy is detected by check_non_redundant_resource
-    assert(result.reason == "")
+    assert result.reason == ""
 
     # Find router0 set it to HA
-    for h in mock_data:
-        for r in h["routers"]:
-            if r["id"] == "router0":
-                r["ha"] = True
+    for host in mock_data:
+        for router in host["routers"]:
+            if router["id"] == "router0":
+                router["ha"] = True
 
     mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
                                           all_ngw_host_names)
@@ -261,4 +261,4 @@ def test_warn_router_ha(mock_get_unit_hostname,
 
     result = ngw_verifier.warn_router_ha()
     # router is in HA, given instructions to failover
-    assert(result.reason)
+    assert result.reason

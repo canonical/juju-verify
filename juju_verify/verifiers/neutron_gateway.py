@@ -33,6 +33,15 @@ def get_unit_hostname(unit: Unit) -> str:
     return hostname
 
 
+def get_unit_resource_list(unit: Unit, get_resource_action_name: str) -> List[dict]:
+    """Given a get resource action, return the relevant resources on the unit."""
+    get_resource_action = run_action_on_unit(unit, get_resource_action_name)
+    action_name_res = NeutronGateway.action_name_result_map[get_resource_action_name]
+    resource_list_json = data_from_action(get_resource_action, action_name_res)
+    resource_list = json.loads(resource_list_json)
+    return resource_list
+
+
 class NeutronGateway(BaseVerifier):
     """Implementation of verification checks for the neutron-gateway charm."""
 
@@ -62,15 +71,6 @@ class NeutronGateway(BaseVerifier):
                 all_ngw_units = application.units
         return all_ngw_units
 
-    def get_unit_resource_list(self, unit: Unit,
-                               get_resource_action_name: str) -> List[dict]:
-        """Given a get resource action, return the relevant resources on the unit."""
-        get_resource_action = run_action_on_unit(unit, get_resource_action_name)
-        action_name_res = NeutronGateway.action_name_result_map[get_resource_action_name]
-        resource_list_json = data_from_action(get_resource_action, action_name_res)
-        resource_list = json.loads(resource_list_json)
-        return resource_list
-
     def get_resource_list(self, get_resource_action_name: str) -> List[dict]:
         """Given a get resource action, return matching resources from all units."""
         try:
@@ -83,8 +83,8 @@ class NeutronGateway(BaseVerifier):
 
         for unit in self.get_all_ngw_units():
             hostname = get_unit_hostname(unit)
-            host_resource_list = self.get_unit_resource_list(unit,
-                                                             get_resource_action_name)
+            host_resource_list = get_unit_resource_list(unit,
+                                                        get_resource_action_name)
 
             # add host metadata to resource
             for resource in host_resource_list:
