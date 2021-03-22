@@ -72,6 +72,14 @@ def get_shutdown_host_name_list():
     return [h["host"] for h in mock_data if h["shutdown"]]
 
 
+def set_router_status(routerid, status):
+    """Set status of given router id in mock data."""
+    for h in mock_data:
+        for r in h["routers"]:
+            if r["id"] == routerid:
+                r["status"] = status
+
+
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
 @mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
@@ -91,4 +99,42 @@ def test_get_resource_list(mock_get_unit_hostname,
     for h in mock_data:
         router_count += len(h["routers"])
     assert(len(router_list) == router_count)
+
+
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
+@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
+def test_get_shutdown_resource_list(mock_get_unit_hostname,
+                                    mock_get_all_ngw_units,
+                                    mock_get_unit_resource_list):
+    """Test validity of list of resources to be shutdown."""
+    mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
+                                          all_ngw_host_names)
+    mock_get_all_ngw_units.return_value = all_ngw_units
+    mock_get_unit_resource_list.side_effect = get_resource_lists()
+
+    ngw_verifier = get_ngw_verifier()
+
+    router_shutdown_count = 0
+    for h in mock_data:
+        if h["shutdown"]:
+            router_shutdown_count += len(h["routers"])
+
+    shutdown_routers = ngw_verifier.get_shutdown_resource_list("get-status-routers")
+    assert(len(shutdown_routers) == router_shutdown_count)
+
+    # test that inactive resources are not being listed as being shutdown
+    set_router_status("router0", "NOTACTIVE")
+
+    mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
+                                          all_ngw_host_names)
+    mock_get_all_ngw_units.return_value = all_ngw_units
+    mock_get_unit_resource_list.side_effect = get_resource_lists()
+
+    shutdown_routers = ngw_verifier.get_shutdown_resource_list("get-status-routers")
+    assert(len(shutdown_routers) == router_shutdown_count - 1)
+
+    # set router0 back to active
+    set_router_status("router0", "ACTIVE")
+
 
