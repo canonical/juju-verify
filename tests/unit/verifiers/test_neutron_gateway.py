@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """NeutronGateway verifier class test suite."""
+from unittest import mock
 from unittest.mock import MagicMock
 
 from juju.unit import Unit
@@ -70,4 +71,24 @@ def get_shutdown_host_name_list():
     """Get all hostnames of all hosts being shutdown."""
     return [h["host"] for h in mock_data if h["shutdown"]]
 
+
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
+@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
+def test_get_resource_list(mock_get_unit_hostname,
+                           mock_get_all_ngw_units,
+                           mock_get_unit_resource_list):
+    """Test list of resources returned by get_resource_list."""
+    mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
+                                          all_ngw_host_names)
+    mock_get_all_ngw_units.return_value = all_ngw_units
+    mock_get_unit_resource_list.side_effect = get_resource_lists()
+
+    ngw_verifier = get_ngw_verifier()
+    router_list = ngw_verifier.get_resource_list("get-status-routers")
+
+    router_count = 0
+    for h in mock_data:
+        router_count += len(h["routers"])
+    assert(len(router_list) == router_count)
 
