@@ -56,7 +56,6 @@ def model(session_mocker, all_units):
     mock_model = Model()
     session_mocker.patch.object(Model, 'connect_current')
     session_mocker.patch.object(Model, 'connect_model')
-    session_mocker.patch.object(Model, 'applications')
     session_mocker.patch.object(Unit, 'data')
     session_mocker.patch.object(Unit, 'machine')
     session_mocker.patch.object(Unit, 'run_action', new_callable=MagicMock)
@@ -64,15 +63,26 @@ def model(session_mocker, all_units):
     session_mocker.patch.object(Action, 'status').return_value = 'pending'
     session_mocker.patch.object(Action, 'data')
     units = session_mocker.patch('juju.model.Model.units', new_callable=PropertyMock)
+    applications = session_mocker.patch('juju.model.Model.applications',
+                                        new_callable=PropertyMock)
 
-    unit_map = {}
+    unit_map, app_map = {}, {}
     for unit_id in all_units:
         unit = Unit(unit_id, mock_model)
         charm_name = unit_id.rstrip(digits + '/')
         unit.data = {'charm-url': 'cs:focal/{}-1'.format(charm_name),
-                     "application": charm_name}
+                     "application": charm_name, "workload-status": {"current": "active"}}
         unit_map[unit_id] = unit
         unit.run_action.return_value = Action(unit_id + '-action', mock_model)
+
+        # add unit to model.applications
+        if charm_name not in app_map:
+            app_map[charm_name] = MagicMock()
+            app_map[charm_name].units = []
+
+        app_map[charm_name].units.append(unit)
+
     units.return_value = unit_map
+    applications.return_value = app_map
 
     return mock_model
