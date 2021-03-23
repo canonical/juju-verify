@@ -9,7 +9,7 @@ from juju_verify import juju_verify
 
 
 class BaseTestCase(unittest.TestCase):
-    """Base class for functional testing of nova-compute verifier."""
+    """Base class for functional testing of verifiers."""
 
     def __init__(self):
         """Set basic generic items for all tests."""

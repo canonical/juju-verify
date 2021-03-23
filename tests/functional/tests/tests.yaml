@@ -1,7 +1,7 @@
 tests:
-  nova-compute:
+  - nova-compute:
     - tests.test_novacompute.NovaCompute
-  ceph:
+  - ceph:
     - tests.test_ceph.CephTests
 gate_bundles:
   #- nova-compute: nova-compute
