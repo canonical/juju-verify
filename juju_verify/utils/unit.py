@@ -17,7 +17,7 @@
 """Helper function to manage Juju unit."""
 import asyncio
 import re
-from typing import List, Dict
+from typing import List, Dict, Any
 
 from juju.action import Action
 from juju.unit import Unit
@@ -27,8 +27,8 @@ from juju_verify.exceptions import VerificationError, CharmException
 CHARM_URL_PATTERN = re.compile(r'^(.*):(.*/)?(?P<charm>.*)(-\d+)$')
 
 
-def run_action_on_units(units: List[Unit], action: str,
-                        **params: str) -> Dict[str, Action]:
+def run_action_on_units(
+        units: List[Unit], action: str, **params: Any) -> Dict[str, Action]:
     """Run juju action on specified units.
 
     :param units: List/Tuple of Unit object
