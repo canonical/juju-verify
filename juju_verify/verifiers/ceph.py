@@ -15,8 +15,9 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """ceph-osd verification."""
+import json
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, Any, List
 
 from juju.unit import Unit
 
@@ -36,6 +37,8 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
         """Check Ceph cluster health for specific units.
 
         This will execute `get-health` against each unit provided.
+
+        :raises CharmException: if the units do not belong to the ceph-mon charm
         """
         verify_charm_unit("ceph-mon", *units)
         result = Result(success=True)
@@ -56,11 +59,51 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
 
         return result
 
+    @classmethod
+    def get_replication_number(cls, unit: Unit) -> Optional[int]:
+        """Get minimum replication number from ceph-mon unit.
+
+        This function runs the `list-pools` action with the parameter 'detail=true'
+        to get the replication number.
+        :raises CharmException: if the unit does not belong to the ceph-mon charm
+        :raises TypeError: if the object pools is not iterable
+        :raises KeyError: if the pool detail does not contain `size` or `min_size`
+        :raises json.decoder.JSONDecodeError: if json.loads failed
+        """
+        verify_charm_unit("ceph-mon", unit)
+        action_map = run_action_on_units([unit], "list-pools", detail=True)
+        action_output = data_from_action(action_map.get(unit.entity_id), "pools")
+        logger.debug("parse information about pools: %s", action_output)
+        pools: List[Dict[str, Any]] = json.loads(action_output)
+
+        if pools:
+            return min([pool["size"] - pool["min_size"] for pool in pools])
+
+        return None
+
 
 class CephOsd(CephCommon):
     """Implementation of verification checks for the ceph-osd charm."""
 
     NAME = 'ceph-osd'
+
+    def __init__(self, units: List[Unit]):
+        """Ceph-osd charm verifier."""
+        super().__init__(units=units)
+        self._ceph_mon_app_map: Optional[Dict[str, Unit]] = None
+
+    @property
+    def ceph_mon_app_map(self) -> Dict[str, Unit]:
+        """Get a map between ceph-osd applications and the first ceph-mon unit.
+
+        :returns: Dictionary with keys as distinct applications of verified units and
+                  values as the first ceph-mon unit obtained from the relation with the
+                  ceph-mon application (<application_name>:mon).
+        """
+        if self._ceph_mon_app_map is None:
+            self._ceph_mon_app_map = self._get_ceph_mon_app_map()
+
+        return self._ceph_mon_app_map
 
     def _get_ceph_mon_unit(self, app_name: str) -> Optional[Unit]:
         """Get first ceph-mon unit from relation."""
@@ -74,7 +117,7 @@ class CephOsd(CephCommon):
 
         return None
 
-    def get_ceph_mon_units(self) -> Dict[str, Unit]:
+    def _get_ceph_mon_app_map(self) -> Dict[str, Unit]:
         """Get first ceph-mon units related to verified units.
 
         This function groups by distinct application names for verified units, and then
@@ -95,12 +138,38 @@ class CephOsd(CephCommon):
 
         return ceph_mon_app_map
 
+    def check_ceph_cluster_health(self) -> Result:
+        """Check Ceph cluster health for unique ceph-mon units from ceph_mon_app_map."""
+        unique_ceph_mon_units = set(self.ceph_mon_app_map.values())
+        return self.check_cluster_health(*unique_ceph_mon_units)
+
+    def check_replication_number(self) -> Result:
+        """Check the minimum number of replications for related applications."""
+        result = Result(True)
+
+        for app_name, ceph_mon_unit in self.ceph_mon_app_map.items():
+            min_replication_number = self.get_replication_number(ceph_mon_unit)
+            units = len([unit for unit in self.units if unit.application == app_name])
+            inactive_units = len(
+                [unit for unit in self.model.applications[app_name].units
+                 if unit.workload_status != "active"]
+            )
+
+            if (min_replication_number and
+                    (units + inactive_units) > min_replication_number):
+                result += Result(
+                    False,
+                    f"The minimum number of replicas in '{app_name}' is "
+                    f"{min_replication_number:d} and it's not safe to restart/shutdown "
+                    f"{units:d} units. {inactive_units:d} units are not active."
+                )
+
+        return result
+
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected ceph-osd units."""
-        ceph_mon_app_map = self.get_ceph_mon_units()
-        # get unique ceph-mon units
-        unique_ceph_mon_units = set(ceph_mon_app_map.values())
-        return aggregate_results(self.check_cluster_health(*unique_ceph_mon_units))
+        return aggregate_results(self.check_ceph_cluster_health(),
+                                 self.check_replication_number())
 
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected ceph-osd units."""
