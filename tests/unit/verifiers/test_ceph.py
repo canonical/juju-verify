@@ -131,58 +131,70 @@ def test_get_ceph_mon_unit(model):
 
 
 @mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_unit")
-def test_get_ceph_mon_units(mock_get_ceph_mon_unit, model):
+def test_get_ceph_mon_app_map(mock_get_ceph_mon_unit, model):
     """Test function to get ceph-mon units related to verified units."""
     ceph_osd_units = [model.units["ceph-osd/0"], model.units["ceph-osd/1"]]
     mock_get_ceph_mon_unit.return_value = model.units["ceph-mon/0"]
 
-    units = CephOsd(ceph_osd_units).get_ceph_mon_units()
+    units = CephOsd(ceph_osd_units)._get_ceph_mon_app_map()
 
     assert units == {"ceph-osd": model.units["ceph-mon/0"]}
 
 
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
+@mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
+def test_check_ceph_cluster_health(
+        mock_check_cluster_health, mock_get_ceph_mon_app_map, model):
+    """Test check the Ceph cluster health for unique ceph-mon units."""
+    mock_get_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
+    mock_check_cluster_health.return_value = Result(True)
+
+    ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"]])
+    assert ceph_osd_verifier.check_ceph_cluster_health() == Result(True)
+    mock_check_cluster_health.assert_called_once_with(model.units["ceph-mon/0"])
+
+
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
 @mock.patch("juju_verify.verifiers.ceph.CephCommon.get_replication_number")
-def test_check_replication_number(mock_get_replication_number, model):
+def test_check_replication_number(
+        mock_get_replication_number, mock_get_ceph_mon_app_map, model):
     """Test check the minimum number of replications for related applications."""
     mock_get_replication_number.return_value = 1
-    ceph_mon_app_map = {"ceph-osd": model.units["ceph-mon/0"]}
+    mock_get_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
 
     # verified one ceph-osd unit
-    result = CephOsd([model.units["ceph-osd/0"]])\
-        .check_replication_number(ceph_mon_app_map)
-    assert result == Result(True)
+    ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"]])
+    assert ceph_osd_verifier.check_replication_number() == Result(True)
 
     # verified two ceph-osd unit
-    result = CephOsd([model.units["ceph-osd/0"], model.units["ceph-osd/1"]])\
-        .check_replication_number(ceph_mon_app_map)
-    assert result == Result(
-        False, "The minimum number of replications in 'ceph-osd' is 1 and "
+    ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"], model.units["ceph-osd/1"]])
+    assert ceph_osd_verifier.check_replication_number() == Result(
+        False, "The minimum number of replicas in 'ceph-osd' is 1 and "
                "it's not safe to restart/shutdown 2 units. 0 units are not active."
     )
 
     # verified one ceph-osd unit, if there is an unit that is not in an active state
     model.units["ceph-osd/1"].data["workload-status"]["current"] = "blocked"
-    result = CephOsd([model.units["ceph-osd/0"]])\
-        .check_replication_number(ceph_mon_app_map)
-    assert result == Result(
-        False, "The minimum number of replications in 'ceph-osd' is 1 and "
+    ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"]])
+    assert ceph_osd_verifier.check_replication_number() == Result(
+        False, "The minimum number of replicas in 'ceph-osd' is 1 and "
                "it's not safe to restart/shutdown 1 units. 1 units are not active."
     )
     model.units["ceph-osd/1"].data["workload-status"]["current"] = "active"
 
 
-@mock.patch("juju_verify.verifiers.ceph.CephOsd.get_ceph_mon_units")
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
 @mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
 @mock.patch("juju_verify.verifiers.ceph.CephCommon.get_replication_number")
 def test_verify_reboot(
         mock_get_replication_number,
         mock_check_cluster_health,
-        mock_get_ceph_mon_units,
+        mock_get_ceph_mon_app_map,
         model
 ):
     """Test reboot verification on CephOsd."""
     mock_get_replication_number.return_value = 1
-    mock_get_ceph_mon_units.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
+    mock_get_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
     mock_check_cluster_health.return_value = Result(True, "Ceph cluster is healthy")
 
     result = CephOsd([model.units["ceph-osd/0"]]).verify_reboot()
@@ -193,18 +205,18 @@ def test_verify_reboot(
     assert result == Result(True, "Ceph cluster is healthy")
 
 
-@mock.patch("juju_verify.verifiers.ceph.CephOsd.get_ceph_mon_units")
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
 @mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
 @mock.patch("juju_verify.verifiers.ceph.CephCommon.get_replication_number")
 def test_verify_shutdown(
         mock_get_replication_number,
         mock_check_cluster_health,
-        mock_get_ceph_mon_units,
+        mock_get_ceph_mon_app_map,
         model
 ):
     """Test shutdown verification on CephOsd."""
     mock_get_replication_number.return_value = 1
-    mock_get_ceph_mon_units.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
+    mock_get_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
     mock_check_cluster_health.return_value = Result(True, "Ceph cluster is healthy")
 
     result = CephOsd([model.units["ceph-osd/0"]]).verify_shutdown()

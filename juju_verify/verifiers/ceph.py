@@ -86,6 +86,20 @@ class CephOsd(CephCommon):
     """Implementation of verification checks for the ceph-osd charm."""
 
     NAME = 'ceph-osd'
+    _ceph_mon_app_map = None
+
+    @property
+    def ceph_mon_app_map(self) -> Dict[str, Unit]:
+        """Get a map between ceph-osd applications and the first ceph-mon unit.
+
+        :returns: Dictionary with keys as distinct applications of verified units and
+                  values as the first ceph-mon unit obtained from the relation with the
+                  ceph-mon application (<application_name>:mon).
+        """
+        if self._ceph_mon_app_map is None:
+            self._ceph_mon_app_map = self._get_ceph_mon_app_map()
+
+        return self._ceph_mon_app_map
 
     def _get_ceph_mon_unit(self, app_name: str) -> Optional[Unit]:
         """Get first ceph-mon unit from relation."""
@@ -99,7 +113,7 @@ class CephOsd(CephCommon):
 
         return None
 
-    def get_ceph_mon_units(self) -> Dict[str, Unit]:
+    def _get_ceph_mon_app_map(self) -> Dict[str, Unit]:
         """Get first ceph-mon units related to verified units.
 
         This function groups by distinct application names for verified units, and then
@@ -120,11 +134,16 @@ class CephOsd(CephCommon):
 
         return ceph_mon_app_map
 
-    def check_replication_number(self, ceph_mon_app_map: Dict[str, Unit]) -> Result:
+    def check_ceph_cluster_health(self) -> Result:
+        """Check Ceph cluster health for unique ceph-mon units from ceph_mon_app_map."""
+        unique_ceph_mon_units = set(self.ceph_mon_app_map.values())
+        return self.check_cluster_health(*unique_ceph_mon_units)
+
+    def check_replication_number(self) -> Result:
         """Check the minimum number of replications for related applications."""
         result = Result(True)
 
-        for app_name, ceph_mon_unit in ceph_mon_app_map.items():
+        for app_name, ceph_mon_unit in self.ceph_mon_app_map.items():
             min_replication_number = self.get_replication_number(ceph_mon_unit)
             units = len([unit for unit in self.units if unit.application == app_name])
             inactive_units = len(
@@ -136,7 +155,7 @@ class CephOsd(CephCommon):
                     (units + inactive_units) > min_replication_number):
                 result += Result(
                     False,
-                    f"The minimum number of replications in '{app_name}' is "
+                    f"The minimum number of replicas in '{app_name}' is "
                     f"{min_replication_number:d} and it's not safe to restart/shutdown "
                     f"{units:d} units. {inactive_units:d} units are not active."
                 )
@@ -145,11 +164,8 @@ class CephOsd(CephCommon):
 
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected ceph-osd units."""
-        ceph_mon_app_map = self.get_ceph_mon_units()
-        # get unique ceph-mon units
-        unique_ceph_mon_units = set(ceph_mon_app_map.values())
-        return aggregate_results(self.check_cluster_health(*unique_ceph_mon_units),
-                                 self.check_replication_number(ceph_mon_app_map))
+        return aggregate_results(self.check_ceph_cluster_health(),
+                                 self.check_replication_number())
 
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected ceph-osd units."""
