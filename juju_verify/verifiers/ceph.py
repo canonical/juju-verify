@@ -86,7 +86,11 @@ class CephOsd(CephCommon):
     """Implementation of verification checks for the ceph-osd charm."""
 
     NAME = 'ceph-osd'
-    _ceph_mon_app_map = None
+
+    def __init__(self, units: List[Unit]):
+        """Ceph-osd charm verifier."""
+        super().__init__(units=units)
+        self._ceph_mon_app_map = self._get_ceph_mon_app_map()
 
     @property
     def ceph_mon_app_map(self) -> Dict[str, Unit]:
@@ -96,9 +100,6 @@ class CephOsd(CephCommon):
                   values as the first ceph-mon unit obtained from the relation with the
                   ceph-mon application (<application_name>:mon).
         """
-        if self._ceph_mon_app_map is None:
-            self._ceph_mon_app_map = self._get_ceph_mon_app_map()
-
         return self._ceph_mon_app_map
 
     def _get_ceph_mon_unit(self, app_name: str) -> Optional[Unit]:
