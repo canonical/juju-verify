@@ -90,7 +90,7 @@ class CephOsd(CephCommon):
     def __init__(self, units: List[Unit]):
         """Ceph-osd charm verifier."""
         super().__init__(units=units)
-        self._ceph_mon_app_map = None
+        self._ceph_mon_app_map: Optional[Dict[str, Unit]] = None
 
     @property
     def ceph_mon_app_map(self) -> Dict[str, Unit]:
