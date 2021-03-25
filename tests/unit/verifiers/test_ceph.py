@@ -157,10 +157,10 @@ def test_verify_ceph_osd_shutdown(
 
 @pytest.mark.parametrize(
     "action_return_value, expected_result, hostname",
-    [("""['host0', 'host1', 'host2']""", Result(True), 'host1'),
-     ("""['host0', 'host1']""", Result(False), 'host1'),
-     ("""['host0', 'host1', 'host2']""", Result(False), None),
-     ("""['host0', 'host1', 'host2']""", Result(True), 'host5'),
+    [('["host0", "host1", "host2"]', Result(True), "host1"),
+     ('["host0", "host1"]', Result(False), "host1"),
+     ('["host0", "host1", "host2"]', Result(False), None),
+     ('["host0", "host1", "host2"]', Result(True), "host5"),
      ],
 )
 def test_check_ceph_mon_quorum(mocker, action_return_value, expected_result, hostname):

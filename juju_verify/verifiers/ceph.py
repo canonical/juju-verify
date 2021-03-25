@@ -158,12 +158,8 @@ class CephMon(CephCommon):
         for unit_id, action in action_results.items():
             # run this per unit because we might have multiple clusters
             mons[unit_id] = {
-                "known": set(
-                    json.loads(data_from_action(action, "knownmons").replace("'", '"'))
-                ),
-                "online": set(
-                    json.loads(data_from_action(action, "onlinemons").replace("'", '"'))
-                ),
+                "known": set(json.loads(data_from_action(action, "known-mons"))),
+                "online": set(json.loads(data_from_action(action, "online-mons"))),
             }
 
         for unit in self.units:
