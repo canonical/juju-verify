@@ -25,8 +25,13 @@ from juju.unit import Unit
 from pytest import raises
 
 from juju_verify.exceptions import VerificationError, CharmException
-from juju_verify.utils.unit import (run_action_on_units, verify_charm_unit,
-                                    parse_charm_name, get_first_active_unit)
+from juju_verify.utils.unit import (
+    run_action_on_units,
+    verify_charm_unit,
+    parse_charm_name,
+    get_first_active_unit,
+    get_applications_names
+)
 
 
 def test_run_action_on_units(mocker, model, all_units):
@@ -164,3 +169,9 @@ def test_get_first_active_unit(model):
 
     model.units["ceph-osd/0"].data["workload-status"]["current"] = "active"
     model.units["ceph-osd/1"].data["workload-status"]["current"] = "active"
+
+
+def test_get_applications_names(model):
+    """Test function to get all names of application based on the same charm."""
+    ceph_osd_apps = get_applications_names(model, "ceph-osd")
+    assert ceph_osd_apps == ["ceph-osd", "ceph-osd-hdd", "ceph-osd-ssd"]

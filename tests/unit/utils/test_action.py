@@ -30,8 +30,7 @@ def test_data_from_action(mocker):
     data = {'results': {host_key: host_value}}
     default = 'default'
 
-    mocker.patch.object(Action, 'data',
-                        new_callable=PropertyMock(return_value=data))
+    mocker.patch.object(Action, 'data', new_callable=PropertyMock(return_value=data))
     action = Action('0', Model())
 
     output = data_from_action(action, host_key, default)
