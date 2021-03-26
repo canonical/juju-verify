@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """NeutronGateway verifier class test suite."""
+import json
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -22,6 +23,7 @@ from juju.unit import Unit
 
 from juju_verify.verifiers import NeutronGateway
 from juju_verify.verifiers.neutron_gateway import get_unit_hostname
+from juju_verify.verifiers.neutron_gateway import get_unit_resource_list
 
 all_ngw_units = []
 for i in range(3):
@@ -297,3 +299,12 @@ def test_get_unit_hostname(mock_data_from_action, mock_run_action_on_unit):
     mock_data_from_action.assert_called_once()
 
 
+@mock.patch("juju_verify.verifiers.neutron_gateway.run_action_on_unit")
+@mock.patch("juju_verify.verifiers.neutron_gateway.data_from_action")
+def test_get_unit_resource_list(mock_data_from_action, mock_run_action_on_unit):
+    """Test Neutron agent resources are retrieved via Juju actions."""
+    resource = {"routers": [{"id": "r1"}]}
+    mock_data_from_action.return_value = json.dumps(resource)
+    resource_list = get_unit_resource_list(all_ngw_units[0], "get-status-routers")
+    mock_run_action_on_unit.assert_called_once()
+    assert resource == resource_list
