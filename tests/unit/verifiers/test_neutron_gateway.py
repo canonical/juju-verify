@@ -262,3 +262,28 @@ def test_warn_router_ha(mock_get_unit_hostname,
     result = ngw_verifier.warn_router_ha()
     # router is in HA, given instructions to failover
     assert result.reason
+
+
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.check_non_redundant_resource")  # noqa: E501 pylint: disable=C0301
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.warn_router_ha")
+@mock.patch("juju_verify.verifiers.neutron_gateway.aggregate_results")
+def test_verify_reboot_shutdown(mock_aggregate_results,
+                                mock_warn_router_ha,
+                                mock_check_non_redundant_resource):
+    """Test that reboot/shutdown call appropriate checks."""
+    ngw_verifier = get_ngw_verifier()
+    ngw_verifier.verify_reboot()
+    assert mock_check_non_redundant_resource.call_count == 3
+    mock_warn_router_ha.assert_called_once()
+    mock_aggregate_results.assert_called_once()
+
+    mock_check_non_redundant_resource.reset_mock()
+    mock_warn_router_ha.reset_mock()
+    mock_aggregate_results.reset_mock()
+
+    ngw_verifier.verify_shutdown()
+    mock_warn_router_ha.assert_called_once()
+    assert mock_check_non_redundant_resource.call_count == 3
+    mock_aggregate_results.assert_called_once()
+
+
