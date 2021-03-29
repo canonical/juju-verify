@@ -22,6 +22,7 @@ import argparse
 import logging
 import os
 import sys
+import typing
 from typing import List, Union
 
 from juju import errors, loop
@@ -91,11 +92,27 @@ async def connect_model(model_name: Union[str, None]) -> Model:
     return model
 
 
+class ExtendAction(argparse.Action):  # pylint: disable=too-few-public-methods
+    """Extend action for argparse.
+
+    NOTE (rgildein): This action should be removed after python 3.6 support ends, because
+                     since Python 3.8 the "extend" is available directly in stdlib.
+    """
+
+    @typing.no_type_check
+    def __call__(self, parser, namespace, values, option_string=None):
+        """Extend existing items with values."""
+        items = getattr(namespace, self.dest) or []
+        items = [*items, *values]  # extend list of items
+        setattr(namespace, self.dest, items)
+
+
 def parse_args() -> argparse.Namespace:
     """Parse cli arguments."""
     description = "Verify that it's safe to perform selected action on " \
                   "specified units"
     parser = argparse.ArgumentParser(description=description)
+    parser.register("action", "extend", ExtendAction)
 
     parser.add_argument('--model', '-m', required=False,
                         help='Connect to specific model.')
@@ -106,9 +123,9 @@ def parse_args() -> argparse.Namespace:
                         default='info', choices=['trace', 'debug', 'info'])
 
     target = parser.add_mutually_exclusive_group(required=True)
-    target.add_argument('--units', '-u', nargs='+', type=str,
+    target.add_argument('--units', '-u', action="extend", nargs='+', type=str,
                         help='Units to check.')
-    target.add_argument('--machines', '-M', nargs='+', type=str,
+    target.add_argument('--machines', '-M', action="extend", nargs='+', type=str,
                         help='Check all units on the machine.')
     return parser.parse_args()
 
