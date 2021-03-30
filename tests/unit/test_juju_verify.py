@@ -16,10 +16,10 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """Test suite for the entrypoint function and helpers."""
 
-import argparse
 import logging
 import os
 import sys
+from argparse import Namespace
 from asyncio import Future
 from unittest.mock import ANY, MagicMock
 
@@ -166,13 +166,38 @@ def test_unsupported_log_levels(fail, log_level):
     fail.assert_called_with(expected_msg)
 
 
-def test_parse_args(mocker):
-    """Rudimentary test for argument parsing."""
-    parser = mocker.patch.object(argparse.ArgumentParser, 'parse_args')
+@pytest.mark.parametrize("args, exp_args", [
+    (["reboot", "--units", "ceph-osd/0", "ceph-osd/1"],
+     dict(check="reboot", machines=None, units=["ceph-osd/0", "ceph-osd/1"])),
+    (["reboot", "--machines", "0", "1"],
+     dict(check="reboot", units=None, machines=["0", "1"])),
+    (["reboot", "--machines", "0", "--machines", "1"],
+     dict(check="reboot", units=None, machines=["0", "1"])),
+    (["reboot", "--machine", "0", "--machine", "1"],
+     dict(check="reboot", units=None, machines=["0", "1"])),
+    (["reboot", "--machine", "0", "--machine", "1", "2"],
+     dict(check="reboot", units=None, machines=["0", "1", "2"])),
+])
+def test_parse_args(args, exp_args, mocker):
+    """Test for argument parsing."""
+    mocker.patch("sys.argv", ["juju-verify", *args])
+    exp_result = Namespace(**exp_args, log_level="info", model=None)
 
-    juju_verify.parse_args()
+    result = juju_verify.parse_args()
+    assert result == exp_result
 
-    parser.assert_called_once()
+
+@pytest.mark.parametrize("args", [
+    ["--units", "ceph-osd/0"],
+    ["--machines", "0"],
+    ["reboot", "--units", "ceph-osd/0", "--machines", "0"]
+])
+def test_parse_args_error(args, mocker):
+    """Test for argument parsing raise error."""
+    mocker.patch("sys.argv", ["juju-verify", *args])
+
+    with pytest.raises(SystemExit):
+        juju_verify.parse_args()
 
 
 def test_main_entrypoint_target_units(mocker):
