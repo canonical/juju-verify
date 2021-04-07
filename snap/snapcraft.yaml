@@ -1,0 +1,20 @@
+name: juju-verify
+base: core18 
+version: git
+summary: Juju plugin to verify if it's safe to perform an operation on juju units
+description: |
+  This CLI tool is a Juju plugin that allows user to check whether it's safe
+  to perform some disruptive maintenance operations on Juju units, like `shutdown`
+  or `reboot`.
+
+grade: devel
+confinement: devmode
+
+apps:
+  juju-verify:
+    command: juju-verify
+parts:
+  juju-verify: 
+    plugin: python
+    python-version: python3
+    source : .
