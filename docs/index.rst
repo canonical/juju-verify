@@ -12,7 +12,7 @@
 
    getting-started
    modules
-
+   verifiers
 
 
 Indices and tables
