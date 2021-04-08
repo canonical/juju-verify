@@ -149,19 +149,24 @@ class CephOsd(CephCommon):
 
         for app_name, ceph_mon_unit in self.ceph_mon_app_map.items():
             min_replication_number = self.get_replication_number(ceph_mon_unit)
-            units = len([unit for unit in self.units if unit.application == app_name])
-            inactive_units = len(
-                [unit for unit in self.model.applications[app_name].units
-                 if unit.workload_status != "active"]
-            )
+            if min_replication_number is None:
+                continue  # get_replication_number returns None if no pools are available
 
-            if (min_replication_number and
-                    (units + inactive_units) > min_replication_number):
+            units = {
+                unit.entity_id for unit in self.units if unit.application == app_name
+            }
+            inactive_units = {
+                unit.entity_id for unit in self.model.applications[app_name].units
+                if unit.workload_status != "active"
+            }
+
+            if len(units.union(inactive_units)) > min_replication_number:
                 result += Result(
                     False,
                     f"The minimum number of replicas in '{app_name}' is "
                     f"{min_replication_number:d} and it's not safe to restart/shutdown "
-                    f"{units:d} units. {inactive_units:d} units are not active."
+                    f"{len(units):d} units. {len(inactive_units):d} units are not "
+                    f"active."
                 )
 
         return result

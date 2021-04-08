@@ -159,28 +159,49 @@ def test_check_ceph_cluster_health(
 def test_check_replication_number(
         mock_get_replication_number, mock_get_ceph_mon_app_map, model):
     """Test check the minimum number of replications for related applications."""
-    mock_get_replication_number.return_value = 1
     mock_get_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
+    mock_get_replication_number.return_value = None
 
-    # verified one ceph-osd unit
+    # [min_replication_number=None] verified one ceph-osd unit
     ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"]])
     assert ceph_osd_verifier.check_replication_number() == Result(True)
 
-    # verified two ceph-osd unit
+    # [min_replication_number=None] verified two ceph-osd unit
+    ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"], model.units["ceph-osd/1"]])
+    assert ceph_osd_verifier.check_replication_number() == Result(True)
+
+    mock_get_replication_number.return_value = 1
+
+    # [min_replication_number=1] verified one ceph-osd unit
+    ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"]])
+    assert ceph_osd_verifier.check_replication_number() == Result(True)
+
+    # [min_replication_number=1] verified two ceph-osd unit
     ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"], model.units["ceph-osd/1"]])
     assert ceph_osd_verifier.check_replication_number() == Result(
         False, "The minimum number of replicas in 'ceph-osd' is 1 and "
                "it's not safe to restart/shutdown 2 units. 0 units are not active."
     )
 
-    # verified one ceph-osd unit, if there is an unit that is not in an active state
+    # [min_replication_number=1] verified one ceph-osd unit,
+    # if there is an unit that is not in an active state
     model.units["ceph-osd/1"].data["workload-status"]["current"] = "blocked"
     ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"]])
     assert ceph_osd_verifier.check_replication_number() == Result(
         False, "The minimum number of replicas in 'ceph-osd' is 1 and "
                "it's not safe to restart/shutdown 1 units. 1 units are not active."
     )
+
+    # [min_replication_number=1] verified one ceph-osd unit that is not active
+    ceph_osd_verifier = CephOsd([model.units["ceph-osd/1"]])
+    assert ceph_osd_verifier.check_replication_number() == Result(True)
     model.units["ceph-osd/1"].data["workload-status"]["current"] = "active"
+
+    mock_get_replication_number.return_value = 2
+
+    # [min_replication_number=2] verified two ceph-osd unit
+    ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"], model.units["ceph-osd/1"]])
+    assert ceph_osd_verifier.check_replication_number() == Result(True)
 
 
 @mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
