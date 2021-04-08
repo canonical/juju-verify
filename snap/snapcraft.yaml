@@ -1,5 +1,5 @@
 name: juju-verify
-base: core18 
+base: core20 
 version: git
 summary: Juju plugin to verify if it's safe to perform an operation on juju units
 description: |
@@ -12,9 +12,9 @@ confinement: devmode
 
 apps:
   juju-verify:
-    command: juju-verify
+    command: bin/juju-verify
 parts:
   juju-verify: 
     plugin: python
-    python-version: python3
     source : .
+
