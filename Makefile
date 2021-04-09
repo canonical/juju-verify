@@ -9,6 +9,7 @@ help:
 	@echo " make unittest-full - run the tests defined in tests/unit/ subdirectory with python 3.6 and 3.8"
 	@echo " make release - build juju-verify and give hints to release it"
 	@echo " make clean - remove unneeded files"
+	@echo " make snap - build juju-verify as a snap"
 	@echo ""
 
 lint:
@@ -38,6 +39,10 @@ build-verify:
 	@echo "Verifying built python package"
 	@tox -e build-verify
 
+snap:
+	@echo "Building snap from the python package"
+	@snapcraft snap
+
 release: clean build build-verify
 	@echo "Release procedure not yet supported"
 	@echo "Hint: twine upload dist/*"
@@ -47,4 +52,4 @@ clean:
 	@git clean -fxd -e '!.idea'
 
 # The targets below don't depend on a file
-.PHONY: lint test unittest release clean help build build-verify
+.PHONY: lint test unittest release clean help build build-verify snap
