@@ -11,17 +11,16 @@ grade: stable
 confinement: strict
 
 plugs:
-  read-juju-files:
+  dot-local-share-juju:
     interface: personal-files
     read:
       - $HOME/.local/share/juju
-
 
 apps:
   juju-verify:
     command: bin/juju-verify.wrapper
     plugs:
-      - read-juju-files
+      - dot-local-share-juju
       - network
 
 parts:
