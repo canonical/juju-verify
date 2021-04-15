@@ -22,7 +22,9 @@ from typing import Dict, Optional, Any, List
 from juju.unit import Unit
 
 from juju_verify.utils.action import data_from_action
-from juju_verify.utils.unit import verify_charm_unit, run_action_on_units
+from juju_verify.utils.unit import (
+    verify_charm_unit, run_action_on_units, get_first_active_unit
+)
 from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.result import aggregate_results, Result
 
@@ -71,13 +73,13 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
         :raises json.decoder.JSONDecodeError: if json.loads failed
         """
         verify_charm_unit("ceph-mon", unit)
-        action_map = run_action_on_units([unit], "list-pools", detail=True)
-        action_output = data_from_action(action_map.get(unit.entity_id), "pools")
+        action_map = run_action_on_units([unit], "list-pools", format="json")
+        action_output = data_from_action(action_map.get(unit.entity_id), "message")
         logger.debug("parse information about pools: %s", action_output)
         pools: List[Dict[str, Any]] = json.loads(action_output)
 
         if pools:
-            return min([pool["size"] - pool["min_size"] for pool in pools])
+            return min(pool["size"] - pool["min_size"] for pool in pools)
 
         return None
 
@@ -110,8 +112,8 @@ class CephOsd(CephCommon):
         try:
             for relation in self.model.applications[app_name].relations:
                 if relation.matches(f"{app_name}:mon"):
-                    # selecting the first unit from the application provided by relation
-                    return relation.provides.application.units[0]
+                    return get_first_active_unit(relation.provides.application.units)
+
         except (IndexError, KeyError) as error:
             logger.debug("Error to get ceph-mon unit from relations: %s", error)
 
@@ -128,15 +130,10 @@ class CephOsd(CephCommon):
         applications = {unit.application for unit in self.units}
         logger.debug("affected applications %s", map(str, applications))
 
-        ceph_mon_app_map = {}
-        for app_name in applications:
-            unit = self._get_ceph_mon_unit(app_name)
-            if unit is not None:
-                ceph_mon_app_map[app_name] = unit
+        app_map = {name: self._get_ceph_mon_unit(name) for name in applications}
+        logger.debug("found units %s", map(str, app_map.values()))
 
-        logger.debug("found units %s", map(str, ceph_mon_app_map.values()))
-
-        return ceph_mon_app_map
+        return {name: unit for name, unit in app_map.items() if unit is not None}
 
     def check_ceph_cluster_health(self) -> Result:
         """Check Ceph cluster health for unique ceph-mon units from ceph_mon_app_map."""

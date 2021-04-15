@@ -17,7 +17,7 @@
 """Helper function to manage Juju unit."""
 import asyncio
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from juju.action import Action
 from juju.unit import Unit
@@ -81,3 +81,12 @@ def verify_charm_unit(charm_name: str, *units: Unit) -> None:
         if not parse_charm_name(unit.charm_url) == charm_name:
             raise CharmException(f"The unit {unit.entity_id} does not belong to the "
                                  f"charm {charm_name}.")
+
+
+def get_first_active_unit(units: List[Unit]) -> Optional[Unit]:
+    """Find first unit in active workload status."""
+    for unit in units:
+        if unit.workload_status == "active":
+            return unit
+
+    return None
