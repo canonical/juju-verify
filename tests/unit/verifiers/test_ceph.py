@@ -86,7 +86,7 @@ def test_check_cluster_health_error(model):
 def test_get_replication_number(mock_run_action_on_units, model):
     """Test get minimum replication number from ceph-mon unit."""
     action = MagicMock()
-    action.data.get.side_effect = {"results": {"pools": json.dumps([
+    action.data.get.side_effect = {"results": {"message": json.dumps([
         {"pool": 1, "name": "test_1", "size": 5, "min_size": 2},
         {"pool": 2, "name": "test_2", "size": 5, "min_size": 2},
         {"pool": 3, "name": "test_3", "size": 3, "min_size": 2},
@@ -97,7 +97,7 @@ def test_get_replication_number(mock_run_action_on_units, model):
     assert CephCommon.get_replication_number(model.units["ceph-mon/0"]) == 1
 
     # test return None if list of pools is empty
-    action.data.get.side_effect = {"results": {"pools": json.dumps([])}}.get
+    action.data.get.side_effect = {"results": {"message": json.dumps([])}}.get
     assert CephCommon.get_replication_number(model.units["ceph-mon/0"]) is None
 
 

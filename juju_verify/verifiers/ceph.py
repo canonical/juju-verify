@@ -71,8 +71,8 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
         :raises json.decoder.JSONDecodeError: if json.loads failed
         """
         verify_charm_unit("ceph-mon", unit)
-        action_map = run_action_on_units([unit], "list-pools", detail=True)
-        action_output = data_from_action(action_map.get(unit.entity_id), "pools")
+        action_map = run_action_on_units([unit], "list-pools", format="json")
+        action_output = data_from_action(action_map.get(unit.entity_id), "message")
         logger.debug("parse information about pools: %s", action_output)
         pools: List[Dict[str, Any]] = json.loads(action_output)
 
