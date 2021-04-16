@@ -1,10 +1,9 @@
 """Test deployment and functionality of juju-verify."""
 import logging
 
+import zaza
 from juju import loop
 from tests.base import OpenstackBaseTestCase
-
-import zaza
 
 from juju_verify import juju_verify
 from juju_verify.verifiers import get_verifier
@@ -13,10 +12,11 @@ logger = logging.getLogger()
 
 
 class NovaCompute(OpenstackBaseTestCase):
-    """Functional tests of nova-compute verifier"""
+    """Functional tests of nova-compute verifier."""
 
     CHECK = 'shutdown'
     APPLICATION_NAME = 'nova-compute'
+    RESOURCE_PREFIX = 'juju-verify-nova-compute'
 
     def get_running_vms(self, nova_unit):
         """Return number of VM instances running on nova_unit.
@@ -43,9 +43,9 @@ class NovaCompute(OpenstackBaseTestCase):
     def test_empty_az_fails(self):
         """Test that removing all computes from AZ fails the check.
 
-            For this test, we assume that all nova-computes are part of the
-            default availability zone ("nova"). Removing all nova-compute nodes
-            should then trigger empty AZ error.
+        For this test, we assume that all nova-computes are part of the
+        default availability zone ("nova"). Removing all nova-compute nodes
+        should then trigger empty AZ error.
         """
         nova_application = self.model.applications.get('nova-compute')
         verfier = get_verifier(nova_application.units)
@@ -58,18 +58,16 @@ class NovaCompute(OpenstackBaseTestCase):
 
     def test_running_vm_fails(self):
         """Test that check fails if there are running VMs on the compute."""
-        self.RESOURCE_PREFIX = 'juju-verify-nova-compute'
         logger.info("Starting new VM instance")
         self.launch_guest('blocking-vm')
 
         for nova_unit in zaza.model.get_units('nova-compute'):
             nova_unit_name = nova_unit.entity_id
             running_vms = self.get_running_vms(nova_unit_name)
-            logger.info("nova unit: %s; Running VM's: %s",
-                         nova_unit_name, running_vms)
+            logger.info("Checking nova unit: %s; Running VM's: %s",
+                        nova_unit_name, running_vms)
             if running_vms > 0:
-                logger.debug("Selecting nova-compute unit '%s'",
-                             nova_unit_name)
+                logger.debug("Selecting nova-compute unit '%s'", nova_unit_name)
                 compute_with_vm = nova_unit_name
                 break
         else:

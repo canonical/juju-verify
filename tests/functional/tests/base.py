@@ -22,19 +22,23 @@ class BaseTestCase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        """Teardown class after running tests."""
         loop.run(cls.model.disconnect())
 
 
 class OpenstackBaseTestCase(BaseTestCase, OpenStackBaseTest):
+    """Base class for functional testing of OpenStack charms verifiers."""
 
     APPLICATION_NAME = None
 
     @classmethod
     def setUpClass(cls):
+        """Run class setup for running tests."""
         BaseTestCase.setUpClass()
         OpenStackBaseTest.setUpClass(application_name=cls.APPLICATION_NAME)
 
     @classmethod
     def tearDownClass(cls):
-        super(BaseTestCase, cls).tearDownClass()
-        super(OpenstackBaseTestCase, cls).tearDownClass()
+        """Teardown class after running tests."""
+        BaseTestCase.tearDownClass()
+        OpenStackBaseTest.tearDownClass()
