@@ -55,9 +55,8 @@ Don't forget to add unit and functional tests, and run:
 make test
 ```
 
-For functional tests some applications require the use of a VIP.  Please ensure
-you set the environment variable `OS_VIP00` to a suitable VIP address before
-running functional tests.
+Functional tests require some applications to use a VIP. Please ensure the `OS_VIP00`
+environment variable is set to a suitable VIP address before running functional tests.
 
 ## Submit a bug
 

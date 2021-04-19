@@ -49,8 +49,8 @@ class NovaCompute(OpenstackBaseTestCase):
         """
         nova_application = self.model.applications.get('nova-compute')
         verfier = get_verifier(nova_application.units)
-        expected_reason = "Removing these units would leave these " \
-                          "availability zones empty: {'nova'}"
+        expected_reason = ("Removing these units would leave these " 
+                           "availability zones empty: {'nova'}")
         result = verfier.verify(self.CHECK)
 
         self.assertFalse(result.success)
