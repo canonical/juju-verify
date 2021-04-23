@@ -24,6 +24,6 @@ def data_from_action(action: Action, key: str, default: str = '') -> str:
     :param action: juju.Action instance
     :param key: key to search for in action's results
     :param default: default value to return if the 'key' is not found
-    :return: value from the action's result identified by 'key' or default
+    :return: value from the action's results identified by 'key' or default
     """
     return action.data.get('results', {}).get(key, default)

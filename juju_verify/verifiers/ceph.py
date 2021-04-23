@@ -17,18 +17,72 @@
 """ceph-osd verification."""
 import json
 import logging
+from collections import defaultdict
 from typing import Dict, Optional, Any, List
 
 from juju.unit import Unit
 
 from juju_verify.utils.action import data_from_action
 from juju_verify.utils.unit import (
-    verify_charm_unit, run_action_on_units, get_first_active_unit
+    verify_charm_unit,
+    run_action_on_units,
+    get_first_active_unit,
+    get_applications_names
 )
 from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.result import aggregate_results, Result
 
 logger = logging.getLogger()
+
+
+class AvailabilityZone:
+    """Availability zone."""
+
+    def __init__(self, **data: str):
+        """Availability zone initialization."""
+        self._data = data
+
+    def __getattr__(self, item: str) -> Optional[str]:
+        """Get element from crush map hierarchy."""
+        if item not in self.crush_map_hierarchy:
+            raise AttributeError(f"'{self.__class__}' object has no attribute '{item}'")
+
+        return self._data.get(item, None)
+
+    def __eq__(self, other: object) -> bool:
+        """Compare two Result instances."""
+        if not isinstance(other, AvailabilityZone):
+            return NotImplemented
+
+        return str(self) == str(other)
+
+    def __str__(self) -> str:
+        """Return string representation of AZ objects."""
+        return ",".join(
+            [f"{crush_map_type}={self._data[crush_map_type]}" for crush_map_type
+             in self.crush_map_hierarchy if crush_map_type in self._data]
+        )
+
+    def __hash__(self) -> int:
+        """Return hash representation of AZ objects."""
+        return hash(self.__str__())
+
+    @property
+    def crush_map_hierarchy(self) -> List[str]:
+        """Get Ceph Crush Map hierarchy."""
+        return [
+            "root",  # 10
+            "region",  # 9
+            "datacenter",  # 8
+            "room",  # 7
+            "pod",  # 6
+            "pdu",  # 5
+            "row",  # 4
+            "rack",  # 3
+            "chassis",  # 2
+            "host",  # 1
+            "osd",  # 0
+        ]
 
 
 class CephCommon(BaseVerifier):  # pylint: disable=W0223
@@ -83,6 +137,39 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
 
         return None
 
+    @classmethod
+    def get_number_of_free_units(cls, unit: Unit) -> int:
+        """Get number of free units from ceph df.
+
+        The `ceph df` will provide a cluster’s data usage and data distribution among
+        pools and this function calculates the number of units that are safe to remove.
+        """
+        verify_charm_unit("ceph-mon", unit)
+        # NOTE (rgildein): This functionality is not complete and will be part of the
+        #                  fix on LP#1921121.
+        logger.warning("WARNING: The function to get the number of free units from "
+                       "'ceph df' is in WIP and returns only 1. See LP#1921121 "
+                       "for more information.")
+        return 1
+
+    @classmethod
+    def get_availability_zones(cls,  *units: Unit) -> Dict[str, AvailabilityZone]:
+        """Get information about availability zones for ceph-osd units."""
+        # NOTE (rgildein): This has been tested, but it will be fully functional only
+        #                  after merging the changes.
+        #                  https://review.opendev.org/c/openstack/charm-ceph-osd/+/778159
+        verify_charm_unit("ceph-osd", *units)
+        action_map = run_action_on_units(list(units), "get-availability-zone")
+
+        availability_zone = {}
+        for unit, action in action_map.items():
+            action_output = data_from_action(action, "availability-zone", "{}")
+            unit_availability_zone = json.loads(action_output)["unit"]
+            unit_availability_zone.pop("host")  # need to compare AZ without host
+            availability_zone[unit] = AvailabilityZone(**unit_availability_zone)
+
+        return availability_zone
+
 
 class CephOsd(CephCommon):
     """Implementation of verification checks for the ceph-osd charm."""
@@ -135,6 +222,32 @@ class CephOsd(CephCommon):
 
         return {name: unit for name, unit in app_map.items() if unit is not None}
 
+    def get_free_app_units(self, apps: List[str]) -> Dict[str, int]:
+        """Get number of free units for each application."""
+        free_units = {}
+        for app_name in apps:
+            ceph_mon_unit = self._get_ceph_mon_unit(app_name)
+            if ceph_mon_unit:
+                free_units[app_name] = self.get_number_of_free_units(ceph_mon_unit)
+
+        return free_units
+
+    def get_apps_availability_zones(
+            self, apps: List[str]) -> Dict[AvailabilityZone, List[Unit]]:
+        """Get information about availability zone for each ceph-osd unit in application.
+
+        This function return dictionary contain AZ as key and list of units as value.
+        e.g. {AZ(per_host=False, rack="nova", row=None): [<Unit entity_id="ceph-osd/0">]}
+        """
+        availability_zones = defaultdict(list)
+        for app_name in apps:
+            app_units = self.model.applications[app_name].units
+            app_availability_zones = self.get_availability_zones(*app_units)
+            for unit_id, availability_zone in app_availability_zones.items():
+                availability_zones[availability_zone].append(self.model.units[unit_id])
+
+        return availability_zones
+
     def check_ceph_cluster_health(self) -> Result:
         """Check Ceph cluster health for unique ceph-mon units from ceph_mon_app_map."""
         unique_ceph_mon_units = set(self.ceph_mon_app_map.values())
@@ -168,10 +281,44 @@ class CephOsd(CephCommon):
 
         return result
 
+    def check_availability_zone(self) -> Result:
+        """Check availability zones resources.
+
+        This function checks whether the units can be shutdown/reboot without
+        interrupting operation in the availability zone.
+        """
+        result = Result(True)
+        ceph_osd_apps = get_applications_names(self.model, "ceph-osd")
+        free_app_units = self.get_free_app_units(ceph_osd_apps)
+        availability_zones = self.get_apps_availability_zones(ceph_osd_apps)
+
+        for availability_zone, units in availability_zones.items():
+            inactive_units = {
+                unit.entity_id for unit in units if unit.workload_status != "active"
+            }
+            units_to_remove = {
+                unit.entity_id for unit in units if unit.entity_id in self.unit_ids
+            }
+            free_units = min(free_app_units[unit.application] for unit in units)
+            logger.debug("The availability zone %s has %d inactive and %d free units. "
+                         "Trying to remove %s units.", str(availability_zone),
+                         len(inactive_units), free_units, units_to_remove)
+
+            if len(units_to_remove.union(inactive_units)) > free_units:
+                result += Result(
+                    False,
+                    f"It's not safe to removed units {units_to_remove} in the "
+                    f"availability zone '{availability_zone}'. [free_units="
+                    f"{free_units:d}, inactive_units={len(inactive_units):d}]"
+                )
+
+        return result
+
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected ceph-osd units."""
         return aggregate_results(self.check_ceph_cluster_health(),
-                                 self.check_replication_number())
+                                 self.check_replication_number(),
+                                 self.check_availability_zone())
 
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected ceph-osd units."""
