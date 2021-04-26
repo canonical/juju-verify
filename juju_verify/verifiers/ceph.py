@@ -294,7 +294,7 @@ class CephOsd(CephCommon):
         This function checks whether the units can be shutdown/reboot without
         interrupting operation in the availability zone.
         """
-        result = Result(True)
+        result = Result()
         ceph_osd_apps = get_applications_names(self.model, "ceph-osd")
         free_app_units = self.get_free_app_units(ceph_osd_apps)
         availability_zones = self.get_apps_availability_zones(ceph_osd_apps)
@@ -313,12 +313,15 @@ class CephOsd(CephCommon):
 
             if len(units_to_remove.union(inactive_units)) > free_units:
                 result += Result(
-                    False,
+                    Severity.FAIL,
                     f"It's not safe to removed units {units_to_remove} in the "
                     f"availability zone '{availability_zone}'. [free_units="
                     f"{free_units:d}, inactive_units={len(inactive_units):d}]"
                 )
 
+        if result.success:
+            result.add_partial_result(Severity.OK,
+                                      'Availability zone check passed.')
         return result
 
     def verify_reboot(self) -> Result:
