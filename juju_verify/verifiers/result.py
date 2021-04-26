@@ -164,6 +164,11 @@ class Result:
         """
         return all(partial.severity < Severity.UNSUPPORTED for partial in self.partials)
 
+    @property
+    def empty(self) -> bool:
+        """Return True if result does not contain any partial results."""
+        return not bool(self.partials)
+
     def add_partial_result(self, severity: Severity, message: str) -> None:
         """Add partial result to this instance."""
         self.partials.append(Partial(severity, message))

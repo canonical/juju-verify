@@ -23,7 +23,7 @@ import pytest
 
 from juju_verify.exceptions import CharmException
 from juju_verify.verifiers.ceph import AvailabilityZone, CephCommon, CephOsd
-from juju_verify.verifiers.result import Result, Severity, Partial
+from juju_verify.verifiers.result import Result, Severity
 
 
 @pytest.mark.parametrize("az_info, ex_az", [
@@ -309,10 +309,10 @@ def test_check_availability_zone(
 
     # verified two ceph-osd unit
     result_fail = CephOsd([model.units["ceph-osd/0"],
-                      model.units["ceph-osd/1"]]).check_availability_zone()
+                           model.units["ceph-osd/1"]]).check_availability_zone()
     expected_msg = "availability zone 'root=default'. [free_units=1, inactive_units=0]"
 
-    assert result_fail.success == False
+    assert result_fail.success is False
     assert any((partial.severity == Severity.FAIL and expected_msg in partial.message)
                for partial in result_fail.partials)
 
@@ -333,7 +333,8 @@ def test_verify_reboot(
     result = CephOsd([model.units["ceph-osd/0"]]).verify_reboot()
     expected_result = Result()
     expected_result.add_partial_result(Severity.OK, "Ceph cluster is healthy")
-    expected_result.add_partial_result(Severity.OK, "Minimum replica number check passed.")
+    expected_result.add_partial_result(Severity.OK,
+                                       "Minimum replica number check passed.")
     expected_result.add_partial_result(Severity.OK, "Availability zone check passed.")
     assert result == expected_result
     mock_check_ceph_cluster_health.assert_called_once_with()
@@ -357,7 +358,8 @@ def test_verify_shutdown(
     result = CephOsd([model.units["ceph-osd/0"]]).verify_shutdown()
     expected_result = Result()
     expected_result.add_partial_result(Severity.OK, "Ceph cluster is healthy")
-    expected_result.add_partial_result(Severity.OK, "Minimum replica number check passed.")
+    expected_result.add_partial_result(Severity.OK,
+                                       "Minimum replica number check passed.")
     expected_result.add_partial_result(Severity.OK, "Availability zone check passed.")
     assert result == expected_result
     mock_check_ceph_cluster_health.assert_called_once_with()

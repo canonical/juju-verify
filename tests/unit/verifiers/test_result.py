@@ -238,6 +238,15 @@ def test_result_success():
     assert not result.success
 
 
+@pytest.mark.parametrize('result, expected_emptiness', [
+    pytest.param(Result(), True, id='result-empty'),
+    pytest.param(Result(Severity.OK, 'foo'), False, id='result-not-empty')
+])
+def test_result_empty(result, expected_emptiness):
+    """Test expected values of Result.empty property."""
+    assert result.empty == expected_emptiness
+
+
 def test_aggregate_results():
     """Test aggregation of multiple results."""
     partial_1 = Partial(Severity.OK, 'foo')

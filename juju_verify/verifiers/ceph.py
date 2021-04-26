@@ -283,7 +283,7 @@ class CephOsd(CephCommon):
                     f"active."
                 )
 
-        if result.success:
+        if result.empty:
             result.add_partial_result(Severity.OK,
                                       'Minimum replica number check passed.')
         return result
@@ -319,7 +319,7 @@ class CephOsd(CephCommon):
                     f"{free_units:d}, inactive_units={len(inactive_units):d}]"
                 )
 
-        if result.success:
+        if result.empty:
             result.add_partial_result(Severity.OK,
                                       'Availability zone check passed.')
         return result
