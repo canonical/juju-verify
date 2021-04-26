@@ -121,13 +121,9 @@ class Result:
         """Perform "add" operation with another Result instance."""
         if not isinstance(other, Result):
             return NotImplemented
-        if self.partials:
-            partial = self.partials[0]
-            new_obj = Result(partial.severity, partial.message)
-        else:
-            new_obj = Result()
+        new_obj = Result()
 
-        for partial in self.partials[1:] + other.partials:
+        for partial in self.partials + other.partials:
             new_obj.partials.append(partial)
 
         return new_obj
