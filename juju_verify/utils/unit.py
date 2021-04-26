@@ -16,10 +16,12 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """Helper function to manage Juju unit."""
 import asyncio
+import os
 import re
 from typing import List, Dict, Any, Optional
 
 from juju.action import Action
+from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError, CharmException
@@ -59,7 +61,7 @@ def run_action_on_units(
                                                 unit))
 
     if failed_actions_msg:
-        raise VerificationError('\n'.join(failed_actions_msg))
+        raise VerificationError(os.linesep.join(failed_actions_msg))
 
     return result_map
 
@@ -90,3 +92,14 @@ def get_first_active_unit(units: List[Unit]) -> Optional[Unit]:
             return unit
 
     return None
+
+
+def get_applications_names(model: Model, application: str) -> List[str]:
+    """Get all names of application based on the same charm."""
+    applications = []
+    for app_name, app in model.applications.items():
+        unit = get_first_active_unit(app.units)
+        if unit and parse_charm_name(unit.charm_url) == application:
+            applications.append(app_name)
+
+    return applications

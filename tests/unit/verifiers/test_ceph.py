@@ -16,14 +16,48 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """CephOsd verifier class test suite."""
 import json
+import os
 from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
 
 from juju_verify.exceptions import CharmException
-from juju_verify.verifiers import CephOsd, Result, Severity
-from juju_verify.verifiers.ceph import CephCommon
+from juju_verify.verifiers.ceph import AvailabilityZone, CephCommon, CephOsd
+from juju_verify.verifiers.result import Result, Severity
+
+
+@pytest.mark.parametrize("az_info, ex_az", [
+    ({"root": "default", "host": "test"}, "root=default,host=test"),
+    ({"root": "default", "rack": "nova", "row": "row1", "host": "test"},
+     "root=default,row=row1,rack=nova,host=test"),
+    ({"root": "default", "skip_argument": "test"}, "root=default"),
+])
+def test_az(az_info, ex_az):
+    """Test availability zone object."""
+    availability_zone = AvailabilityZone(**az_info)
+    assert str(availability_zone) == ex_az
+    assert hash(availability_zone) == hash(ex_az)
+
+
+def test_az_getattr():
+    """Test get attribute from AZ."""
+    availability_zone = AvailabilityZone(root="default", host="juju-1", test="test")
+    assert availability_zone.root == "default"
+    assert availability_zone.host == "juju-1"
+    with pytest.raises(AttributeError):
+        assert availability_zone.test == "test"
+
+
+def test_az_eq():
+    """Test AZ.__eq__."""
+    assert AvailabilityZone(root="default", host="juju-1") == \
+           AvailabilityZone(root="default", host="juju-1")
+    assert AvailabilityZone(root="default", host="juju-1") != \
+           AvailabilityZone(root="default", host="juju-2")
+    assert AvailabilityZone(root="default", host="juju-1") is not None
+    assert AvailabilityZone(root="default", host="juju-1") != 1
+    assert AvailabilityZone(root="default", host="juju-1") != "root=default,host=juju-1"
 
 
 @mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
@@ -105,6 +139,27 @@ def test_get_replication_number_error(model):
     """Test get minimum replication number from ceph-mon unit raise CharmException."""
     with pytest.raises(CharmException):
         CephCommon.get_replication_number(model.units["ceph-osd/0"])
+
+
+def test_get_number_of_free_units(model):
+    """Test get number of free units from ceph df."""
+    assert CephCommon.get_number_of_free_units(model.units["ceph-mon/0"])
+
+    with pytest.raises(CharmException):
+        CephCommon.get_number_of_free_units(model.units["ceph-osd/0"])
+
+
+@mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
+def test_get_availability_zones(mock_run_action_on_units, model):
+    """Test get information about availability zones for ceph-osd units."""
+    mock_action = MagicMock()
+    mock_action.data.get.side_effect = {"results": {"availability-zone": json.dumps(
+        {"unit": {"root": "default", "rack": "nova", "host": "test"}})}}.get
+    mock_run_action_on_units.return_value = {"ceph-osd/0": mock_action}
+
+    availability_zone = CephCommon.get_availability_zones(model.units["ceph-osd/0"])
+    assert availability_zone["ceph-osd/0"] == AvailabilityZone(root="default",
+                                                               rack="nova")
 
 
 def test_get_ceph_mon_unit(model):
@@ -208,47 +263,94 @@ def test_check_replication_number(
     assert ceph_osd_verifier.check_replication_number() == check_passed_result
 
 
-@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
-@mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
-@mock.patch("juju_verify.verifiers.ceph.CephCommon.get_replication_number")
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_unit")
+@mock.patch("juju_verify.verifiers.ceph.CephOsd.get_number_of_free_units")
+def test_get_free_app_units(
+        mock_get_number_of_free_units, mock_get_ceph_mon_unit, model
+):
+    """Test get number of free units for each application."""
+    mock_get_ceph_mon_unit.return_value = model.units["ceph-mon/0"]
+    mock_get_number_of_free_units.return_value = 1
+
+    free_units = CephOsd([model.units["ceph-osd/0"]]).get_free_app_units(["ceph-osd"])
+    assert free_units == {"ceph-osd": 1}
+    mock_get_number_of_free_units.assert_called_once_with(model.units["ceph-mon/0"])
+
+
+@mock.patch("juju_verify.verifiers.ceph.CephCommon.get_availability_zones")
+def test_get_apps_availability_zones(mock_get_availability_zones, model):
+    """Test get information about availability zone for each unit in application."""
+    exp_az = AvailabilityZone(root="default", rack="nova")
+    mock_get_availability_zones.return_value = {
+        "ceph-osd/0": exp_az, "ceph-osd/1": exp_az
+    }
+    azs = CephOsd([model.units["ceph-osd/0"]]).get_apps_availability_zones(["ceph-osd"])
+    assert azs == {exp_az: [model.units["ceph-osd/0"], model.units["ceph-osd/1"]]}
+    mock_get_availability_zones.assert_called_once_with(model.units["ceph-osd/0"],
+                                                        model.units["ceph-osd/1"])
+
+
+@mock.patch("juju_verify.verifiers.ceph.CephOsd.get_free_app_units")
+@mock.patch("juju_verify.verifiers.ceph.CephOsd.get_apps_availability_zones")
+def test_check_availability_zone(
+        mock_get_apps_availability_zones,
+        mock_get_free_app_units,
+        model
+):
+    """Test check availability zone resources."""
+    mock_get_free_app_units.return_value = {"ceph-osd": 1}
+    mock_get_apps_availability_zones.return_value = {
+        AvailabilityZone(root="default"): [model.units["ceph-osd/0"],
+                                           model.units["ceph-osd/1"]]
+    }
+
+    # verified one ceph-osd unit
+    result = CephOsd([model.units["ceph-osd/0"]]).check_availability_zone()
+    assert result == Result(True)
+
+    # verified two ceph-osd unit
+    result = CephOsd([model.units["ceph-osd/0"],
+                      model.units["ceph-osd/1"]]).check_availability_zone()
+    assert result.success is False
+    assert "availability zone 'root=default'. " \
+           "[free_units=1, inactive_units=0]" in result.reason
+
+
+@mock.patch("juju_verify.verifiers.ceph.CephOsd.check_ceph_cluster_health",
+            return_value=Result(True, "Ceph cluster is healthy"))
+@mock.patch("juju_verify.verifiers.ceph.CephOsd.check_replication_number",
+            return_value=Result(True))
+@mock.patch("juju_verify.verifiers.ceph.CephOsd.check_availability_zone",
+            return_value=Result(True))
 def test_verify_reboot(
-        mock_get_replication_number,
-        mock_check_cluster_health,
-        mock_get_ceph_mon_app_map,
+        mock_check_availability_zone,
+        mock_check_replication_number,
+        mock_check_ceph_cluster_health,
         model
 ):
     """Test reboot verification on CephOsd."""
-    expected_result = Result(Severity.OK, "Ceph cluster is healthy")
-    mock_get_replication_number.return_value = 1
-    mock_get_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
-    mock_check_cluster_health.return_value = expected_result
-
     result = CephOsd([model.units["ceph-osd/0"]]).verify_reboot()
-    assert result == expected_result
+    assert result == Result(True, "Ceph cluster is healthy")
+    mock_check_ceph_cluster_health.assert_called_once_with()
+    mock_check_replication_number.assert_called_once_with()
+    mock_check_availability_zone.assert_called_once_with()
 
-    mock_get_replication_number.return_value = None  # empty list of pools
-    result = CephOsd([model.units["ceph-osd/0"]]).verify_reboot()
-    assert result == expected_result
 
-
-@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
-@mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
-@mock.patch("juju_verify.verifiers.ceph.CephCommon.get_replication_number")
+@mock.patch("juju_verify.verifiers.ceph.CephOsd.check_ceph_cluster_health",
+            return_value=Result(True, "Ceph cluster is healthy"))
+@mock.patch("juju_verify.verifiers.ceph.CephOsd.check_replication_number",
+            return_value=Result(True))
+@mock.patch("juju_verify.verifiers.ceph.CephOsd.check_availability_zone",
+            return_value=Result(True))
 def test_verify_shutdown(
-        mock_get_replication_number,
-        mock_check_cluster_health,
-        mock_get_ceph_mon_app_map,
+        mock_check_availability_zone,
+        mock_check_replication_number,
+        mock_check_ceph_cluster_health,
         model
 ):
     """Test shutdown verification on CephOsd."""
-    expected_result = Result(Severity.OK, "Ceph cluster is healthy")
-    mock_get_replication_number.return_value = 1
-    mock_get_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
-    mock_check_cluster_health.return_value = expected_result
-
     result = CephOsd([model.units["ceph-osd/0"]]).verify_shutdown()
-    assert result == expected_result
-
-    mock_get_replication_number.return_value = None  # empty list of pools
-    result = CephOsd([model.units["ceph-osd/0"]]).verify_shutdown()
-    assert result == expected_result
+    assert result == Result(True, "Ceph cluster is healthy")
+    mock_check_ceph_cluster_health.assert_called_once_with()
+    mock_check_replication_number.assert_called_once_with()
+    mock_check_availability_zone.assert_called_once_with()
