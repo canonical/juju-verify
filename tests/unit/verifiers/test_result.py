@@ -16,6 +16,7 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """Result class and related function test suite."""
 from copy import deepcopy
+import os
 
 import pytest
 
@@ -97,7 +98,9 @@ def test_result_formatting(severity):
     result = Result(partial_result.severity, partial_result.message)
 
     expected_success_msg = Result.VERBOSE_MAP.get(partial_result.severity)
-    expected_msg = f'Checks:\n{partial_result}\n\nOverall result: {expected_success_msg}'
+    expected_msg = 'Checks:{0}{1}{0}{0}Overall result: {2}'.format(os.linesep,
+                                                                   partial_result,
+                                                                   expected_success_msg)
 
     assert str(result) == expected_msg
 

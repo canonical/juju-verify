@@ -16,6 +16,7 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """Juju-verify verification result."""
 import logging
+import os
 from enum import Enum
 from functools import total_ordering
 from typing import List
@@ -107,10 +108,10 @@ class Result:
         if not self.partials:
             return ('No result or additional information. This may be a bug in '
                     '"juju-verify".')
-        output = 'Checks:\n'
+        output = f'Checks:{os.linesep}'
         for partial in self.partials:
-            output += f'{partial}\n'
-        output += '\n'
+            output += f'{partial}{os.linesep}'
+        output += os.linesep
 
         max_severity = max(partial.severity for partial in self.partials)
         output += f'Overall result: {self.VERBOSE_MAP.get(max_severity)}'
