@@ -25,8 +25,13 @@ from juju.unit import Unit
 from pytest import raises
 
 from juju_verify.exceptions import VerificationError, CharmException
-from juju_verify.utils.unit import (run_action_on_units, verify_charm_unit,
-                                    parse_charm_name)
+from juju_verify.utils.unit import (
+    run_action_on_units,
+    verify_charm_unit,
+    parse_charm_name,
+    get_first_active_unit,
+    get_applications_names
+)
 
 
 def test_run_action_on_units(mocker, model, all_units):
@@ -145,3 +150,28 @@ def test_verify_charm_unit_fail(charm_name: str, units: List[str]):
 
     with pytest.raises(CharmException):
         verify_charm_unit(charm_name, *mock_units)
+
+
+def test_get_first_active_unit(model):
+    """Test function to select first active unit or return None."""
+    units = [model.units["ceph-osd/0"], model.units["ceph-osd/1"]]
+
+    # test selecting from two active units
+    assert model.units["ceph-osd/0"] == get_first_active_unit(units)
+
+    # test selecting from one active and blocked unit
+    model.units["ceph-osd/0"].data["workload-status"]["current"] = "blocked"
+    assert model.units["ceph-osd/1"] == get_first_active_unit(units)
+
+    # test selecting from two blocked units
+    model.units["ceph-osd/1"].data["workload-status"]["current"] = "blocked"
+    assert get_first_active_unit(units) is None
+
+    model.units["ceph-osd/0"].data["workload-status"]["current"] = "active"
+    model.units["ceph-osd/1"].data["workload-status"]["current"] = "active"
+
+
+def test_get_applications_names(model):
+    """Test function to get all names of application based on the same charm."""
+    ceph_osd_apps = get_applications_names(model, "ceph-osd")
+    assert ceph_osd_apps == ["ceph-osd", "ceph-osd-hdd", "ceph-osd-ssd"]

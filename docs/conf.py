@@ -32,8 +32,16 @@ release = '0.1'
 # ones.
 extensions = [
     'm2r2',
-    'sphinx.ext.autodoc'
+    'sphinx.ext.autodoc',
+    'sphinxcontrib.apidoc',
 ]
+
+# Configure sphinx-apidoc to autogenerate API documentation from docstrings.
+apidoc_module_dir = "../juju_verify"
+apidoc_output_dir = "."
+apidoc_excluded_paths = ["../juju_verify/juju_verify.py"]
+apidoc_separate_modules = True
+apidoc_module_first = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

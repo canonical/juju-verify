@@ -9,8 +9,9 @@ from juju_verify.verifiers import get_verifier
 
 
 class CephTests(BaseTestCase):
-    """Base class for functional testing."""
+    """Functional testing for Ceph verifier."""
 
+    # To add:
     # test not OK for two ceph-osd unit stops
     # test we get a warning when a machine also hosts another unit
 

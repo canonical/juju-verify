@@ -16,10 +16,12 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """Helper function to manage Juju unit."""
 import asyncio
+import os
 import re
-from typing import List, Dict
+from typing import List, Dict, Any, Optional
 
 from juju.action import Action
+from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError, CharmException
@@ -27,8 +29,8 @@ from juju_verify.exceptions import VerificationError, CharmException
 CHARM_URL_PATTERN = re.compile(r'^(.*):(.*/)?(?P<charm>.*)(-\d+)$')
 
 
-def run_action_on_units(units: List[Unit], action: str,
-                        **params: str) -> Dict[str, Action]:
+def run_action_on_units(
+        units: List[Unit], action: str, **params: Any) -> Dict[str, Action]:
     """Run juju action on specified units.
 
     :param units: List/Tuple of Unit object
@@ -59,7 +61,7 @@ def run_action_on_units(units: List[Unit], action: str,
                                                 unit))
 
     if failed_actions_msg:
-        raise VerificationError('\n'.join(failed_actions_msg))
+        raise VerificationError(os.linesep.join(failed_actions_msg))
 
     return result_map
 
@@ -81,3 +83,23 @@ def verify_charm_unit(charm_name: str, *units: Unit) -> None:
         if not parse_charm_name(unit.charm_url) == charm_name:
             raise CharmException(f"The unit {unit.entity_id} does not belong to the "
                                  f"charm {charm_name}.")
+
+
+def get_first_active_unit(units: List[Unit]) -> Optional[Unit]:
+    """Find first unit in active workload status."""
+    for unit in units:
+        if unit.workload_status == "active":
+            return unit
+
+    return None
+
+
+def get_applications_names(model: Model, application: str) -> List[str]:
+    """Get all names of application based on the same charm."""
+    applications = []
+    for app_name, app in model.applications.items():
+        unit = get_first_active_unit(app.units)
+        if unit and parse_charm_name(unit.charm_url) == application:
+            applications.append(app_name)
+
+    return applications

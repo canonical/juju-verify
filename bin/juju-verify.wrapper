@@ -1,0 +1,7 @@
+#!/bin/sh
+# Wrapper for snap deployment.
+[ -z "$JUJU_DATA" ] && JUJU_DATA="/home/$USER/.local/share/juju"
+export JUJU_DATA=$JUJU_DATA
+
+exec "$SNAP/bin/juju-verify" "$@"
+
