@@ -25,6 +25,7 @@ from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError
 from juju_verify.verifiers.base import BaseVerifier, logger
+from juju_verify.verifiers.result import Partial, Severity
 
 
 def test_base_verifier_verify_no_units():
@@ -73,25 +74,24 @@ def test_base_verifier_warn_on_unchecked_units(mocker):
     model.units = {'nova-compute/0': checked_unit,
                    'ceph-osd/0': unchecked_unit}
 
-    expected_msg = 'Machine %s runs other principal unit that is not being ' \
-                   'checked: %s'
+    expected_partial_result = Partial(Severity.WARN,
+                                      f'Machine {machine.entity_id} runs other '
+                                      f'principal unit that is not being checked:'
+                                      f' {unchecked_unit.entity_id}')
 
     verifier = BaseVerifier([checked_unit])
 
-    with pytest.raises(NotImplementedError):
-        verifier.verify('shutdown')
+    result = verifier.check_affected_machines()
 
-    log_warning.assert_called_with(expected_msg,
-                                   machine.entity_id,
-                                   unchecked_unit.entity_id)
+    assert expected_partial_result in result.partials
+
     # Test run without warning
     log_warning.reset_mock()
     verifier = BaseVerifier([checked_unit, unchecked_unit])
 
-    with pytest.raises(NotImplementedError):
-        verifier.verify('shutdown')
+    result = verifier.check_affected_machines()
 
-    log_warning.assert_not_called()
+    assert expected_partial_result not in result.partials
 
 
 def test_base_verifier_unit_ids():
@@ -235,6 +235,8 @@ def test_base_verifier_run_action_on_units(mock_run_action_on_units, mocker, mod
 
 def test_base_verifier_check_has_sub_machines(mocker):
     """Test check unit has sub machines verifier."""
+    main_unit = 'nova-compute/0'
+    child_unit = 'child-unit/0'
     # Mock async lib calls
     loop = MagicMock()
     mocker.patch.object(asyncio, 'get_event_loop').return_value = loop
@@ -245,13 +247,11 @@ def test_base_verifier_check_has_sub_machines(mocker):
     mocker.patch.object(Unit, 'data',
                         new_callable=PropertyMock(return_value=unit_data))
 
-    log_warning = mocker.patch.object(logger, 'warning')
-
     # dict of units/machines to test with
     mocker.patch.object(Model, 'units')
     units = [
-        {'name': 'nova-compute/0', 'machine': '0', 'leader': True},
-        {'name': 'child-unit/0', 'machine': '0/lxd/0', 'leader': True},
+        {'name': main_unit, 'machine': '0', 'leader': True},
+        {'name': child_unit, 'machine': '0/lxd/0', 'leader': True},
     ]
 
     # is_leader_from_status result for every child
@@ -271,9 +271,12 @@ def test_base_verifier_check_has_sub_machines(mocker):
 
     mocker.patch.object(Model.units, 'items').return_value = unit_list
 
-    expected_msg = '%s has units running on child machines: %s'
+    expected_partial_result = Partial(Severity.WARN,
+                                      f'{main_unit} has units running on child '
+                                      f'machines: {child_unit}*')
+
     # Run verifier against the first unit in the list
     verifier = BaseVerifier([units[0]['unit_object']])
-    verifier.check_has_sub_machines()
+    result = verifier.check_has_sub_machines()
 
-    log_warning.assert_called_with(expected_msg, 'nova-compute/0', 'child-unit/0*')
+    assert expected_partial_result in result.partials

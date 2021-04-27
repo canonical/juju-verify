@@ -27,7 +27,7 @@ from juju_verify.utils.unit import parse_charm_name
 from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.ceph import CephOsd, CephMon
 from juju_verify.verifiers.nova_compute import NovaCompute
-from juju_verify.verifiers.result import Result
+from juju_verify.verifiers.result import Result, Severity
 
 logger = logging.getLogger(__name__)
 
