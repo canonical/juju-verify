@@ -16,7 +16,6 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """CephOsd verifier class test suite."""
 import json
-import os
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -24,7 +23,7 @@ import pytest
 
 from juju_verify.exceptions import CharmException
 from juju_verify.verifiers.ceph import AvailabilityZone, CephCommon, CephOsd
-from juju_verify.verifiers.result import Result
+from juju_verify.verifiers.result import Result, Severity
 
 
 @pytest.mark.parametrize("az_info, ex_az", [
@@ -62,11 +61,11 @@ def test_az_eq():
 
 @mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
 @pytest.mark.parametrize("message, exp_result", [
-    ("HEALTH_OK ...", Result(True, "ceph-mon/0: Ceph cluster is healthy")),
-    ("HEALTH_WARN ...", Result(False, "ceph-mon/0: Ceph cluster is unhealthy")),
-    ("HEALTH_ERR ...", Result(False, "ceph-mon/0: Ceph cluster is unhealthy")),
+    ("HEALTH_OK ...", Result(Severity.OK, "ceph-mon/0: Ceph cluster is healthy")),
+    ("HEALTH_WARN ...", Result(Severity.FAIL, "ceph-mon/0: Ceph cluster is unhealthy")),
+    ("HEALTH_ERR ...", Result(Severity.FAIL, "ceph-mon/0: Ceph cluster is unhealthy")),
     ("not valid message",
-     Result(False, "ceph-mon/0: Ceph cluster is in an unknown state")),
+     Result(Severity.FAIL, "ceph-mon/0: Ceph cluster is in an unknown state")),
 ])
 def test_check_cluster_health(mock_run_action_on_units, message, exp_result, model):
     """Test check Ceph cluster health."""
@@ -82,9 +81,10 @@ def test_check_cluster_health(mock_run_action_on_units, message, exp_result, mod
 @mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
 def test_check_cluster_health_combination(mock_run_action_on_units, model):
     """Test check Ceph cluster health combination of two diff state."""
-    exp_result = Result(False,
-                        os.linesep.join(["ceph-mon/0: Ceph cluster is healthy",
-                                         "ceph-mon/1: Ceph cluster is unhealthy"]))
+    exp_result = Result()
+    exp_result.add_partial_result(Severity.OK, "ceph-mon/0: Ceph cluster is healthy")
+    exp_result.add_partial_result(Severity.FAIL, "ceph-mon/1: Ceph cluster is unhealthy")
+
     action_healthy = MagicMock()
     action_healthy.data.get.side_effect = {"results": {"message": "HEALTH_OK"}}.get
     action_unhealthy = MagicMock()
@@ -106,7 +106,7 @@ def test_check_cluster_health_unknown_state(mock_run_action_on_units, model):
     result = CephCommon.check_cluster_health(model.units["ceph-mon/0"],
                                              model.units["ceph-mon/1"])
 
-    assert result == Result(False, "Ceph cluster is in an unknown state")
+    assert result == Result(Severity.FAIL, "Ceph cluster is in an unknown state")
 
 
 def test_check_cluster_health_error(model):
@@ -200,11 +200,12 @@ def test_get_ceph_mon_app_map(mock_get_ceph_mon_unit, model):
 def test_check_ceph_cluster_health(
         mock_check_cluster_health, mock_get_ceph_mon_app_map, model):
     """Test check the Ceph cluster health for unique ceph-mon units."""
+    expected_result = Result(Severity.OK, 'foo')
     mock_get_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
-    mock_check_cluster_health.return_value = Result(True)
+    mock_check_cluster_health.return_value = expected_result
 
     ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"]])
-    assert ceph_osd_verifier.check_ceph_cluster_health() == Result(True)
+    assert ceph_osd_verifier.check_ceph_cluster_health() == expected_result
     mock_check_cluster_health.assert_called_once_with(model.units["ceph-mon/0"])
 
 
@@ -213,49 +214,52 @@ def test_check_ceph_cluster_health(
 def test_check_replication_number(
         mock_get_replication_number, mock_get_ceph_mon_app_map, model):
     """Test check the minimum number of replications for related applications."""
+    check_passed_result = Result(Severity.OK, 'Minimum replica number check passed.')
     mock_get_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
     mock_get_replication_number.return_value = None
 
     # [min_replication_number=None] verified one ceph-osd unit
     ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"]])
-    assert ceph_osd_verifier.check_replication_number() == Result(True)
+    assert ceph_osd_verifier.check_replication_number() == check_passed_result
 
     # [min_replication_number=None] verified two ceph-osd unit
     ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"], model.units["ceph-osd/1"]])
-    assert ceph_osd_verifier.check_replication_number() == Result(True)
+    assert ceph_osd_verifier.check_replication_number() == check_passed_result
 
     mock_get_replication_number.return_value = 1
 
     # [min_replication_number=1] verified one ceph-osd unit
     ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"]])
-    assert ceph_osd_verifier.check_replication_number() == Result(True)
+    assert ceph_osd_verifier.check_replication_number() == check_passed_result
 
     # [min_replication_number=1] verified two ceph-osd unit
     ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"], model.units["ceph-osd/1"]])
-    assert ceph_osd_verifier.check_replication_number() == Result(
-        False, "The minimum number of replicas in 'ceph-osd' is 1 and "
-               "it's not safe to restart/shutdown 2 units. 0 units are not active."
-    )
+    expected_fail_result = Result(Severity.FAIL, "The minimum number of replicas in "
+                                                 "'ceph-osd' is 1 and it's not safe to"
+                                                 " restart/shutdown 2 units. 0 units "
+                                                 "are not active.")
+    assert ceph_osd_verifier.check_replication_number() == expected_fail_result
 
     # [min_replication_number=1] verified one ceph-osd unit,
     # if there is an unit that is not in an active state
     model.units["ceph-osd/1"].data["workload-status"]["current"] = "blocked"
     ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"]])
-    assert ceph_osd_verifier.check_replication_number() == Result(
-        False, "The minimum number of replicas in 'ceph-osd' is 1 and "
-               "it's not safe to restart/shutdown 1 units. 1 units are not active."
-    )
+    expected_fail_result = Result(Severity.FAIL, "The minimum number of replicas in "
+                                                 "'ceph-osd' is 1 and it's not safe to "
+                                                 "restart/shutdown 1 units. 1 units "
+                                                 "are not active.")
+    assert ceph_osd_verifier.check_replication_number() == expected_fail_result
 
     # [min_replication_number=1] verified one ceph-osd unit that is not active
     ceph_osd_verifier = CephOsd([model.units["ceph-osd/1"]])
-    assert ceph_osd_verifier.check_replication_number() == Result(True)
+    assert ceph_osd_verifier.check_replication_number() == check_passed_result
     model.units["ceph-osd/1"].data["workload-status"]["current"] = "active"
 
     mock_get_replication_number.return_value = 2
 
     # [min_replication_number=2] verified two ceph-osd unit
     ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"], model.units["ceph-osd/1"]])
-    assert ceph_osd_verifier.check_replication_number() == Result(True)
+    assert ceph_osd_verifier.check_replication_number() == check_passed_result
 
 
 @mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_unit")
@@ -300,23 +304,25 @@ def test_check_availability_zone(
     }
 
     # verified one ceph-osd unit
-    result = CephOsd([model.units["ceph-osd/0"]]).check_availability_zone()
-    assert result == Result(True)
+    result_success = CephOsd([model.units["ceph-osd/0"]]).check_availability_zone()
+    assert result_success == Result(Severity.OK, 'Availability zone check passed.')
 
     # verified two ceph-osd unit
-    result = CephOsd([model.units["ceph-osd/0"],
-                      model.units["ceph-osd/1"]]).check_availability_zone()
-    assert result.success is False
-    assert "availability zone 'root=default'. " \
-           "[free_units=1, inactive_units=0]" in result.reason
+    result_fail = CephOsd([model.units["ceph-osd/0"],
+                           model.units["ceph-osd/1"]]).check_availability_zone()
+    expected_msg = "availability zone 'root=default'. [free_units=1, inactive_units=0]"
+
+    assert result_fail.success is False
+    assert any((partial.severity == Severity.FAIL and expected_msg in partial.message)
+               for partial in result_fail.partials)
 
 
 @mock.patch("juju_verify.verifiers.ceph.CephOsd.check_ceph_cluster_health",
-            return_value=Result(True, "Ceph cluster is healthy"))
+            return_value=Result(Severity.OK, "Ceph cluster is healthy"))
 @mock.patch("juju_verify.verifiers.ceph.CephOsd.check_replication_number",
-            return_value=Result(True))
+            return_value=Result(Severity.OK, "Minimum replica number check passed."))
 @mock.patch("juju_verify.verifiers.ceph.CephOsd.check_availability_zone",
-            return_value=Result(True))
+            return_value=Result(Severity.OK, "Availability zone check passed."))
 def test_verify_reboot(
         mock_check_availability_zone,
         mock_check_replication_number,
@@ -325,18 +331,23 @@ def test_verify_reboot(
 ):
     """Test reboot verification on CephOsd."""
     result = CephOsd([model.units["ceph-osd/0"]]).verify_reboot()
-    assert result == Result(True, "Ceph cluster is healthy")
+    expected_result = Result()
+    expected_result.add_partial_result(Severity.OK, "Ceph cluster is healthy")
+    expected_result.add_partial_result(Severity.OK,
+                                       "Minimum replica number check passed.")
+    expected_result.add_partial_result(Severity.OK, "Availability zone check passed.")
+    assert result == expected_result
     mock_check_ceph_cluster_health.assert_called_once_with()
     mock_check_replication_number.assert_called_once_with()
     mock_check_availability_zone.assert_called_once_with()
 
 
 @mock.patch("juju_verify.verifiers.ceph.CephOsd.check_ceph_cluster_health",
-            return_value=Result(True, "Ceph cluster is healthy"))
+            return_value=Result(Severity.OK, "Ceph cluster is healthy"))
 @mock.patch("juju_verify.verifiers.ceph.CephOsd.check_replication_number",
-            return_value=Result(True))
+            return_value=Result(Severity.OK, "Minimum replica number check passed."))
 @mock.patch("juju_verify.verifiers.ceph.CephOsd.check_availability_zone",
-            return_value=Result(True))
+            return_value=Result(Severity.OK, "Availability zone check passed."))
 def test_verify_shutdown(
         mock_check_availability_zone,
         mock_check_replication_number,
@@ -345,7 +356,12 @@ def test_verify_shutdown(
 ):
     """Test shutdown verification on CephOsd."""
     result = CephOsd([model.units["ceph-osd/0"]]).verify_shutdown()
-    assert result == Result(True, "Ceph cluster is healthy")
+    expected_result = Result()
+    expected_result.add_partial_result(Severity.OK, "Ceph cluster is healthy")
+    expected_result.add_partial_result(Severity.OK,
+                                       "Minimum replica number check passed.")
+    expected_result.add_partial_result(Severity.OK, "Availability zone check passed.")
+    assert result == expected_result
     mock_check_ceph_cluster_health.assert_called_once_with()
     mock_check_replication_number.assert_called_once_with()
     mock_check_availability_zone.assert_called_once_with()

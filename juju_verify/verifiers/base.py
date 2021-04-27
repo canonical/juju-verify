@@ -27,7 +27,7 @@ from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError
 from juju_verify.utils.unit import run_action_on_units
-from juju_verify.verifiers.result import Result
+from juju_verify.verifiers.result import aggregate_results, Result, Severity
 
 logger = logging.getLogger(__name__)
 
@@ -109,12 +109,13 @@ class BaseVerifier:
         raise VerificationError('Unit {} was not found in {} verifier.'
                                 ''.format(unit_id, self.NAME))
 
-    def check_affected_machines(self) -> None:
+    def check_affected_machines(self) -> Result:
         """Check if affected machines run other principal units.
 
         Log warning if machine that run units checked by this verifier also
         runs other principal units that are not being checked.
         """
+        result = Result()
         machine_map: Dict = defaultdict(list)
         for unit in self.model.units.values():
             if unit.machine.entity_id in self.affected_machines \
@@ -124,16 +125,18 @@ class BaseVerifier:
         for machine, unit_list in machine_map.items():
             for unit in unit_list:
                 if unit not in self.unit_ids:
-                    logger.warning('Machine %s runs other principal unit that '
-                                   'is not being checked: '
-                                   '%s', machine, unit)
+                    result.add_partial_result(Severity.WARN,
+                                              f'Machine {machine} runs other principal '
+                                              f'unit that is not being checked: {unit}')
+        return result
 
-    def check_has_sub_machines(self) -> None:
+    def check_has_sub_machines(self) -> Result:
         """Check if the machine hosts containers or VMs.
 
         Logs warning if there are units running on sub machines that are children of the
         affected machines.
         """
+        result = Result()
         ParentChildPair = namedtuple("ParentChildPair", "child parent")
         parent_child_pairs = {}
         parents = set()
@@ -160,26 +163,28 @@ class BaseVerifier:
 
         # loop through list of parents, format a message
         for check_unit_entity_id in parents:
-            temp_list = []
             for _, child_parent_pair in parent_child_pairs.items():
                 if child_parent_pair.parent.entity_id == check_unit_entity_id:
                     child_tag = child_parent_pair.child.entity_id
                     child_tag += "*" if result_map[child_tag] else ""
-                    temp_list.append(child_tag)
-            logger.warning("%s has units running on child machines: %s",
-                           check_unit_entity_id, ", ".join(temp_list))
+                    result.add_partial_result(Severity.WARN,
+                                              f"{check_unit_entity_id} has units running"
+                                              f" on child machines: {child_tag}")
+        return result
 
     def verify(self, check: str) -> Result:
         """Execute requested verification check.
 
         :param check: Check to execute
-        :return: None
+        :return: Overall verification Result
         :raises NotImplementedError: If requested check is unsupported/unknown
         :raises VerificationError: If check fails in unexpected manner or if
                                    list of self.units is empty
         """
-        self.check_affected_machines()
-        self.check_has_sub_machines()
+        preflight_results = aggregate_results(
+            self.check_affected_machines(),
+            self.check_has_sub_machines()
+        )
         verify_action = self._action_map().get(check)
         if verify_action is None:
             raise NotImplementedError('Unsupported verification check "{}" for'
@@ -188,7 +193,8 @@ class BaseVerifier:
         try:
             logger.debug('Running check %s on units: %s', check,
                          ','.join(self.unit_ids))
-            return verify_action(self)
+            main_results = verify_action(self)
+            return aggregate_results(preflight_results, main_results)
         except NotImplementedError as exc:
             raise exc
         except Exception as exc:

@@ -30,7 +30,7 @@ from juju.unit import Unit
 
 from juju_verify import juju_verify
 from juju_verify.exceptions import CharmException, VerificationError
-from juju_verify.verifiers.base import Result
+from juju_verify.verifiers.base import Result, Severity
 
 
 def test_fail(mocker):
@@ -209,7 +209,7 @@ def test_main_entrypoint_target_units(mocker):
     args.units = ['nova-compute/0']
     args.machines = None
 
-    result = Result(True, 'Passed')
+    result = Result(Severity.OK, 'Passed')
     verifier = MagicMock()
     verifier.verify.return_value = result
 
@@ -238,7 +238,7 @@ def test_main_entrypoint_target_machine(mocker):
     args.units = None
     expected_units = ['nova-compute/0']
 
-    result = Result(True, 'Passed')
+    result = Result(Severity.OK, 'Passed')
     verifier = MagicMock()
     verifier.verify.return_value = result
 

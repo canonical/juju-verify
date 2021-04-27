@@ -30,7 +30,7 @@ from juju_verify.utils.unit import (
     get_applications_names
 )
 from juju_verify.verifiers.base import BaseVerifier
-from juju_verify.verifiers.result import aggregate_results, Result
+from juju_verify.verifiers.result import aggregate_results, Result, Severity
 
 logger = logging.getLogger()
 
@@ -97,21 +97,25 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
         :raises CharmException: if the units do not belong to the ceph-mon charm
         """
         verify_charm_unit("ceph-mon", *units)
-        result = Result(success=True)
+        result = Result()
         action_map = run_action_on_units(list(units), "get-health")
         for unit, action in action_map.items():
             cluster_health = data_from_action(action, "message")
             logger.debug("Unit (%s): Ceph cluster health '%s'", unit, cluster_health)
 
             if "HEALTH_OK" in cluster_health and result.success:
-                result += Result(True, f"{unit}: Ceph cluster is healthy")
+                result.add_partial_result(Severity.OK,
+                                          f"{unit}: Ceph cluster is healthy")
             elif "HEALTH_WARN" in cluster_health or "HEALTH_ERR" in cluster_health:
-                result += Result(False, f"{unit}: Ceph cluster is unhealthy")
+                result.add_partial_result(Severity.FAIL,
+                                          f"{unit}: Ceph cluster is unhealthy")
             else:
-                result += Result(False, f"{unit}: Ceph cluster is in an unknown state")
+                result.add_partial_result(Severity.FAIL,
+                                          f"{unit}: Ceph cluster is in an unknown "
+                                          f"state")
 
         if not action_map:
-            result = Result(success=False, reason="Ceph cluster is in an unknown state")
+            result = Result(Severity.FAIL, "Ceph cluster is in an unknown state")
 
         return result
 
@@ -255,7 +259,7 @@ class CephOsd(CephCommon):
 
     def check_replication_number(self) -> Result:
         """Check the minimum number of replications for related applications."""
-        result = Result(True)
+        result = Result()
 
         for app_name, ceph_mon_unit in self.ceph_mon_app_map.items():
             min_replication_number = self.get_replication_number(ceph_mon_unit)
@@ -271,14 +275,17 @@ class CephOsd(CephCommon):
             }
 
             if len(units.union(inactive_units)) > min_replication_number:
-                result += Result(
-                    False,
+                result.add_partial_result(
+                    Severity.FAIL,
                     f"The minimum number of replicas in '{app_name}' is "
                     f"{min_replication_number:d} and it's not safe to restart/shutdown "
                     f"{len(units):d} units. {len(inactive_units):d} units are not "
                     f"active."
                 )
 
+        if result.empty:
+            result.add_partial_result(Severity.OK,
+                                      'Minimum replica number check passed.')
         return result
 
     def check_availability_zone(self) -> Result:
@@ -287,7 +294,7 @@ class CephOsd(CephCommon):
         This function checks whether the units can be shutdown/reboot without
         interrupting operation in the availability zone.
         """
-        result = Result(True)
+        result = Result()
         ceph_osd_apps = get_applications_names(self.model, "ceph-osd")
         free_app_units = self.get_free_app_units(ceph_osd_apps)
         availability_zones = self.get_apps_availability_zones(ceph_osd_apps)
@@ -306,12 +313,15 @@ class CephOsd(CephCommon):
 
             if len(units_to_remove.union(inactive_units)) > free_units:
                 result += Result(
-                    False,
+                    Severity.FAIL,
                     f"It's not safe to removed units {units_to_remove} in the "
                     f"availability zone '{availability_zone}'. [free_units="
                     f"{free_units:d}, inactive_units={len(inactive_units):d}]"
                 )
 
+        if result.empty:
+            result.add_partial_result(Severity.OK,
+                                      'Availability zone check passed.')
         return result
 
     def verify_reboot(self) -> Result:
