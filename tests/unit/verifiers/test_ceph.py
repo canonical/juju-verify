@@ -28,6 +28,12 @@ from juju_verify.verifiers.ceph import AvailabilityZone, CephCommon, CephOsd, Ce
 from juju_verify.verifiers.result import Result, Severity
 
 
+CEPH_MON_QUORUM_OK = "Ceph-mon quorum check passed."
+CEPH_MON_QUORUM_FAIL = "Removing unit {} will lose Ceph mon quorum"
+CEPH_MON_QUORUM_ERR = ("The machine for unit {} does not have a hostname attribute, "
+                       "please ensure that Juju is 2.8.10")
+
+
 @pytest.mark.parametrize("az_info, ex_az", [
     ({"root": "default", "host": "test"}, "root=default,host=test"),
     ({"root": "default", "rack": "nova", "row": "row1", "host": "test"},
@@ -370,26 +376,29 @@ def test_verify_shutdown(
 
 
 @pytest.mark.parametrize(
-    "action_return_value, expected_result, hostname",
-    [('["host0", "host1", "host2"]', Result(True), "host1"),
-     ('["host0", "host1"]', Result(False), "host1"),
-     ('["host0", "host1", "host2"]', Result(False), None),
-     ('["host0", "host1", "host2"]', Result(True), "host5"),
+    "action_return_value, severity, msg, hostname",
+    [('["host0", "host1", "host2"]', Severity.OK, CEPH_MON_QUORUM_OK, "host1"),
+     ('["host0", "host1"]', Severity.FAIL, CEPH_MON_QUORUM_FAIL, "host1"),
+     ('["host0", "host1", "host2"]', Severity.FAIL, CEPH_MON_QUORUM_ERR, None),
+     ('["host0", "host1", "host2"]', Severity.OK, CEPH_MON_QUORUM_OK, "host5"),
      ],
 )
-def test_check_ceph_mon_quorum(mocker, action_return_value, expected_result, hostname):
+def test_check_ceph_mon_quorum(mocker, action_return_value, severity, msg, hostname):
     """Test Ceph quorum verification on CephMon."""
-    unit = Unit("ceph-mon/0", Model())
+    unit_to_remove = 'ceph-mon/0'
+    unit = Unit(unit_to_remove, Model())
     verifier = CephMon([unit])
     mocker.patch.object(verifier, "run_action_on_all").return_value = {
-        "ceph-mon/0": action_return_value,
+        unit_to_remove: action_return_value,
     }
     unit.machine = mock.Mock(hostname=hostname)
     mocker.patch(
         "juju_verify.verifiers.ceph.data_from_action"
     ).return_value = action_return_value
+    expected_msg = msg if severity == Severity.OK else msg.format(unit_to_remove)
+    expected_result = Result(severity, expected_msg)
     result = verifier.check_quorum()
-    assert result.success == expected_result.success
+    assert result == expected_result
 
 
 def test_verify_ceph_mon_shutdown(mocker):
@@ -406,9 +415,13 @@ def test_verify_ceph_mon_shutdown(mocker):
 def test_verify_ceph_mon_reboot(mock_quorum, mock_health):
     """Test reboot verification on CephMon."""
     unit = Unit("ceph-mon/0", Model())
-    mock_health.return_value = Result(True, "Ceph cluster is healthy")
-    mock_quorum.return_value = Result(True)
+    mock_health.return_value = Result(Severity.OK, "Ceph cluster is healthy")
+    mock_quorum.return_value = Result(Severity.OK, "Ceph-mon quorum check passed.")
     verifier = CephMon([unit])
     result = verifier.verify_reboot()
 
-    assert result.success
+    expected_result = Result()
+    expected_result.add_partial_result(Severity.OK, 'Ceph-mon quorum check passed.')
+    expected_result.add_partial_result(Severity.OK, 'Ceph cluster is healthy')
+
+    assert result == expected_result

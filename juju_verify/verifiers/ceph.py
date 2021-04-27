@@ -353,7 +353,7 @@ class CephMon(CephCommon):
 
     def check_quorum(self) -> Result:
         """Check that the shutdown does not result in <50% mons alive."""
-        result = Result(success=True)
+        result = Result()
 
         action_name = "get-quorum-status"
         action_results = self.run_action_on_all(action_name)
@@ -374,11 +374,12 @@ class CephMon(CephCommon):
                 logger.error(
                     "The machine for unit %s did not return a hostname", unit.entity_id
                 )
-                result.success = False
-                result.reason += (
-                    "The machine for unit {} does not have a hostname attribute, please"
-                    "ensure that Juju is 2.8.10+\n".format(unit.entity_id)
-                )
+                result.add_partial_result(Severity.FAIL, f"The machine for unit "
+                                                         f"{unit.entity_id} does not "
+                                                         f"have a hostname attribute, "
+                                                         f"please ensure that Juju is "
+                                                         f"2.8.10"
+                                          )
 
         # populate a list of known mons, online mons and hostnames per unit
         for unit_id, action in action_results.items():
@@ -393,10 +394,12 @@ class CephMon(CephCommon):
             mons_after_change = len(mons[unit.entity_id]["online"] - affected_hosts)
 
             if mons_after_change <= mon_count / 2:
-                result.success = False
-                result.reason += (
-                    "Removing unit {} will lose Ceph mon "
-                    "quorum\n".format(unit.entity_id)
-                )
+                result.add_partial_result(Severity.FAIL, f"Removing unit "
+                                                         f"{unit.entity_id} will lose "
+                                                         f"Ceph mon quorum"
+                                          )
+
+        if result.empty:
+            result.add_partial_result(Severity.OK, 'Ceph-mon quorum check passed.')
 
         return result
