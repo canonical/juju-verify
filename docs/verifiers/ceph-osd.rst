@@ -12,14 +12,15 @@ perform the same set of checks.
 check Ceph clusters health
 --------------------------
 
-This check maps `ceph-osd` applications part of the `--units` argument and the
-first `ceph-mon` unit obtained from the relations. The `get-health` action is
-run on each of the `ceph-mon` units to determine if the cluster(s) the unit(s)
+This check maps ``ceph-osd`` applications part of the ``--units`` argument and the
+first ``ceph-mon`` unit obtained from the relations. The ``get-health`` action is
+run on each of the ``ceph-mon`` units to determine if the cluster(s) the unit(s)
 are part of are healthy (Note: if more than one Ceph cluster exists, verified
-`ceph-osd` units may be part of more than one cluster). A cluster is
+``ceph-osd`` units may be part of more than one cluster). A cluster is
 considered healthy if the action's output contains HEALTH_OK.
 
 .. image:: check_ceph_cluster_health.svg
+  :alt: Ceph cluster health check
 
 
 check the minimum number of replicas
@@ -30,9 +31,9 @@ map, this one goes through each item, calling the "list-pools" action with
 the "format=json" option to get minimum replication number for each "ceph-mon"
 unit.
 
- The replication number for each pool is calculated as the pool size minus the
- minimum pool size. If no group is available, the replication number is
- returned as None and the check for that application ends successfully.
+The replication number for each pool is calculated as the pool size minus the
+minimum pool size. If no group is available, the replication number is
+returned as None and the check for that application ends successfully.
 
 The next step is to calculate the number of units for each application to be
 removed/shutdown, plus the number of units are in an inactive workload status.
@@ -40,6 +41,7 @@ Such a number is compared to the minimum replication number, and if it's
 greater, the check fails.
 
 .. image:: check_replication_number.svg
+  :alt: Ceph replication number check
 
 
 check availability zones resources
@@ -69,5 +71,6 @@ zones, as there can be several applications in one availability zone, and if
 it is greater than the check failed.
 
 .. image:: check_availability_zone.svg
+  :alt: Availability zone check
 
 .. _LP#1921121: https://bugs.launchpad.net/juju-verify/+bug/1921121
