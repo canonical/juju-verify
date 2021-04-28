@@ -17,7 +17,7 @@
 """Base class test suite."""
 import asyncio
 from unittest import mock
-from unittest.mock import MagicMock, PropertyMock, call
+from unittest.mock import MagicMock, PropertyMock
 
 import pytest
 from juju.model import Model
@@ -189,48 +189,13 @@ def test_base_verifier_unit_from_id():
 
 
 @mock.patch("juju_verify.verifiers.base.run_action_on_units")
-def test_base_verifier_run_action_on_unit(mock_run_action_on_units, mocker, model):
-    """Test running action on single unit from the verifier."""
-    # Put spy on unit_id resolution
-    id_to_unit = mocker.spy(BaseVerifier, 'unit_from_id')
-    units = list(model.units.values())
-
-    verifier = BaseVerifier(units)
-    verifier.run_action_on_unit(units[1].entity_id, "test")
-
-    id_to_unit.assert_has_calls([call(verifier, units[1].entity_id)])
-    mock_run_action_on_units.assert_called_with([units[1]], action="test")
-
-
-@mock.patch("juju_verify.verifiers.base.run_action_on_units")
-def test_base_verifier_run_action_on_all_units(mock_run_action_on_units, mocker, model):
+def test_base_verifier_run_action_on_all_units(mock_run_action_on_units, model):
     """Test running action on all units in verifier."""
-    # Put spy on unit_id resolution
-    id_to_unit = mocker.spy(BaseVerifier, 'unit_from_id')
     units = list(model.units.values())
-
     verifier = BaseVerifier(units)
     verifier.run_action_on_all("test")
 
-    id_to_unit.assert_has_calls([call(verifier, unit.entity_id) for unit in units])
-    mock_run_action_on_units.assert_called_with(units, action="test")
-
-
-@mock.patch("juju_verify.verifiers.base.run_action_on_units")
-def test_base_verifier_run_action_on_units(mock_run_action_on_units, mocker, model):
-    """Test running action on list of units and returning results."""
-    # Put spy on unit_id resolution
-    id_to_unit = mocker.spy(BaseVerifier, 'unit_from_id')
-    units = list(model.units.values())
-    run_on_units = [unit for id_, unit in model.units.items()
-                    if id_.startswith("nova-compute")]
-
-    verifier = BaseVerifier(units)
-    verifier.run_action_on_units([unit.entity_id for unit in run_on_units], "test")
-
-    id_to_unit.assert_has_calls(
-        [call(verifier, unit.entity_id) for unit in run_on_units])
-    mock_run_action_on_units.assert_called_with(run_on_units, action="test")
+    mock_run_action_on_units.assert_called_with(units, "test")
 
 
 def test_base_verifier_check_has_sub_machines(mocker):

@@ -66,6 +66,17 @@ def run_action_on_units(
     return result_map
 
 
+def run_action_on_unit(unit: Unit, action: str, **params: str) -> Action:
+    """Run juju action on single unit.
+
+    For more info, see docstring for 'run_action_on_units'. The only
+    difference is that this function returns Action object directly, not
+    dict {unit_id: action}.
+    """
+    results = run_action_on_units([unit], action, **params)
+    return results[unit.entity_id]
+
+
 def parse_charm_name(charm_url: str) -> str:
     """Parse charm name from full charm url.
 

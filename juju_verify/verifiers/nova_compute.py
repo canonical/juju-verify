@@ -19,6 +19,7 @@ import json
 import logging
 
 from juju_verify.utils.action import data_from_action
+from juju_verify.utils.unit import run_action_on_unit
 from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.result import aggregate_results, Result, Severity
 
@@ -55,8 +56,7 @@ class NovaCompute(BaseVerifier):
         target_nodes = [data_from_action(action, 'node-name')
                         for _, action in node_name_actions.items()]
 
-        nova_unit = self.units[0].entity_id
-        action = self.run_action_on_unit(nova_unit, 'list-compute-nodes')
+        action = run_action_on_unit(self.units[0], 'list-compute-nodes')
         compute_nodes = json.loads(data_from_action(action, 'compute-nodes'))
 
         affected_zones = {node['zone'] for node in compute_nodes

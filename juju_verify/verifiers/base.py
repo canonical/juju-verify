@@ -201,42 +201,12 @@ class BaseVerifier:
             err = VerificationError('Verification failed: {}'.format(exc))
             raise err from exc
 
-    def run_action_on_all(self, action: str,
-                          **params: str) -> Dict[str, Action]:
+    def run_action_on_all(self, action: str, **params: str) -> Dict[str, Action]:
         """Run juju action on all units in self.units.
 
         For more info, see docstring for 'run_action_on_units'.
         """
-        return self.run_action_on_units(self.unit_ids, action, **params)
-
-    def run_action_on_unit(self, unit: str, action: str,
-                           **params: str) -> Action:
-        """Run juju action on single unit.
-
-        For more info, see docstring for 'run_action_on_units'. The only
-        difference is that this function returns Action object directly, not
-        dict {unit_id: action}.
-        """
-        results = self.run_action_on_units([unit], action, **params)
-        return results[unit]
-
-    def run_action_on_units(self, units: List[str], action: str,
-                            **params: str) -> Dict[str, Action]:
-        """Run juju action on specified units.
-
-        Units are specified by string that must match Unit.entity_id in
-        self.units. All actions that are executed are also awaited, if any
-        of the actions fails, VerificationError is raised.
-
-        :param units: List of unit IDs on which to run action
-        :param action: Action to run on units
-        :param params: Additional parameters for the action
-        :return: Dict in format {unit_id: action} where unit_ids are strings
-                 provided in 'units' and actions are their matching,
-                 juju.Action objects that have been executed and awaited.
-        """
-        target_units = [self.unit_from_id(unit_id) for unit_id in units]
-        return run_action_on_units(target_units, action=action, **params)
+        return run_action_on_units(self.units, action, **params)
 
     def verify_shutdown(self) -> Result:
         """Child classes must override this method with custom implementation.
