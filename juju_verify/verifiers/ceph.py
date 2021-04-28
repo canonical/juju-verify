@@ -21,6 +21,7 @@ from collections import defaultdict
 from typing import Dict, Optional, Any, List
 
 from juju.unit import Unit
+from packaging.version import Version, InvalidVersion
 
 from juju_verify.utils.action import data_from_action
 from juju_verify.utils.unit import (
@@ -31,6 +32,7 @@ from juju_verify.utils.unit import (
 )
 from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.result import aggregate_results, Result, Severity
+from juju_verify.exceptions import CharmException
 
 logger = logging.getLogger()
 
@@ -343,8 +345,14 @@ class CephMon(CephCommon):
 
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected ceph-mon units."""
+        version_check = self.check_version()
+        if not version_check.success:
+            return version_check
+
         return aggregate_results(
-            self.check_quorum(), self.check_cluster_health(*self.units)
+            version_check,
+            self.check_quorum(),
+            self.check_cluster_health(*self.units)
         )
 
     def verify_shutdown(self) -> Result:
@@ -358,48 +366,48 @@ class CephMon(CephCommon):
         action_name = "get-quorum-status"
         action_results = self.run_action_on_all(action_name)
 
-        mons = {}
-        affected_hosts = set()
+        affected_hosts = {unit.machine.hostname for unit in self.units}
 
-        for unit in self.units:
-            # set of affected hostnames needs to be fully populated early
-            # from online mons
-
-            if unit.machine.hostname:
-                affected_hosts.update(
-                    [unit.machine.hostname]
-                )
-            else:
-                # we don't have a hostname for this unit
-                logger.error(
-                    "The machine for unit %s did not return a hostname", unit.entity_id
-                )
-                result.add_partial_result(Severity.FAIL, f"The machine for unit "
-                                                         f"{unit.entity_id} does not "
-                                                         f"have a hostname attribute, "
-                                                         f"please ensure that Juju is "
-                                                         f"2.8.10"
-                                          )
-
-        # populate a list of known mons, online mons and hostnames per unit
         for unit_id, action in action_results.items():
             # run this per unit because we might have multiple clusters
-            mons[unit_id] = {
-                "known": set(json.loads(data_from_action(action, "known-mons"))),
-                "online": set(json.loads(data_from_action(action, "online-mons"))),
-            }
+            known_mons = set(json.loads(data_from_action(action, "known-mons")))
+            online_mons = set(json.loads(data_from_action(action, "online-mons")))
 
-        for unit in self.units:
-            mon_count = len(mons[unit.entity_id]["known"])
-            mons_after_change = len(mons[unit.entity_id]["online"] - affected_hosts)
+            mon_count = len(known_mons)
+            mons_after_change = len(online_mons - affected_hosts)
 
-            if mons_after_change <= mon_count / 2:
+            if mons_after_change <= mon_count // 2:
                 result.add_partial_result(Severity.FAIL, f"Removing unit "
-                                                         f"{unit.entity_id} will lose "
+                                                         f"{unit_id} will lose "
                                                          f"Ceph mon quorum"
                                           )
 
         if result.empty:
             result.add_partial_result(Severity.OK, 'Ceph-mon quorum check passed.')
+
+        return result
+
+    def check_version(self) -> Result:
+        """Check minimum required version of juju agents on units.
+
+        Ceph-mon verifier requires that all the units run juju agent >=2.8.10 due to
+        reliance on juju.Machine.hostname feature.
+        """
+        min_version = Version('2.8.10')
+        result = Result()
+        for unit in self.units:
+            juju_version = unit.safe_data.get('agent-status', {}).get('version', '')
+            try:
+                if Version(juju_version) < min_version:
+                    fail_msg = (f'Juju agent on unit {unit.entity_id} has lower than '
+                                f'minumum required version. {juju_version} < '
+                                f'{min_version}')
+                    result.add_partial_result(Severity.FAIL, fail_msg)
+            except InvalidVersion as exc:
+                raise CharmException(f'Failed to parse juju version from '
+                                     f'unit {unit.entity_id}.') from exc
+
+        if result.empty:
+            result.add_partial_result(Severity.OK, 'Minimum juju version check passed.')
 
         return result
