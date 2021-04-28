@@ -17,7 +17,7 @@
 """Utils unit test suite."""
 import asyncio
 from typing import List
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from juju.action import Action
@@ -30,7 +30,7 @@ from juju_verify.utils.unit import (
     verify_charm_unit,
     parse_charm_name,
     get_first_active_unit,
-    get_applications_names
+    get_applications_names, run_action_on_unit
 )
 
 
@@ -107,6 +107,14 @@ def test_run_action_on_units(mocker, model, all_units):
         run_action_on_units(run_on_units, action, **action_params)
 
     assert str(exc.value) == expect_err
+
+
+@patch("juju_verify.utils.unit.run_action_on_units")
+def test_base_verifier_run_action_on_unit(mock_run_action_on_units, model):
+    """Test running action on single unit from the verifier."""
+    unit = model.units["nova-compute/0"]
+    run_action_on_unit(unit, "test")
+    mock_run_action_on_units.assert_called_with([unit], "test")
 
 
 @pytest.mark.parametrize("charm_url, exp_name", [
