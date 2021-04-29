@@ -86,7 +86,6 @@ def model(session_mocker, model_units):
         unit = Unit(unit_id, mock_model)
         unit.data = unit_data
         unit_map[unit_id] = unit
-        unit.run_action.return_value = Action(unit_id + '-action', mock_model)
 
         # add unit to model.applications
         if unit_data["application"] not in app_map:

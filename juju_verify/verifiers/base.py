@@ -19,7 +19,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from collections import namedtuple
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional, Any
 
 from juju.action import Action
 from juju.model import Model
@@ -191,8 +191,7 @@ class BaseVerifier:
                                       ' charm {}'.format(check, self.NAME))
 
         try:
-            logger.debug('Running check %s on units: %s', check,
-                         ','.join(self.unit_ids))
+            logger.debug('Running check %s on units: %s', check, ','.join(self.unit_ids))
             main_results = verify_action(self)
             return aggregate_results(preflight_results, main_results)
         except NotImplementedError as exc:
@@ -201,12 +200,13 @@ class BaseVerifier:
             err = VerificationError('Verification failed: {}'.format(exc))
             raise err from exc
 
-    def run_action_on_all(self, action: str, **params: str) -> Dict[str, Action]:
+    def run_action_on_all(self, action: str, use_cache: bool = True,
+                          params: Optional[Dict[str, Any]] = None) -> Dict[str, Action]:
         """Run juju action on all units in self.units.
 
         For more info, see docstring for 'run_action_on_units'.
         """
-        return run_action_on_units(self.units, action, **params)
+        return run_action_on_units(self.units, action, use_cache, params)
 
     def verify_shutdown(self) -> Result:
         """Child classes must override this method with custom implementation.

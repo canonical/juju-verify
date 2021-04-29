@@ -25,40 +25,61 @@ from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError, CharmException
+from juju_verify.utils.action import cache
 
 CHARM_URL_PATTERN = re.compile(r'^(.*):(.*/)?(?P<charm>.*)(-\d+)$')
 
 
-def run_action_on_units(
-        units: List[Unit], action: str, **params: Any) -> Dict[str, Action]:
-    """Run juju action on specified units.
+def get_cache_key(unit: Unit, action: str, **params: Any) -> int:
+    """Create hash key from unit, action and params."""
+    return hash(
+        hash(unit.entity_id) + hash(action) + hash(tuple(sorted(params.items())))
+    )
+
+
+async def run_action(unit: Unit, action: str, use_cache: bool = True,
+                     params: Optional[Dict[str, Any]] = None) -> Action:
+    """Run Juju action and wait for results."""
+    params = params or {}
+    key = get_cache_key(unit, action, **params)
+
+    if key not in cache or not use_cache:
+        _action = await unit.run_action(action, **params)
+        result = await _action.wait()  # wait for result
+        cache[key] = result  # save result to cache
+        return result
+
+    return cache[key]
+
+
+def run_action_on_units(units: List[Unit], action: str, use_cache: bool = True,
+                        params: Optional[Dict[str, Any]] = None) -> Dict[str, Action]:
+    """Run Juju action on specified units.
 
     :param units: List/Tuple of Unit object
     :param action: Action to run on units
+    :param use_cache: Use the cache to gather the result of the action
     :param params: Additional parameters for the action
     :return: Dict in format {unit_id: action} where unit_ids are strings
              provided in 'units' and actions are their matching,
              juju.Action objects that have been executed and awaited.
     """
-    task_map = {unit.entity_id: unit.run_action(action, **params) for unit in units}
-
+    task_map = {unit.entity_id: run_action(unit, action, use_cache, params)
+                for unit in units}
     loop = asyncio.get_event_loop()
     tasks = asyncio.gather(*task_map.values())
-    actions = loop.run_until_complete(tasks)
-    action_futures = asyncio.gather(*[action.wait() for action in actions])
-    results: List[Action] = loop.run_until_complete(action_futures)
+    results: List[Action] = loop.run_until_complete(tasks)
 
     result_map = dict(zip(task_map.keys(), results))
 
     failed_actions_msg = []
-    for unit, action_result in result_map.items():
+    for unit_id, action_result in result_map.items():
         if action_result.status != 'completed':
-            failed_actions_msg.append('Action {0} (ID: {1}) failed to '
-                                      'complete on unit {2}. For more info'
-                                      ' see "juju show-action-output {1}"'
-                                      ''.format(action,
-                                                action_result.entity_id,
-                                                unit))
+            failed_actions_msg.append(
+                f'Action {action} (ID: {action_result.entity_id}) failed to complete '
+                f'on unit {unit_id}. For more info see '
+                f'"juju show-action-output {action_result.entity_id}"'
+            )
 
     if failed_actions_msg:
         raise VerificationError(os.linesep.join(failed_actions_msg))
@@ -66,14 +87,15 @@ def run_action_on_units(
     return result_map
 
 
-def run_action_on_unit(unit: Unit, action: str, **params: str) -> Action:
+def run_action_on_unit(unit: Unit, action: str,  use_cache: bool = True,
+                       params: Optional[Dict[str, Any]] = None) -> Action:
     """Run juju action on single unit.
 
     For more info, see docstring for 'run_action_on_units'. The only
     difference is that this function returns Action object directly, not
     dict {unit_id: action}.
     """
-    results = run_action_on_units([unit], action, **params)
+    results = run_action_on_units([unit], action, use_cache, params)
     return results[unit.entity_id]
 
 

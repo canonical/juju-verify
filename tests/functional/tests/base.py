@@ -7,10 +7,15 @@ from zaza.openstack.charm_tests.test_utils import OpenStackBaseTest
 import zaza.model
 
 from juju_verify import juju_verify
+from juju_verify.utils.action import cache
 
 
 class BaseTestCase(unittest.TestCase):
     """Base class for functional testing of verifiers."""
+
+    def tearDown(self) -> None:
+        """Teardown after each test."""
+        cache.clear()
 
     @classmethod
     def setUpClass(cls):

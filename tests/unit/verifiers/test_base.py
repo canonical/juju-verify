@@ -193,9 +193,9 @@ def test_base_verifier_run_action_on_all_units(mock_run_action_on_units, model):
     """Test running action on all units in verifier."""
     units = list(model.units.values())
     verifier = BaseVerifier(units)
-    verifier.run_action_on_all("test")
+    verifier.run_action_on_all("test", use_cache=False)
 
-    mock_run_action_on_units.assert_called_with(units, "test")
+    mock_run_action_on_units.assert_called_with(units, "test", False, None)
 
 
 def test_base_verifier_check_has_sub_machines(mocker):
