@@ -121,8 +121,13 @@ Let's see what ``juju-verify`` tells us to reboot one ceph-osd unit.
 ::
 
   $ juju-verify reboot -u ceph-osd/0
-  Result: OK
-  Reason: ceph-mon/1: Ceph cluster is healthy
+  Checks:
+  [OK] ceph-mon/2: Ceph cluster is healthy
+  [OK] Minimum replica number check passed.
+  [OK] Availability zone check passed.
+
+Overall result: OK (All checks passed)
+
 
 However, if we try to reboot two units instead of one, the check should fail.
 This is because when two units are removed, only one will remain and at least
@@ -130,10 +135,13 @@ two are needed.
 
 ::
 
-  $ juju-verify reboot -u ceph-osd/0 -u ceph-osd/1
-  Result: FAIL
-  Reason: ceph-mon/2: Ceph cluster is healthy
-  The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to restart/shutdown 2 units. 0 units are not active.
+  $ juju-verify reboot -u ceph-osd/0 ceph-osd/1
+  Checks:
+  [OK] ceph-mon/2: Ceph cluster is healthy
+  [FAIL] The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to restart/shutdown 2 units. 0 units are not active.
+  [FAIL] It's not safe to removed units {'ceph-osd/1', 'ceph-osd/0'} in the availability zone 'root=default'. [free_units=1, inactive_units=0]
+
+  Overall result: Failed
 
 .. _pypi.org: https://pypi.org/project/juju-verify/
 .. _snapcraft: https://snapcraft.io/about

@@ -7,6 +7,7 @@ from tests.base import OpenstackBaseTestCase
 
 from juju_verify import juju_verify
 from juju_verify.verifiers import get_verifier
+from juju_verify.verifiers.result import Partial, Severity
 
 logger = logging.getLogger()
 
@@ -49,12 +50,13 @@ class NovaCompute(OpenstackBaseTestCase):
         """
         nova_application = self.model.applications.get('nova-compute')
         verfier = get_verifier(nova_application.units)
-        expected_reason = ("Removing these units would leave these "
-                           "availability zones empty: {'nova'}")
+        expected_partial = Partial(Severity.FAIL, "Removing these units would leave "
+                                                  "following availability zones empty: "
+                                                  "{'nova'}")
         result = verfier.verify(self.CHECK)
 
         self.assertFalse(result.success)
-        self.assertEqual(result.reason, expected_reason)
+        self.assertTrue(expected_partial in result.partials)
 
     def test_running_vm_fails(self):
         """Test that check fails if there are running VMs on the compute."""
@@ -74,7 +76,8 @@ class NovaCompute(OpenstackBaseTestCase):
             self.fail("Failed to find launched VM on any of the nova-compute"
                       " units")
 
-        expected_reason = 'Unit {} is running 1 VMs.\n'.format(compute_with_vm)
+        expected_partial = Partial(Severity.FAIL, 'Unit {} is running 1 '
+                                                  'VMs.'.format(compute_with_vm))
         target_unit = loop.run(juju_verify.find_units(self.model,
                                                       [compute_with_vm]))
         verifier = get_verifier(target_unit)
@@ -82,6 +85,6 @@ class NovaCompute(OpenstackBaseTestCase):
         result = verifier.verify(self.CHECK)
 
         self.assertFalse(result.success)
-        self.assertEqual(result.reason, expected_reason)
+        self.assertTrue(expected_partial in result.partials)
 
         self.resource_cleanup()
