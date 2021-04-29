@@ -23,7 +23,7 @@ from juju.model import Model
 from juju.unit import Unit
 from pytest import param
 
-from juju_verify.verifiers import NovaCompute
+from juju_verify.verifiers.nova_compute import NovaCompute
 from juju_verify.verifiers.result import Result, Severity, Partial
 
 
@@ -118,21 +118,18 @@ def test_nova_compute_empty_az(all_hosts, remove_hosts, host_state,
     mocker.patch.object(NovaCompute,
                         'run_action_on_all').return_value = action_results
 
-    # mock result 'list-compute-nodes' action. Number of nodes in zone
-    # is parametrized.
+    # mock result 'list-compute-nodes' action. Number of nodes in zone is parametrized.
     raw_compute_nodes = [{'host': host,
                           'zone': zone,
                           'state': host_state,
                           'status': host_status}
                          for host in host_pool[:all_hosts]]
 
-    compute_nodes_data = {'results': {
-        'compute-nodes': json.dumps(raw_compute_nodes)}}
+    compute_nodes_data = {'results': {'compute-nodes': json.dumps(raw_compute_nodes)}}
     mock_compute_node_result = MagicMock()
     mock_compute_node_result.data = compute_nodes_data
-    mocker.patch.object(NovaCompute,
-                        'run_action_on_unit'
-                        ).return_value = mock_compute_node_result
+    mocker.patch('juju_verify.verifiers.nova_compute.run_action_on_unit'
+                 ).return_value = mock_compute_node_result
 
     # run verifier
     verifier = NovaCompute(units)

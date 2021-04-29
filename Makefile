@@ -50,7 +50,7 @@ release: clean build build-verify
 
 clean:
 	@echo "Cleaning files"
-	@git clean -fxd -e '!.idea'
+	@git clean -fxd -e '!.idea' -e '!.vscode'
 
 functional: build
 	@echo "Executing functional tests"
