@@ -487,3 +487,35 @@ def test_verify_ceph_mon_reboot_stops_on_failed_version(mock_version, mock_quoru
     mock_version.assert_called_once()
     mock_quorum.assert_not_called()
     mock_health.assert_not_called()
+
+
+@mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
+@mock.patch("juju_verify.verifiers.ceph.CephMon.check_quorum")
+@mock.patch("juju_verify.verifiers.ceph.CephMon.check_version")
+def test_verify_ceph_mon_reboot_checks_health_once(mock_version, mock_quorum,
+                                                   mock_health, mocker):
+    """Test that ceph-mon verification runs 'health check' only once per application."""
+    model = Model()
+    app_1 = [Unit('ceph-mon/0', model), Unit('ceph-mon/1', model)]
+    app_2 = [Unit('ceph-mon-extra/0', model), Unit('ceph-mon-extra/1', model)]
+    expected_health_check_units = [app_1[-1], app_2[-1]]
+
+    for unit in app_1:
+        mocker.patch.object(unit, 'data',
+                            new_callable=PropertyMock(
+                                return_value={'application': 'ceph-mon'})
+                            )
+
+    for unit in app_2:
+        mocker.patch.object(unit, 'data',
+                            new_callable=PropertyMock(
+                                return_value={'application': 'ceph-mon-extra'})
+                            )
+
+    verifier = CephMon(app_1 + app_2)
+    result = verifier.verify_reboot()
+
+    assert result.success
+    mock_version.assert_called_once()
+    mock_quorum.assert_called_once()
+    mock_health.assert_called_with(*expected_health_check_units)

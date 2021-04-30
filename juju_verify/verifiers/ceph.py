@@ -349,10 +349,14 @@ class CephMon(CephCommon):
         if not version_check.success:
             return version_check
 
+        # Get one ceph-mon unit per each application
+        app_map = {unit.data['application']: unit for unit in self.units}
+        unique_app_units = app_map.values()
+
         return aggregate_results(
             version_check,
             self.check_quorum(),
-            self.check_cluster_health(*self.units)
+            self.check_cluster_health(*unique_app_units)
         )
 
     def verify_shutdown(self) -> Result:
