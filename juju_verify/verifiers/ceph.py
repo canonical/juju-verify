@@ -21,6 +21,7 @@ from collections import defaultdict
 from typing import Dict, Optional, Any, List
 
 from juju.unit import Unit
+from packaging.version import Version, InvalidVersion
 
 from juju_verify.utils.action import data_from_action
 from juju_verify.utils.unit import (
@@ -31,6 +32,7 @@ from juju_verify.utils.unit import (
 )
 from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.result import aggregate_results, Result, Severity
+from juju_verify.exceptions import CharmException
 
 logger = logging.getLogger()
 
@@ -99,6 +101,7 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
         verify_charm_unit("ceph-mon", *units)
         result = Result()
         action_map = run_action_on_units(list(units), "get-health")
+
         for unit, action in action_map.items():
             cluster_health = data_from_action(action, "message")
             logger.debug("Unit (%s): Ceph cluster health '%s'", unit, cluster_health)
@@ -178,7 +181,7 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
 class CephOsd(CephCommon):
     """Implementation of verification checks for the ceph-osd charm."""
 
-    NAME = 'ceph-osd'
+    NAME = "ceph-osd"
 
     def __init__(self, units: List[Unit]):
         """Ceph-osd charm verifier."""
@@ -333,3 +336,80 @@ class CephOsd(CephCommon):
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected ceph-osd units."""
         return self.verify_reboot()
+
+
+class CephMon(CephCommon):
+    """Implementation of verification checks for the ceph-mon charm."""
+
+    NAME = "ceph-mon"
+
+    def verify_reboot(self) -> Result:
+        """Verify that it's safe to reboot selected ceph-mon units."""
+        version_check = self.check_version()
+        if not version_check.success:
+            return version_check
+
+        # Get one ceph-mon unit per each application
+        app_map = {unit.application: unit for unit in self.units}
+        unique_app_units = app_map.values()
+
+        return aggregate_results(
+            version_check,
+            self.check_quorum(),
+            self.check_cluster_health(*unique_app_units)
+        )
+
+    def verify_shutdown(self) -> Result:
+        """Verify that it's safe to shutdown selected units."""
+        return self.verify_reboot()
+
+    def check_quorum(self) -> Result:
+        """Check that the shutdown does not result in <50% mons alive."""
+        result = Result()
+
+        action_name = "get-quorum-status"
+        action_results = self.run_action_on_all(action_name)
+
+        affected_hosts = {unit.machine.hostname for unit in self.units}
+
+        for unit_id, action in action_results.items():
+            # run this per unit because we might have multiple clusters
+            known_mons = set(json.loads(data_from_action(action, "known-mons")))
+            online_mons = set(json.loads(data_from_action(action, "online-mons")))
+
+            mon_count = len(known_mons)
+            mons_after_change = len(online_mons - affected_hosts)
+
+            if mons_after_change <= mon_count // 2:
+                result.add_partial_result(Severity.FAIL, f"Removing unit {unit_id} will"
+                                                         f" lose Ceph mon quorum")
+
+        if result.empty:
+            result.add_partial_result(Severity.OK, 'Ceph-mon quorum check passed.')
+
+        return result
+
+    def check_version(self) -> Result:
+        """Check minimum required version of juju agents on units.
+
+        Ceph-mon verifier requires that all the units run juju agent >=2.8.10 due to
+        reliance on juju.Machine.hostname feature.
+        """
+        min_version = Version('2.8.10')
+        result = Result()
+        for unit in self.units:
+            juju_version = unit.safe_data.get('agent-status', {}).get('version', '')
+            try:
+                if Version(juju_version) < min_version:
+                    fail_msg = (f'Juju agent on unit {unit.entity_id} has lower than '
+                                f'minumum required version. {juju_version} < '
+                                f'{min_version}')
+                    result.add_partial_result(Severity.FAIL, fail_msg)
+            except InvalidVersion as exc:
+                raise CharmException(f'Failed to parse juju version from '
+                                     f'unit {unit.entity_id}.') from exc
+
+        if result.empty:
+            result.add_partial_result(Severity.OK, 'Minimum juju version check passed.')
+
+        return result

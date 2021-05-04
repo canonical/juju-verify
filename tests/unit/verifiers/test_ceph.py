@@ -17,13 +17,21 @@
 """CephOsd verifier class test suite."""
 import json
 from unittest import mock
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock
 
 import pytest
+from juju.model import Model
+from juju.unit import Unit
 
 from juju_verify.exceptions import CharmException
-from juju_verify.verifiers.ceph import AvailabilityZone, CephCommon, CephOsd
+from juju_verify.verifiers.ceph import AvailabilityZone, CephCommon, CephOsd, CephMon
 from juju_verify.verifiers.result import Result, Severity
+
+
+CEPH_MON_QUORUM_OK = "Ceph-mon quorum check passed."
+CEPH_MON_QUORUM_FAIL = "Removing unit {} will lose Ceph mon quorum"
+JUJU_VERSION_ERR = ("The machine for unit {} does not have a hostname attribute, "
+                    "please ensure that Juju controller is 2.8.10 or higher.")
 
 
 @pytest.mark.parametrize("az_info, ex_az", [
@@ -365,3 +373,149 @@ def test_verify_shutdown(
     mock_check_ceph_cluster_health.assert_called_once_with()
     mock_check_replication_number.assert_called_once_with()
     mock_check_availability_zone.assert_called_once_with()
+
+
+@pytest.mark.parametrize(
+    "action_return_value, severity, msg, hostname",
+    [('["host0", "host1", "host2"]', Severity.OK, CEPH_MON_QUORUM_OK, "host1"),
+     ('["host0", "host1"]', Severity.FAIL, CEPH_MON_QUORUM_FAIL, "host1"),
+     ('["host0", "host1", "host2"]', Severity.OK, CEPH_MON_QUORUM_OK, "host5"),
+     ],
+)
+def test_check_ceph_mon_quorum(mocker, action_return_value, severity, msg, hostname):
+    """Test Ceph quorum verification on CephMon."""
+    unit_to_remove = 'ceph-mon/0'
+    unit = Unit(unit_to_remove, Model())
+    verifier = CephMon([unit])
+    mocker.patch.object(verifier, "run_action_on_all").return_value = {
+        unit_to_remove: action_return_value,
+    }
+    unit.machine = mock.Mock(hostname=hostname)
+    mocker.patch(
+        "juju_verify.verifiers.ceph.data_from_action"
+    ).return_value = action_return_value
+    expected_msg = msg if severity == Severity.OK else msg.format(unit_to_remove)
+    expected_result = Result(severity, expected_msg)
+    result = verifier.check_quorum()
+    assert result == expected_result
+
+
+@pytest.mark.parametrize('juju_version, expected_severity', [
+    pytest.param('2.8.0', Severity.FAIL, id='version-low'),
+    pytest.param('2.8.10', Severity.OK, id='version-match'),
+    pytest.param('2.8.11', Severity.OK, id='version-high'),
+])
+def test_ceph_mon_version_check(juju_version, expected_severity, mocker):
+    """Test expected results of ceph-mon juju version check."""
+    mock_unit_data = {'agent-status': {'version': juju_version}}
+    mocker.patch.object(Unit, 'safe_data',
+                        new_callable=PropertyMock(return_value=mock_unit_data))
+    unit_name = 'ceph-mon/0'
+    if expected_severity == Severity.OK:
+        expected_result = Result(Severity.OK, 'Minimum juju version check passed.')
+    else:
+        fail_msg = (f'Juju agent on unit {unit_name} has lower than '
+                    f'minumum required version. {juju_version} < 2.8.10')
+        expected_result = Result(Severity.FAIL, fail_msg)
+
+    verifier = CephMon([Unit(unit_name, Model())])
+    result = verifier.check_version()
+
+    assert result == expected_result
+
+
+def test_ceph_mon_fail_version_parsing(mocker):
+    """Test that exception is raised if parsing of juju version fails."""
+    bogus_version = 'foo'
+    unit_name = 'ceph-mon/0'
+    mock_unit_data = {'agent-status': {'version': bogus_version}}
+    mocker.patch.object(Unit, 'safe_data',
+                        new_callable=PropertyMock(return_value=mock_unit_data))
+
+    verifier = CephMon([Unit(unit_name, Model())])
+
+    with pytest.raises(CharmException) as exc:
+        _ = verifier.check_version()
+
+    assert str(exc.value) == f'Failed to parse juju version from unit {unit_name}.'
+
+
+def test_verify_ceph_mon_shutdown(mocker):
+    """Test that verify_shutdown links to verify_reboot."""
+    mocker.patch.object(CephMon, "verify_reboot")
+    unit = Unit("ceph-mon/0", Model())
+    verifier = CephMon([unit])
+    verifier.verify_shutdown()
+    verifier.verify_reboot.assert_called_once()
+
+
+@mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
+@mock.patch("juju_verify.verifiers.ceph.CephMon.check_quorum")
+@mock.patch("juju_verify.verifiers.ceph.CephMon.check_version")
+def test_verify_ceph_mon_reboot(mock_version, mock_quorum, mock_health):
+    """Test reboot verification on CephMon."""
+    unit = Unit("ceph-mon/0", Model())
+    mock_health.return_value = Result(Severity.OK, "Ceph cluster is healthy")
+    mock_quorum.return_value = Result(Severity.OK, "Ceph-mon quorum check passed.")
+    mock_version.return_value = Result(Severity.OK,
+                                       "Minimum juju version check passed.")
+    verifier = CephMon([unit])
+    result = verifier.verify_reboot()
+
+    expected_result = Result()
+    expected_result.add_partial_result(Severity.OK,
+                                       "Minimum juju version check passed.")
+    expected_result.add_partial_result(Severity.OK, 'Ceph-mon quorum check passed.')
+    expected_result.add_partial_result(Severity.OK, 'Ceph cluster is healthy')
+
+    assert result == expected_result
+
+
+@mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
+@mock.patch("juju_verify.verifiers.ceph.CephMon.check_quorum")
+@mock.patch("juju_verify.verifiers.ceph.CephMon.check_version")
+def test_verify_ceph_mon_reboot_stops_on_failed_version(mock_version, mock_quorum,
+                                                        mock_health):
+    """Test that if ceph-mon version check fails, not other checks are performed."""
+    expected_result = Result(Severity.FAIL, 'version too low')
+    mock_version.return_value = expected_result
+
+    verifier = CephMon([Unit('ceph-mon/0', Model())])
+    result = verifier.verify_reboot()
+
+    assert result == expected_result
+    mock_version.assert_called_once()
+    mock_quorum.assert_not_called()
+    mock_health.assert_not_called()
+
+
+@mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
+@mock.patch("juju_verify.verifiers.ceph.CephMon.check_quorum")
+@mock.patch("juju_verify.verifiers.ceph.CephMon.check_version")
+def test_verify_ceph_mon_reboot_checks_health_once(mock_version, mock_quorum,
+                                                   mock_health, mocker):
+    """Test that ceph-mon verification runs 'health check' only once per application."""
+    model = Model()
+    app_1 = [Unit('ceph-mon/0', model), Unit('ceph-mon/1', model)]
+    app_2 = [Unit('ceph-mon-extra/0', model), Unit('ceph-mon-extra/1', model)]
+    expected_health_check_units = [app_1[-1], app_2[-1]]
+
+    for unit in app_1:
+        mocker.patch.object(unit, 'data',
+                            new_callable=PropertyMock(
+                                return_value={'application': 'ceph-mon'})
+                            )
+
+    for unit in app_2:
+        mocker.patch.object(unit, 'data',
+                            new_callable=PropertyMock(
+                                return_value={'application': 'ceph-mon-extra'})
+                            )
+
+    verifier = CephMon(app_1 + app_2)
+    result = verifier.verify_reboot()
+
+    assert result.success
+    mock_version.assert_called_once()
+    mock_quorum.assert_called_once()
+    mock_health.assert_called_with(*expected_health_check_units)
