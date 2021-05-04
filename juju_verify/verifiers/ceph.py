@@ -350,7 +350,7 @@ class CephMon(CephCommon):
             return version_check
 
         # Get one ceph-mon unit per each application
-        app_map = {unit.data['application']: unit for unit in self.units}
+        app_map = {unit.application: unit for unit in self.units}
         unique_app_units = app_map.values()
 
         return aggregate_results(
@@ -381,10 +381,8 @@ class CephMon(CephCommon):
             mons_after_change = len(online_mons - affected_hosts)
 
             if mons_after_change <= mon_count // 2:
-                result.add_partial_result(Severity.FAIL, f"Removing unit "
-                                                         f"{unit_id} will lose "
-                                                         f"Ceph mon quorum"
-                                          )
+                result.add_partial_result(Severity.FAIL, f"Removing unit {unit_id} will"
+                                                         f" lose Ceph mon quorum")
 
         if result.empty:
             result.add_partial_result(Severity.OK, 'Ceph-mon quorum check passed.')
