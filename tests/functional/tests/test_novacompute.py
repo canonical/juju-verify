@@ -39,6 +39,7 @@ class NovaCompute(OpenstackBaseTestCase):
         unit_objects = loop.run(juju_verify.find_units(self.model, units))
         verifier = get_verifier(unit_objects)
         result = verifier.verify(self.CHECK)
+        logger.info("result: %s", result)
         self.assertTrue(result.success)
 
     def test_empty_az_fails(self):
@@ -49,12 +50,12 @@ class NovaCompute(OpenstackBaseTestCase):
         should then trigger empty AZ error.
         """
         nova_application = self.model.applications.get('nova-compute')
-        verfier = get_verifier(nova_application.units)
+        verifier = get_verifier(nova_application.units)
         expected_partial = Partial(Severity.FAIL, "Removing these units would leave "
                                                   "following availability zones empty: "
                                                   "{'nova'}")
-        result = verfier.verify(self.CHECK)
-
+        result = verifier.verify(self.CHECK)
+        logger.info("result: %s", result)
         self.assertFalse(result.success)
         self.assertTrue(expected_partial in result.partials)
 
@@ -83,7 +84,7 @@ class NovaCompute(OpenstackBaseTestCase):
         verifier = get_verifier(target_unit)
 
         result = verifier.verify(self.CHECK)
-
+        logger.info("result: %s", result)
         self.assertFalse(result.success)
         self.assertTrue(expected_partial in result.partials)
 
