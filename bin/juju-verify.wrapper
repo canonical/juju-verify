@@ -4,4 +4,3 @@
 export JUJU_DATA=$JUJU_DATA
 
 exec "$SNAP/bin/juju-verify" "$@"
-
