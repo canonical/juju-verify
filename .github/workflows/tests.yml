@@ -7,8 +7,8 @@ on:
     branches: [ master ]
 
 jobs:
-  lint-and-unit-tests:
-    name: Lint & Unit tests
+  lint-unittests-docs:
+    name: Lint, Unit tests and Docs
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -25,16 +25,16 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install tox
     - name: Run lint checkers
-      run: |
-        tox -e lint
+      run: tox -e lint
     - name: Run unit tests
-      run: |
-        tox -e unit
+      run: tox -e unit
+    - name: Build docs
+      run: tox -e docs
 
   func-tests:
     name: Integration tests
     runs-on: self-hosted
-    needs: lint-and-unit-tests
+    needs: lint-unittests-docs
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.8
@@ -46,10 +46,8 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install tox
       - name: Build juju-verify
-        run: |
-          tox -e build
+        run: tox -e build
       - name: Run func tests
         run: |
           source ~/novarc
           tox -e func
-

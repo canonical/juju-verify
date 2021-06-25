@@ -15,8 +15,8 @@ on:
     types: [published]
 
 jobs:
-  lint-and-unit-tests:
-    name: Lint & Unit tests
+  lint-unittests-docs:
+    name: Lint, Unit tests and Docs
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -33,16 +33,16 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install tox
     - name: Run lint checkers
-      run: |
-        tox -e lint
+      run: tox -e lint
     - name: Run unit tests
-      run: |
-        tox -e unit
+      run: tox -e unit
+    - name: Build docs
+      run: tox -e docs
 
   release-to-pypi:
     name: Release juju-verify to PyPI
     runs-on: ubuntu-latest
-    needs: lint-and-unit-tests
+    needs: lint-unittests-docs
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python
