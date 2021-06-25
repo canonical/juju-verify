@@ -11,6 +11,7 @@ into one. For the result to be successful, all checks must be successful.
 .. toctree::
    :caption: List of supported verifiers:
 
+   verifiers/ceph-mon
    verifiers/ceph-osd
 
 
