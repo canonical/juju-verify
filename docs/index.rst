@@ -14,6 +14,13 @@
    modules
    verifiers
 
+.. toctree::
+   :caption: Changelog
+   :glob:
+   :maxdepth: 3
+
+   changelog
+
 
 Indices and tables
 ==================
