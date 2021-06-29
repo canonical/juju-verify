@@ -10,7 +10,7 @@ name: Upload Python Package to PyPI
 
 on:
   push:
-    branches: [stable]
+    branches: [master]
   release:
     types: [published]
 
