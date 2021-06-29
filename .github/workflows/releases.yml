@@ -57,8 +57,8 @@ jobs:
       run: tox -e build
     - name: Verify package
       run: tox -e build-verify
-    - name: Publish package (also verifies it)
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+    - name: Verify and Publish package
+      if: (github.event_name == 'release' || github.event_name == 'push') && startsWith(github.ref, 'refs/tags')
       uses: pypa/gh-action-pypi-publish@master
       with:
         user: __token__
@@ -71,7 +71,7 @@ jobs:
     needs: lint-unittests-docs
     steps:
     - name: Update readthedocs
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      if: (github.event_name == 'release' || github.event_name == 'push') && startsWith(github.ref, 'refs/tags')
       env:
         RTD_TOKEN: ${{ secrets.RTD_TOKEN }}
         RTD_URL: ${{ secrets.RTD_URL }}

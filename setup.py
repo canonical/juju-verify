@@ -20,14 +20,15 @@ import subprocess
 from typing import List
 
 
-def find_version(filename: str = 'version') -> str:
+def find_version(filename: str = "version") -> str:
     """Parse the version and build details stored in the 'version' file."""
-    # version, build = read_version(filename)
-
     try:
         cmd: List[str] = ["git", "describe", "--tags", "--always", "HEAD"]
-        gitversion: str = subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode().strip()
+        gitversion: str = subprocess.check_output(
+            cmd, stderr=subprocess.DEVNULL
+        ).decode().strip()
         build: List[str] = gitversion.split("-")
+        # <tagname>-<ncommits-ahead>-<commit-id> (e.g. 0.2-8-adfebee)
         if len(build) > 1:
             return "{}.post{}".format(build[0], build[1])
 
@@ -35,7 +36,7 @@ def find_version(filename: str = 'version') -> str:
         return gitversion
     except subprocess.CalledProcessError:
         # If .git does not exist, default to an old dev version
-        return '0.1.dev0'
+        return "0.1.dev0"
 
 
 setup(version=find_version())
