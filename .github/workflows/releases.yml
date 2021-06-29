@@ -59,7 +59,7 @@ jobs:
       run: tox -e build-verify
     - name: Verify and Publish package
       if: (github.event_name == 'release' || github.event_name == 'push') && startsWith(github.ref, 'refs/tags')
-      uses: pypa/gh-action-pypi-publish@master
+      uses: canonical/gh-action-pypi-publish@v1.4.2
       with:
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}
