@@ -75,4 +75,4 @@ jobs:
       env:
         RTD_TOKEN: ${{ secrets.RTD_TOKEN }}
         RTD_URL: ${{ secrets.RTD_URL }}
-      run: curl -X POST -d 'branch=master' -d 'token=$RTD_TOKEN' $RTD_URL
+      run: curl -X POST -d 'branches=master' -d "token=$RTD_TOKEN" $RTD_URL
