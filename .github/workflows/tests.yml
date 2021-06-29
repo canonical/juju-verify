@@ -30,11 +30,26 @@ jobs:
       run: tox -e unit
     - name: Build docs
       run: tox -e docs
+    - name: Build package
+      run: tox -e build
+    - name: Verify package
+      run: tox -e build-verify
+
+  build-snap:
+    name: Build snap
+    runs-on: ubuntu-latest
+    needs: lint-unittests-docs
+    steps:
+    - uses: actions/checkout@v2
+    - uses: snapcore/action-build@v1
+      id: snapcraft
+    - name: Install snap
+      run: sudo snap install --dangerous ${{ steps.snapcraft.outputs.snap }}
 
   func-tests:
     name: Integration tests
     runs-on: self-hosted
-    needs: lint-unittests-docs
+    needs: build-snap
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.8
@@ -45,9 +60,8 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install tox
-      - name: Build juju-verify
-        run: tox -e build
       - name: Run func tests
         run: |
           source ~/novarc
           tox -e func
+

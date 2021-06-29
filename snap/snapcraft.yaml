@@ -34,6 +34,8 @@ parts:
     plugin: python
     source: .
     override-build: |
+      sudo apt install -y git
+      ln -s ${SNAPCRAFT_PART_INSTALL} ${SNAPCRAFT_PART_BUILD}/.git
       snapcraftctl build
       PY_VERSION=$(python3 setup.py --version)
       snapcraftctl set-version "${PY_VERSION}"

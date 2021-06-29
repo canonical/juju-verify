@@ -88,10 +88,7 @@ At the same time, both checks are implemented for the following charms:
 
 .. seealso::
 
-  For more information about which checks are run for each charms visit this
-  page.
-
-.. todo:: add link to verifiers.rts document
+  For more information about which checks are run for each charms visit: :doc:`verifiers`.
 
 units/machines
 """"""""""""""
