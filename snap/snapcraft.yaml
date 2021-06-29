@@ -1,0 +1,39 @@
+name: juju-verify
+base: core20
+adopt-info: juju-verify
+summary: Juju plugin to verify if it's safe to perform an operation on juju units
+description: |
+  This CLI tool is a Juju plugin that allows user to check whether it's safe
+  to perform some disruptive maintenance operations on Juju units, like `shutdown`
+  or `reboot`.
+
+grade: stable
+confinement: strict
+
+plugs:
+  dot-local-share-juju:
+    interface: personal-files
+    read:
+      - $HOME/.local/share/juju
+
+apps:
+  juju-verify:
+    command: bin/juju-verify.wrapper
+    plugs:
+      - dot-local-share-juju
+      - network
+
+parts:
+  juju-verify-wrapper:
+    plugin: dump
+    source: bin
+    organize:
+      juju-verify.wrapper: bin/juju-verify.wrapper
+
+  juju-verify:
+    plugin: python
+    source: .
+    override-build: |
+      snapcraftctl build
+      PY_VERSION=$(python3 setup.py --version)
+      snapcraftctl set-version "${PY_VERSION}"

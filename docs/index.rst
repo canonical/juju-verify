@@ -10,8 +10,9 @@
    :caption: Api Documentation:
    :hidden:
 
+   getting-started
    modules
-
+   verifiers
 
 
 Indices and tables
@@ -20,3 +21,8 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+TODO list
+=========
+
+.. todolist::

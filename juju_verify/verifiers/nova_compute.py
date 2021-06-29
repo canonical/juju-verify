@@ -17,11 +17,11 @@
 """nova-compute verification."""
 import json
 import logging
-import os
 
 from juju_verify.utils.action import data_from_action
-from juju_verify.verifiers.base import BaseVerifier, Result
-from juju_verify.verifiers.result import aggregate_results
+from juju_verify.utils.unit import run_action_on_unit
+from juju_verify.verifiers.base import BaseVerifier
+from juju_verify.verifiers.result import aggregate_results, Result, Severity
 
 logger = logging.getLogger()
 
@@ -33,31 +33,30 @@ class NovaCompute(BaseVerifier):
 
     def check_no_running_vms(self) -> Result:
         """Check that none of the units have VMs running on them."""
-        result = Result(success=True)
+        result = Result()
         instance_count_action = 'instance-count'
         instance_count_results = self.run_action_on_all(instance_count_action)
 
         for unit_id, action in instance_count_results.items():
             running_vms = int(data_from_action(action, 'instance-count'))
             if running_vms != 0:
-                result.success = False
-                result.reason += 'Unit {} is running {} VMs.' \
-                                 '{}'.format(unit_id, running_vms, os.linesep)
-
+                result.add_partial_result(Severity.FAIL, f'Unit {unit_id} is running '
+                                                         f'{running_vms} VMs.')
+            else:
+                result.add_partial_result(Severity.OK, f'Unit {unit_id} is running '
+                                                       f'{running_vms} VMs.')
         return result
 
     def check_no_empty_az(self) -> Result:
         """Check that removing units wont cause empty availability zone."""
         def is_active(node: dict) -> bool:
             return node['state'] == 'up' and node['status'] == 'enabled'
-        result = Result(True)
 
         node_name_actions = self.run_action_on_all('node-name')
         target_nodes = [data_from_action(action, 'node-name')
                         for _, action in node_name_actions.items()]
 
-        nova_unit = self.units[0].entity_id
-        action = self.run_action_on_unit(nova_unit, 'list-compute-nodes')
+        action = run_action_on_unit(self.units[0], 'list-compute-nodes')
         compute_nodes = json.loads(data_from_action(action, 'compute-nodes'))
 
         affected_zones = {node['zone'] for node in compute_nodes
@@ -69,11 +68,10 @@ class NovaCompute(BaseVerifier):
         empty_zones = affected_zones - zones_after_change
 
         if empty_zones:
-            result.success = False
-            result.reason += 'Removing these units would leave ' \
-                             'these availability zones empty: ' \
-                             '{}'.format(empty_zones)
-
+            result = Result(Severity.FAIL, f'Removing these units would leave following'
+                                           f' availability zones empty: {empty_zones}')
+        else:
+            result = Result(Severity.OK, 'Empty Availability Zone check passed.')
         return result
 
     def verify_reboot(self) -> Result:

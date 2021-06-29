@@ -17,54 +17,158 @@
 """Juju-verify verification result."""
 import logging
 import os
+from enum import Enum
+from functools import total_ordering
+from typing import List
 
 logger = logging.getLogger(__name__)
 
 
-class Result:
-    """Convenience class that represents result of the check."""
+@total_ordering
+class Severity(Enum):
+    """Collection of possible Result's severities."""
 
-    def __init__(self, success: bool, reason: str = ''):
-        """Set values of the check result.
+    OK = 10
+    WARN = 20
+    UNSUPPORTED = 30
+    FAIL = 40
 
-        :param success: Indicates whether check passed or failed. True/False
-        :param reason: Additional information about result. Can stay empty for
-        positive results
+    def __lt__(self, other: object) -> bool:
+        """Perform "less than" comparison with other Severity instances."""
+        if not isinstance(other, Severity):
+            return NotImplemented
+
+        return self.value < other.value  # pylint: disable=W0143
+
+
+class Partial:
+    """Class representing partial result.
+
+    Generally, instances of this class are used in Result class to represent (partial)
+    results of individual checks ran during the whole verification process.
+    """
+
+    def __init__(self, severity: Severity, message: str):
+        """Initialize Partial instance.
+
+        :param severity: Severity of the partial result.
+        :param message: Additional information about the result
         """
-        self.success = success
-        self.reason = reason
+        self.severity = severity
+        self.message = message
 
     def __str__(self) -> str:
-        """Return formatted string representing the result."""
-        result = 'OK' if self.success else 'FAIL'
-        output = 'Result: {}'.format(result)
-        if self.reason:
-            output += '{}Reason: {}'.format(os.linesep, self.reason)
+        """Return string representation of the Partial class instance."""
+        return f'[{self.severity.name}] {self.message}'
+
+    def __eq__(self, other: object) -> bool:
+        """Perform equal comparison with another Partial instance."""
+        if not isinstance(other, Partial):
+            return NotImplemented
+        return self.severity == other.severity and self.message == other.message
+
+
+class Result:
+    """Convenience class that represents result of the check.
+
+    Each juju-verify check should return Result instance with at least one partial
+    result in self.partials. Multiple partial result are good idea if, for example, the
+    check runs against multiple units.
+    """
+
+    VERBOSE_MAP = {
+        Severity.OK: 'OK (All checks passed)',
+        Severity.WARN: 'OK (Checks passed with warnings)',
+        Severity.UNSUPPORTED: 'Failed (Targeted charms are not supported)',
+        Severity.FAIL: 'Failed',
+    }
+
+    def __init__(self, severity: Severity = Severity.OK, message: str = ''):
+        """Initialize result instance.
+
+        Initial arguments 'severity' and 'message' will automatically create Partial
+        result that will be stored in the self.partials. Additional partial results can
+        be added via self.add_partial_result.
+        For convenience, it's possible to initiate empty Result, however keep in mind
+        that returning empty Result is not very helpful.
+
+        :param severity: Severity of the result
+        :param message: Additional information about the result.
+        """
+        self.partials: List[Partial] = []
+        if message:
+            self.partials.append(Partial(severity, message))
+
+    def __str__(self) -> str:
+        """Return formatted string representing the result.
+
+        Note: If the Result instance has no Partial results in self.partials, returned
+        string will be error message.
+        """
+        if not self.partials:
+            return ('No result or additional information. This may be a bug in '
+                    '"juju-verify".')
+        output = f'Checks:{os.linesep}'
+        for partial in self.partials:
+            output += f'{partial}{os.linesep}'
+        output += os.linesep
+
+        max_severity = max(partial.severity for partial in self.partials)
+        output += f'Overall result: {self.VERBOSE_MAP.get(max_severity)}'
         return output
 
     def __add__(self, other: object) -> 'Result':
-        """Add together two Result instances.
+        """Perform "add" operation with another Result instance."""
+        if not isinstance(other, Result):
+            return NotImplemented
+        new_obj = Result()
 
-        Boolean AND operation is applied on 'success' attribute and 'reason'
-        attributes are concatenated.
-        """
+        for partial in self.partials + other.partials:
+            new_obj.partials.append(partial)
+
+        return new_obj
+
+    def __iadd__(self, other: object) -> 'Result':
+        """Perform "inplace add" operation with another Result instance."""
         if not isinstance(other, Result):
             return NotImplemented
 
-        new_success = self.success and other.success
-        if other.reason and self.reason and not self.reason.endswith(
-                os.linesep):
-            self.reason += os.linesep
-        new_reason = self.reason + other.reason
-
-        return Result(new_success, new_reason)
+        for partial in other.partials:
+            self.partials.append(partial)
+        return self
 
     def __eq__(self, other: object) -> bool:
         """Compare two Result instances."""
         if not isinstance(other, Result):
             return NotImplemented
 
-        return self.reason == other.reason and self.success == other.success
+        return self.partials == other.partials and self.success == other.success
+
+    @property
+    def success(self) -> bool:
+        """Return overall Result's success.
+
+        The success is calculated based on the highest Severity value from all the
+        partial results in self.partials. Following is the map for overall success:
+
+        Highest severity is OK -> Overall success is True
+        Highest severity is WARN -> Overall success is True
+        Highest severity is UNSUPPORTED -> Overall success is False
+        Highest severity is FAIL -> Overall success is False
+
+        Note: If the Result instance has no Partial results in self.partials, overall
+        success will be True.
+        """
+        return all(partial.severity < Severity.UNSUPPORTED for partial in self.partials)
+
+    @property
+    def empty(self) -> bool:
+        """Return True if result does not contain any partial results."""
+        return not bool(self.partials)
+
+    def add_partial_result(self, severity: Severity, message: str) -> None:
+        """Add partial result to this instance."""
+        self.partials.append(Partial(severity, message))
 
 
 def aggregate_results(*results: Result) -> Result:

@@ -16,7 +16,6 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """NovaCompute verifier class test suite."""
 import json
-import os
 from unittest.mock import MagicMock
 
 import pytest
@@ -24,14 +23,14 @@ from juju.model import Model
 from juju.unit import Unit
 from pytest import param
 
-from juju_verify.verifiers import NovaCompute
-from juju_verify.verifiers import Result
+from juju_verify.verifiers.nova_compute import NovaCompute
+from juju_verify.verifiers.result import Result, Severity, Partial
 
 
-@pytest.mark.parametrize('vm_count, expect_result',
-                         [('0', Result(True)),
-                          ('1', Result(False))])
-def test_nova_compute_no_running_vms(mocker, vm_count, expect_result):
+@pytest.mark.parametrize('vm_count, expect_severity',
+                         [('0', Severity.OK),
+                          ('1', Severity.FAIL)])
+def test_nova_compute_no_running_vms(mocker, vm_count, expect_severity):
     """Test expected Result based on the number of VMs running on nova."""
     # Prepare Units for verifier
     unit_names = ['nova-compute/0', 'nova-compute/1']
@@ -46,36 +45,34 @@ def test_nova_compute_no_running_vms(mocker, vm_count, expect_result):
     mocker.patch.object(NovaCompute,
                         'run_action_on_all').return_value = action_results
 
-    fail_reason = ''
+    expected_result = Result()
     for unit in unit_names:
-        fail_reason += 'Unit {} is running {} VMs.{}'.format(unit, vm_count,
-                                                             os.linesep)
+        expected_result.add_partial_result(expect_severity,
+                                           f'Unit {unit} is running {vm_count} VMs.')
 
     # Create and run verifier
     verifier = NovaCompute(units)
     result = verifier.check_no_running_vms()
 
     # Assert expected results
-    assert result.success == expect_result.success
-    if not result.success:
-        assert result.reason == fail_reason
+    assert result == expected_result
 
 
 @pytest.mark.parametrize('all_hosts, remove_hosts, host_state, host_status, '
-                         'expect_result', [
-                             param(2, 2, 'up', 'enabled', Result(False),
+                         'expect_severity', [
+                             param(2, 2, 'up', 'enabled', Severity.FAIL,
                                    id='fail-on-empty-az'),
-                             param(3, 2, 'up', 'enabled', Result(True),
+                             param(3, 2, 'up', 'enabled', Severity.OK,
                                    id='success-non-empty-az'),
-                             param(3, 2, 'down', 'enabled', Result(False),
+                             param(3, 2, 'down', 'enabled', Severity.FAIL,
                                    id='fail-down-host-left'),
-                             param(3, 2, 'up', 'disabled', Result(False),
+                             param(3, 2, 'up', 'disabled', Severity.FAIL,
                                    id='fail-disabled-host-left'),
-                             param(3, 2, 'down', 'disabled', Result(False),
+                             param(3, 2, 'down', 'disabled', Severity.FAIL,
                                    id='fail-down-disabled-host-left'),
                          ])
 def test_nova_compute_empty_az(all_hosts, remove_hosts, host_state,
-                               host_status, expect_result, mocker):
+                               host_status, expect_severity, mocker):
     """Test expected Result when trying to remove all nodes from AZ.
 
     Following scenarios are tested:
@@ -101,8 +98,14 @@ def test_nova_compute_empty_az(all_hosts, remove_hosts, host_state,
     units = [Unit(name, model) for name in unit_names]
     zone = 'nova'
 
-    fail_reason = 'Removing these units would leave these availability zones' \
-                  ' empty: {}'.format({zone})
+    if expect_severity == Severity.OK:
+        expected_success = True
+        expected_partial = Partial(Severity.OK, 'Empty Availability Zone check passed.')
+    else:
+        expected_success = False
+        expected_partial = Partial(Severity.FAIL, 'Removing these units would leave '
+                                                  'following availability zones empty: '
+                                                  '{}'.format({zone}))
 
     # mock results of 'node-names' action on all verified units
     node_name_results = []
@@ -115,37 +118,37 @@ def test_nova_compute_empty_az(all_hosts, remove_hosts, host_state,
     mocker.patch.object(NovaCompute,
                         'run_action_on_all').return_value = action_results
 
-    # mock result 'list-compute-nodes' action. Number of nodes in zone
-    # is parametrized.
+    # mock result 'list-compute-nodes' action. Number of nodes in zone is parametrized.
     raw_compute_nodes = [{'host': host,
                           'zone': zone,
                           'state': host_state,
                           'status': host_status}
                          for host in host_pool[:all_hosts]]
 
-    compute_nodes_data = {'results': {
-        'compute-nodes': json.dumps(raw_compute_nodes)}}
+    compute_nodes_data = {'results': {'compute-nodes': json.dumps(raw_compute_nodes)}}
     mock_compute_node_result = MagicMock()
     mock_compute_node_result.data = compute_nodes_data
-    mocker.patch.object(NovaCompute,
-                        'run_action_on_unit'
-                        ).return_value = mock_compute_node_result
+    mocker.patch('juju_verify.verifiers.nova_compute.run_action_on_unit'
+                 ).return_value = mock_compute_node_result
 
     # run verifier
     verifier = NovaCompute(units)
     result = verifier.check_no_empty_az()
 
     # assert expected results
-    assert result.success == expect_result.success
-    if not result.success:
-        assert result.reason == fail_reason
+    assert result.success == expected_success
+    assert expected_partial in result.partials
 
 
 @pytest.mark.parametrize('vm_count_result, empty_az_result, final_result', [
-    param(Result(True), Result(True), Result(True), id="all-checks-Pass"),
-    param(Result(False), Result(True), Result(False), id="only-empty_az-Pass"),
-    param(Result(True), Result(False), Result(False), id="only-vm_count-Pass"),
-    param(Result(False), Result(False), Result(False), id="all-checks-Failed"),
+    param(Result(Severity.OK, 'foo'), Result(Severity.OK, 'bar'), True,
+          id="all-checks-Pass"),
+    param(Result(Severity.FAIL, 'foo'), Result(Severity.OK, 'bar'), False,
+          id="only-empty_az-Pass"),
+    param(Result(Severity.OK, 'foo'), Result(Severity.FAIL, 'bar'), False,
+          id="only-vm_count-Pass"),
+    param(Result(Severity.FAIL, 'foo'), Result(Severity.FAIL, 'bar'), False,
+          id="all-checks-Failed"),
 ])
 def test_verify_reboot(mocker, vm_count_result, empty_az_result, final_result):
     """Test results of the verify_reboot method in NovaCompute."""
@@ -156,15 +159,15 @@ def test_verify_reboot(mocker, vm_count_result, empty_az_result, final_result):
 
     verifier = NovaCompute([Unit('nova-compute/0', Model())])
     result = verifier.verify_reboot()
-    assert result.success == final_result.success
+    assert result.success == final_result
 
 
 def test_verify_shutdown(mocker):
     """Test that verify_shutdown links to verify_reboot."""
-    mocker.patch.object(NovaCompute, 'verify_reboot')
+    mock_verify_reboot = mocker.patch.object(NovaCompute, 'verify_reboot')
     unit = Unit('nova-compute/0', Model())
 
     verifier = NovaCompute([unit])
     verifier.verify_shutdown()
 
-    verifier.verify_reboot.assert_called_once()
+    mock_verify_reboot.assert_called_once()

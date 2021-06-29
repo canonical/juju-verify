@@ -1,0 +1,16 @@
+series: bionic
+applications:
+  ceph-mon:
+    charm: cs:~rgildein/ceph-mon-3
+    num_units: 3
+    options:
+      expected-osd-count: 3
+      monitor-count: 3
+  ceph-osd:
+    charm: cs:~rgildein/ceph-osd-0
+    num_units: 3
+    options:
+      osd-devices: /srv/osd
+relations:
+- - ceph-osd:mon
+  - ceph-mon:osd
