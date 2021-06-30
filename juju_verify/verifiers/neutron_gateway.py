@@ -20,7 +20,7 @@ from typing import Dict, List
 
 from juju.unit import Unit
 
-from juju_verify.verifiers.base import BaseVerifier, Result
+from juju_verify.verifiers.base import BaseVerifier, Result, Severity
 from juju_verify.verifiers.result import aggregate_results
 from juju_verify.utils.action import data_from_action
 from juju_verify.utils.unit import run_action_on_unit
@@ -65,6 +65,7 @@ class NeutronGateway(BaseVerifier):
     def get_all_ngw_units(self) -> List[Unit]:
         """Get all neutron-gateway units, including those not being shutdown."""
         application_name = NeutronGateway.NAME
+        all_ngw_units = []
         for rel in self.model.relations:
             if rel.matches("{}:cluster".format(application_name)):
                 application = rel.applications.pop()
@@ -112,7 +113,6 @@ class NeutronGateway(BaseVerifier):
 
     def check_non_redundant_resource(self, action_name: str) -> Result:
         """Check that there are no non-redundant resources matching the resource type."""
-        result = Result(True)
         shutdown_resource_list = self.get_shutdown_resource_list(action_name)
         redundant_resource_list = self.get_online_resource_list(action_name)
 
@@ -120,15 +120,19 @@ class NeutronGateway(BaseVerifier):
         redundant_resource_set = set(r["id"] for r in redundant_resource_list)
         non_redundant_list = shutdown_resource_set - redundant_resource_set
         if non_redundant_list:
-            result.success = False
-            failure_string = NeutronGateway.action_name_failure_string_map[action_name]
-            result.reason = failure_string.format(", ".join(non_redundant_list))
+            failure_string = self.action_name_failure_string_map[action_name]
+            reason = failure_string.format(", ".join(non_redundant_list))
+            result = Result(Severity.FAIL, reason)
+        else:
+            resource = self.action_name_result_map[action_name]
+            reason = "Redundancy check passed for: {}".format(resource)
+            result = Result(Severity.OK, reason)
         return result
 
     def warn_router_ha(self) -> Result:
         """Warn that HA routers should be manually failed over."""
         action_name = "get-status-routers"
-        result = Result(True)
+        result = Result()
         shutdown_resource_list = self.get_shutdown_resource_list(action_name)
 
         router_failover_err_list = []
@@ -143,7 +147,8 @@ class NeutronGateway(BaseVerifier):
         if router_failover_err_list:
             error_string = ("It's recommended that you manually failover the following "
                             "routers: {}")
-            result.reason = error_string.format(", ".join(router_failover_err_list))
+            reason = error_string.format(", ".join(router_failover_err_list))
+            result = Result(Severity.WARN, reason)
 
         return result
 

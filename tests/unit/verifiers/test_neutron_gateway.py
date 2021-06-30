@@ -16,12 +16,13 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """NeutronGateway verifier class test suite."""
 import json
+from copy import deepcopy
 from unittest import mock
 from unittest.mock import MagicMock
 
 from juju.unit import Unit
 
-from juju_verify.verifiers import NeutronGateway
+from juju_verify.verifiers import NeutronGateway, Result, Severity
 from juju_verify.verifiers.neutron_gateway import get_unit_hostname
 from juju_verify.verifiers.neutron_gateway import get_unit_resource_list
 
@@ -203,6 +204,9 @@ def test_check_non_redundant_resource(mock_get_unit_hostname,
 
     ngw_verifier = get_ngw_verifier()
 
+    # store original mock_data
+    global mock_data
+    original_mock = deepcopy(mock_data)
     # add redundancy (but not HA) for router0, router1 onto non-shutdown hosts
     mock_data[1]["routers"].append({"id": "router0", "ha": False, "status": "ACTIVE"})
     mock_data[2]["routers"].append({"id": "router1", "ha": False, "status": "ACTIVE"})
@@ -227,8 +231,8 @@ def test_check_non_redundant_resource(mock_get_unit_hostname,
     result = ngw_verifier.check_non_redundant_resource("get-status-routers")
     assert result.success is False
 
-    # reset shutdown for next tests
-    mock_data[1]["shutdown"] = False
+    # restore mock_data
+    mock_data = original_mock
 
 
 @mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_resource_list")
@@ -247,13 +251,20 @@ def test_warn_router_ha(mock_get_unit_hostname,
 
     result = ngw_verifier.warn_router_ha()
     # no HA to failover, lack of redundancy is detected by check_non_redundant_resource
-    assert result.reason == ""
+    assert result == Result()
 
     # Find router0 set it to HA
+    expected_router = None
+    expected_unit = None
+    expected_host = None
     for host in mock_data:
         for router in host["routers"]:
             if router["id"] == "router0":
                 router["ha"] = True
+                expected_router = router["id"]
+                expected_unit = host["unit"].entity_id
+                expected_host = host["host"]
+
 
     mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
                                           all_ngw_host_names)
@@ -263,8 +274,13 @@ def test_warn_router_ha(mock_get_unit_hostname,
     ngw_verifier = get_ngw_verifier()
 
     result = ngw_verifier.warn_router_ha()
+
+    router_format = f'{expected_router} (on {expected_unit}, hostname: {expected_host})'
+    expected_message = ("It's recommended that you manually failover the following "
+                        "routers: {}".format(router_format))
+    expected_result = Result(Severity.WARN, expected_message)
     # router is in HA, given instructions to failover
-    assert result.reason
+    assert result.partials == expected_result.partials
 
 
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.check_non_redundant_resource")  # noqa: E501 pylint: disable=C0301
