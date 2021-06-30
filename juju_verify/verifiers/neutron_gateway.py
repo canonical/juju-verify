@@ -23,7 +23,7 @@ from juju.unit import Unit
 from juju_verify.verifiers.base import BaseVerifier, Result, Severity
 from juju_verify.verifiers.result import aggregate_results
 from juju_verify.utils.action import data_from_action
-from juju_verify.utils.unit import run_action_on_unit
+from juju_verify.utils.unit import parse_charm_name, run_action_on_unit
 
 
 def get_unit_hostname(unit: Unit) -> str:
@@ -64,12 +64,11 @@ class NeutronGateway(BaseVerifier):
 
     def get_all_ngw_units(self) -> List[Unit]:
         """Get all neutron-gateway units, including those not being shutdown."""
-        application_name = NeutronGateway.NAME
         all_ngw_units = []
-        for rel in self.model.relations:
-            if rel.matches("{}:cluster".format(application_name)):
-                application = rel.applications.pop()
-                all_ngw_units = application.units
+        for unit in self.model.units.values():
+            charm = parse_charm_name(unit.data.get('charm-url', ''))
+            if charm == self.NAME:
+                all_ngw_units.append(unit)
         return all_ngw_units
 
     def get_resource_list(self, get_resource_action_name: str) -> List[dict]:

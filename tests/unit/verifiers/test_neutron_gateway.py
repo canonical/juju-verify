@@ -265,7 +265,6 @@ def test_warn_router_ha(mock_get_unit_hostname,
                 expected_unit = host["unit"].entity_id
                 expected_host = host["host"]
 
-
     mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
                                           all_ngw_host_names)
     mock_get_all_ngw_units.return_value = all_ngw_units
@@ -324,3 +323,15 @@ def test_get_unit_resource_list(mock_data_from_action, mock_run_action_on_unit):
     resource_list = get_unit_resource_list(all_ngw_units[0], "get-status-routers")
     mock_run_action_on_unit.assert_called_once()
     assert resource == resource_list
+
+
+def test_get_all_gw_units(model):
+    """Test that `get_all_gw_units` returns also units taht are not being verified."""
+    ngw_unit_0 = model.units.get('neutron-gateway/0')
+    ngw_unit_1 = model.units.get('neutron-gateway/1')
+
+    verify_units = [ngw_unit_0]
+    expect_units = [ngw_unit_0, ngw_unit_1]
+    verifier = NeutronGateway(verify_units)
+
+    assert verifier.get_all_ngw_units() == expect_units
