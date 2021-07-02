@@ -93,7 +93,7 @@ applications:
     options:
       openstack-origin: cloud:bionic-ussuri
   nova-compute:
-    charm: cs:~martin-kalcok/nova-compute-0
+    charm: cs:~openstack-charmers-next/nova-compute-562
     num_units: 2
     constraints: mem=4G cores=4
     options:
