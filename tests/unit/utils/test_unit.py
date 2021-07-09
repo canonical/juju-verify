@@ -25,7 +25,7 @@ from juju.errors import JujuError
 from juju.unit import Unit
 from pytest import raises
 
-from juju_verify.exceptions import VerificationError, CharmException
+from juju_verify.exceptions import VerificationError, CharmException, ActionFailed
 from juju_verify.utils.unit import (
     run_action_on_units,
     verify_charm_unit,
@@ -119,9 +119,9 @@ async def test_run_action_failed():
     unit_1.entity_id.return_value = 1
     unit_1.run_action.side_effect = mock_unit_run_action
 
-    with pytest.raises(CharmException) as error:
+    with pytest.raises(ActionFailed) as error:
         await run_action(unit_1, "test-action", params=dict(format="json"))
-        assert "action `test-action` failed" == str(error.value)
+        assert "[1] action `test-action` failed" == str(error.value)
 
 
 @mock.patch("juju_verify.utils.unit.run_action")

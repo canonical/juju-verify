@@ -19,6 +19,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from collections import namedtuple
+from functools import wraps
 from typing import Callable, Dict, List, Optional, Any
 
 from juju.action import Action
@@ -30,6 +31,30 @@ from juju_verify.utils.unit import run_action_on_units
 from juju_verify.verifiers.result import aggregate_results, Result, Severity
 
 logger = logging.getLogger(__name__)
+
+
+def catch_check_failure(func: Callable) -> Callable:
+    """Check decorator to catch any error.
+
+    This decorator prevents the verification from stopping if any error occurs
+    during the check. Instead of raising the error, the result returns with
+    a severity of failure and the reason as an error message.
+    :raises ActionFailed: if the action failed to run
+    :raises VerificationError: if there is a problem verifying the unit
+    :raises CharmException: if there is a problem with Charm or parsing information
+                            from Charm
+    :raises JSONDecodeError: if there is a problem with the parsing json from
+                             the output of the action
+    :raises KeyError: if the action output is missing certain key
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs) -> Result:  # type: ignore
+        try:
+            return func(*args, **kwargs)
+        except Exception as error:  # pylint: disable=W0703
+            return Result(Severity.FAIL, f"check failed with error: {error}")
+
+    return wrapper
 
 
 class BaseVerifier:
@@ -109,6 +134,7 @@ class BaseVerifier:
         raise VerificationError('Unit {} was not found in {} verifier.'
                                 ''.format(unit_id, self.NAME))
 
+    @catch_check_failure
     def check_affected_machines(self) -> Result:
         """Check if affected machines run other principal units.
 
@@ -130,6 +156,7 @@ class BaseVerifier:
                                               f'unit that is not being checked: {unit}')
         return result
 
+    @catch_check_failure
     def check_has_sub_machines(self) -> Result:
         """Check if the machine hosts containers or VMs.
 

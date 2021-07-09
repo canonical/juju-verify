@@ -20,7 +20,7 @@ import logging
 
 from juju_verify.utils.action import data_from_action
 from juju_verify.utils.unit import run_action_on_unit
-from juju_verify.verifiers.base import BaseVerifier
+from juju_verify.verifiers.base import BaseVerifier, catch_check_failure
 from juju_verify.verifiers.result import aggregate_results, Result, Severity
 
 logger = logging.getLogger()
@@ -31,6 +31,7 @@ class NovaCompute(BaseVerifier):
 
     NAME = 'nova-compute'
 
+    @catch_check_failure
     def check_no_running_vms(self) -> Result:
         """Check that none of the units have VMs running on them."""
         result = Result()
@@ -47,6 +48,7 @@ class NovaCompute(BaseVerifier):
                                                        f'{running_vms} VMs.')
         return result
 
+    @catch_check_failure
     def check_no_empty_az(self) -> Result:
         """Check that removing units wont cause empty availability zone."""
         def is_active(node: dict) -> bool:

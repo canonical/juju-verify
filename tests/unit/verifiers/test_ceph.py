@@ -16,10 +16,12 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """CephOsd verifier class test suite."""
 import json
+import os
 from unittest import mock
 from unittest.mock import MagicMock, PropertyMock
 
 import pytest
+from juju.errors import JujuError
 from juju.model import Model
 from juju.unit import Unit
 
@@ -119,8 +121,11 @@ def test_check_cluster_health_unknown_state(mock_run_action_on_units, model):
 
 def test_check_cluster_health_error(model):
     """Test check Ceph cluster health raise CharmException."""
-    with pytest.raises(CharmException):
-        CephCommon.check_cluster_health(model.units["ceph-osd/0"])
+    model.units["ceph-mon/0"].run_action.side_effect = JujuError("action not exists")
+    result = CephCommon.check_cluster_health(model.units["ceph-mon/0"])
+    assert result == Result(Severity.FAIL,
+                            "check failed with error: ceph-mon/0: action `get-health` "
+                            f"failed with errors:{os.linesep}  action not exists")
 
 
 @mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
@@ -433,11 +438,11 @@ def test_ceph_mon_fail_version_parsing(mocker):
                         new_callable=PropertyMock(return_value=mock_unit_data))
 
     verifier = CephMon([Unit(unit_name, Model())])
+    result = verifier.check_version()
 
-    with pytest.raises(CharmException) as exc:
-        _ = verifier.check_version()
-
-    assert str(exc.value) == f'Failed to parse juju version from unit {unit_name}.'
+    assert result == Result(Severity.FAIL,
+                            f"check failed with error: Failed to parse juju version "
+                            f"from unit {unit_name}.")
 
 
 def test_verify_ceph_mon_shutdown(mocker):

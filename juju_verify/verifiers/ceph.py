@@ -30,7 +30,7 @@ from juju_verify.utils.unit import (
     get_first_active_unit,
     get_applications_names
 )
-from juju_verify.verifiers.base import BaseVerifier
+from juju_verify.verifiers.base import BaseVerifier, catch_check_failure
 from juju_verify.verifiers.result import aggregate_results, Result, Severity
 from juju_verify.exceptions import CharmException
 
@@ -91,6 +91,7 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
     """Parent class for CephMon and CephOsd verifier."""
 
     @classmethod
+    @catch_check_failure
     def check_cluster_health(cls, *units: Unit) -> Result:
         """Check Ceph cluster health for specific units.
 
@@ -255,11 +256,13 @@ class CephOsd(CephCommon):
 
         return availability_zones
 
+    @catch_check_failure
     def check_ceph_cluster_health(self) -> Result:
         """Check Ceph cluster health for unique ceph-mon units from ceph_mon_app_map."""
         unique_ceph_mon_units = set(self.ceph_mon_app_map.values())
         return self.check_cluster_health(*unique_ceph_mon_units)
 
+    @catch_check_failure
     def check_replication_number(self) -> Result:
         """Check the minimum number of replications for related applications."""
         result = Result()
@@ -291,6 +294,7 @@ class CephOsd(CephCommon):
                                       'Minimum replica number check passed.')
         return result
 
+    @catch_check_failure
     def check_availability_zone(self) -> Result:
         """Check availability zones resources.
 
@@ -363,6 +367,7 @@ class CephMon(CephCommon):
         """Verify that it's safe to shutdown selected units."""
         return self.verify_reboot()
 
+    @catch_check_failure
     def check_quorum(self) -> Result:
         """Check that the shutdown does not result in <50% mons alive."""
         result = Result()
@@ -389,6 +394,7 @@ class CephMon(CephCommon):
 
         return result
 
+    @catch_check_failure
     def check_version(self) -> Result:
         """Check minimum required version of juju agents on units.
 
