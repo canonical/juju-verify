@@ -21,6 +21,7 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 from juju.unit import Unit
+import pytest
 
 from juju_verify.verifiers import NeutronGateway, Result, Severity
 from juju_verify.verifiers.neutron_gateway import get_unit_hostname
@@ -283,25 +284,30 @@ def test_warn_router_ha(mock_get_unit_hostname,
 
 
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.check_non_redundant_resource")  # noqa: E501 pylint: disable=C0301
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.warn_lbaas_present")
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.warn_router_ha")
 @mock.patch("juju_verify.verifiers.neutron_gateway.aggregate_results")
 def test_verify_reboot_shutdown(mock_aggregate_results,
                                 mock_warn_router_ha,
+                                mock_warn_lbaas_preent,
                                 mock_check_non_redundant_resource):
     """Test that reboot/shutdown call appropriate checks."""
     ngw_verifier = get_ngw_verifier()
     ngw_verifier.verify_reboot()
-    assert mock_check_non_redundant_resource.call_count == 3
+    assert mock_check_non_redundant_resource.call_count == 2
     mock_warn_router_ha.assert_called_once()
+    mock_warn_lbaas_preent.assert_called_once()
     mock_aggregate_results.assert_called_once()
 
     mock_check_non_redundant_resource.reset_mock()
     mock_warn_router_ha.reset_mock()
     mock_aggregate_results.reset_mock()
+    mock_warn_lbaas_preent.reset_mock()
 
     ngw_verifier.verify_shutdown()
     mock_warn_router_ha.assert_called_once()
-    assert mock_check_non_redundant_resource.call_count == 3
+    mock_aggregate_results.assert_called_once()
+    assert mock_check_non_redundant_resource.call_count == 2
     mock_aggregate_results.assert_called_once()
 
 
@@ -335,3 +341,35 @@ def test_get_all_gw_units(model):
     verifier = NeutronGateway(verify_units)
 
     assert verifier.get_all_ngw_units() == expect_units
+
+
+@pytest.mark.parametrize('units_with_lbaas, checked_units', [
+    ({'neutron-gateway/0'}, {'neutron-gatewy/0'}),
+    ({'neutron-gateway/0', 'neutron-gateway/1'}, {'neutron-gateway/1'}),
+    ({'neutron-gateway/0', 'neutron-gateway/1'}, {'neutron-gateway/0',
+                                                  'neutron-gateway/1'}),
+    (set(), {'neutron-gateway/0'}),
+])
+def test_warn_lbaas_present_pass(mocker, model, units_with_lbaas, checked_units):
+    """Check that `warn_lbaas_present` method returns expected results."""
+    mock_get_resource_list = mocker.patch.object(NeutronGateway, 'get_resource_list')
+    resource_list = []
+    for unit in units_with_lbaas:
+        resource_list.append({'juju-entity-id': unit})
+    mock_get_resource_list.return_value = resource_list
+
+    affected_units = checked_units & units_with_lbaas
+
+    units = [Unit(unit, model) for unit in checked_units]
+    verifier = NeutronGateway(units)
+    result = verifier.warn_lbaas_present()
+
+    if affected_units:
+        message = ('Following units have neutron LBaasV2 load-balancers that will be'
+                   ' lost on unit shutdown: {}')
+        reason = message.format(", ".join(affected_units))
+        expected_result = Result(Severity.WARN, reason)
+    else:
+        expected_result = Result()
+
+    assert result == expected_result

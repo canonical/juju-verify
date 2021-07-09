@@ -26,6 +26,8 @@ relations:
   - rabbitmq-server:amqp
 - - nova-cloud-controller:quantum-network-service
   - neutron-gateway:quantum-network-service
+- - neutron-gateway:neutron-plugin-api
+  - neutron-api:neutron-plugin-api
 - - neutron-api:shared-db
   - percona-cluster:shared-db
 - - neutron-api:amqp

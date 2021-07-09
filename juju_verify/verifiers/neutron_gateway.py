@@ -50,7 +50,7 @@ class NeutronGateway(BaseVerifier):
                               "get-status-dhcp": "dhcp-networks",
                               "get-status-lb": "load-balancers"}
     action_name_failure_string_map = {"get-status-routers": ("The following routers are "
-                                                             "non-redundant: {}."),
+                                                             "non-redundant: {}"),
                                       "get-status-dhcp": ("The following DHCP networks "
                                                           "are non-redundant: {}"),
                                       "get-status-lb": ("The following LBaasV2 LBs were "
@@ -151,6 +151,22 @@ class NeutronGateway(BaseVerifier):
 
         return result
 
+    def warn_lbaas_present(self) -> Result:
+        """Warn that LBaasV2 loadbalancers are present on the verified units."""
+        action_name = "get-status-lb"
+        result = Result()
+        shutdown_lbaas_list = self.get_resource_list(action_name)
+        units_with_lbaas = {unit["juju-entity-id"] for unit in shutdown_lbaas_list}
+        affected_lbaas_units = set(self.unit_ids) & units_with_lbaas
+
+        if affected_lbaas_units:
+            message = ('Following units have neutron LBaasV2 load-balancers that will be'
+                       ' lost on unit shutdown: {}')
+            reason = message.format(", ".join(affected_lbaas_units))
+            result = Result(Severity.WARN, reason)
+
+        return result
+
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected neutron-gateway units."""
         return self.verify_shutdown()
@@ -158,6 +174,7 @@ class NeutronGateway(BaseVerifier):
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected neutron-gateway units."""
         return aggregate_results(self.warn_router_ha(),
+                                 self.warn_lbaas_present(),
                                  self.check_non_redundant_resource("get-status-routers"),
-                                 self.check_non_redundant_resource("get-status-dhcp"),
-                                 self.check_non_redundant_resource("get-status-lb"))
+                                 self.check_non_redundant_resource("get-status-dhcp")
+                                 )

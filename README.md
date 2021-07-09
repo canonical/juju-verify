@@ -8,7 +8,7 @@ or `reboot`.
 
 * nova-compute (WIP) (Usable with [this nova-compute charm](https://jaas.ai/u/martin-kalcok/nova-compute/0))
 * ceph-osd (WIP)
-* neutron-gateway (WIP)
+* neutron-gateway (WIP) (Usable with [dev release of neutron-gateway charm](https://jaas.ai/u/martin-kalcok/neutron-gateway/0))
 
 ## Supported checks
 
