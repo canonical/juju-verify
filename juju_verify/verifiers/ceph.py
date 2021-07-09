@@ -18,6 +18,7 @@
 import json
 import logging
 from collections import defaultdict
+from json import JSONDecodeError
 from typing import Dict, Optional, Any, List
 
 from juju.unit import Unit
@@ -32,7 +33,7 @@ from juju_verify.utils.unit import (
 )
 from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.result import aggregate_results, Result, Severity
-from juju_verify.exceptions import CharmException
+from juju_verify.exceptions import CharmException, ActionFailed
 
 logger = logging.getLogger()
 
@@ -100,7 +101,10 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
         """
         verify_charm_unit("ceph-mon", *units)
         result = Result()
-        action_map = run_action_on_units(list(units), "get-health")
+        try:
+            action_map = run_action_on_units(list(units), "get-health")
+        except ActionFailed as error:
+            return Result(Severity.FAIL, str(error))
 
         for unit, action in action_map.items():
             cluster_health = data_from_action(action, "message")
@@ -265,7 +269,15 @@ class CephOsd(CephCommon):
         result = Result()
 
         for app_name, ceph_mon_unit in self.ceph_mon_app_map.items():
-            min_replication_number = self.get_replication_number(ceph_mon_unit)
+            try:
+                min_replication_number = self.get_replication_number(ceph_mon_unit)
+            except ActionFailed as error:
+                result.add_partial_result(Severity.FAIL, str(error))
+                continue
+            except (JSONDecodeError, KeyError):
+                result.add_partial_result(Severity.FAIL, "could not parse replication number")
+                continue
+
             if min_replication_number is None:
                 continue  # get_replication_number returns None if no pools are available
 
@@ -299,8 +311,13 @@ class CephOsd(CephCommon):
         """
         result = Result()
         ceph_osd_apps = get_applications_names(self.model, "ceph-osd")
-        free_app_units = self.get_free_app_units(ceph_osd_apps)
-        availability_zones = self.get_apps_availability_zones(ceph_osd_apps)
+        try:
+            free_app_units = self.get_free_app_units(ceph_osd_apps)
+            availability_zones = self.get_apps_availability_zones(ceph_osd_apps)
+        except ActionFailed as error:
+            return Result(Severity.FAIL, str(error))
+        except (JSONDecodeError, KeyError):
+            return Result(Severity.FAIL, "could not parse information about AZ")
 
         for availability_zone, units in availability_zones.items():
             inactive_units = {
@@ -368,7 +385,10 @@ class CephMon(CephCommon):
         result = Result()
 
         action_name = "get-quorum-status"
-        action_results = self.run_action_on_all(action_name)
+        try:
+            action_results = self.run_action_on_all(action_name)
+        except ActionFailed as error:
+            return Result(Severity.FAIL, str(error))
 
         affected_hosts = {unit.machine.hostname for unit in self.units}
 

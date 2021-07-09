@@ -22,6 +22,7 @@ from collections import namedtuple
 from typing import Callable, Dict, List, Optional, Any
 
 from juju.action import Action
+from juju.errors import JujuError
 from juju.model import Model
 from juju.unit import Unit
 
@@ -156,9 +157,12 @@ class BaseVerifier:
         task_map = {child_tag: parent_child_pair.child.is_leader_from_status()
                     for child_tag, parent_child_pair in parent_child_pairs.items()}
 
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_event_loop()
+            results = loop.run_until_complete(asyncio.gather(*task_map.values()))
+        except JujuError as error:
+            return Result(Severity.FAIL, f"Failed to get leader information: {error}")
 
-        results = loop.run_until_complete(asyncio.gather(*task_map.values()))
         result_map = dict(zip(task_map.keys(), results))
 
         # loop through list of parents, format a message
