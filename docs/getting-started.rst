@@ -3,6 +3,22 @@ Getting Started
 
 This section provides information on how to install and use ``juju-verify``.
 
+Requirements
+------------
+
+The ``juju`` version 2.8.10 need to be installed. More information about installing
+``juju`` can be found `juju_installing`_.
+
+Charms revisions
+^^^^^^^^^^^^^^^^
+
+The ``juju-verify`` tool works with this charm revisions:
+
+* to verify ceph-osd units: **cs:~/rgildein/ceph-osd-0** and **cs:~/rgildein/ceph-mon-3**
+* to verify ceph-mon units: **not published**
+* to verify nova-compute units: **cs:~openstack-charmers-next/nova-compute-562**
+
+
 Installing
 ----------
 
@@ -85,6 +101,7 @@ At the same time, both checks are implemented for the following charms:
 
 * nova-compute
 * ceph-osd
+* ceph-mon
 
 .. seealso::
 
@@ -142,3 +159,4 @@ two are needed.
 
 .. _pypi.org: https://pypi.org/project/juju-verify/
 .. _snapcraft: https://snapcraft.io/about
+.. _juju_installing: https://juju.is/docs/olm/installing-juju

@@ -1,5 +1,15 @@
 **Changelog**
 
+0.2.2
+^^^^^
+Monday Jul 12 2021
+
+* This version has been tested and required revisions:
+
+  * to verify ceph-osd units: **cs:~/rgildein/ceph-osd-0** and **cs:~/rgildein/ceph-mon-3**
+  * to verify ceph-mon units: **not published**
+  * to verify nova-compute units: **cs:~openstack-charmers-next/nova-compute-562**
+
 0.2.1
 ^^^^^
 Tuesday June 29 2021
@@ -7,7 +17,7 @@ Tuesday June 29 2021
 * Move Git repo and CI/CD workflows to GitHub
 * Create this changelog
 
-0.2
+0.2k
 ^^^
 Thursday June 10 2021
 
@@ -34,7 +44,6 @@ Wednesday May 12 2021
 * nova-compute verifier: filter by status and state (`LP#1916593`_)
 * Verify a nova-compute unit can be safely shut down (or rebooted) (`LP#1913700`_)
 * Create a snapcraft.yaml file and attach the master repo to the snap CD system (build+publish to edge) (`LP#1915782`_)
-
 
 
 .. _LP#1921505: https://bugs.launchpad.net/juju-verify/+bug/1921505

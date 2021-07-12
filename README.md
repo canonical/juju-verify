@@ -4,10 +4,15 @@ This CLI tool is a Juju plugin that allows user to check whether it's safe
 to perform some disruptive maintenance operations on Juju units, like `shutdown`
 or `reboot`.
 
+## Requirements
+
+The minimum version of Juju is 2.8.10, which must be used with juju-verify.
+
 ## Supported charms
 
-* nova-compute (Usable with the next stable release of the charm. Currently available as a [pre-release](https://jaas.ai/u/openstack-charmers-next/nova-compute/562))
-* ceph-osd (WIP)
+* nova-compute (Usable with the next stable release of the charm. Currently available as a [nova-compute-rc])
+* ceph-osd (Usable with the custom release of the charm in rgildein namespace. [cs:~/rgildein/ceph-osd-0] and [cs:~/rgildein/ceph-mon-3])
+* ceph-mon (Currently not published)
 * neutron-gateway (WIP)
 
 ## Supported checks
@@ -63,3 +68,8 @@ environment variable is set to a suitable VIP address before running functional 
 If you prefer, file a bug or feature request at:
 
 * https://bugs.launchpad.net/juju-verify
+
+---
+[nova-compute-rc]: https://jaas.ai/u/openstack-charmers-next/nova-compute/562
+[cs:~/rgildein/ceph-osd-0]: https://jaas.ai/u/rgildein/ceph-osd/0
+[cs:~/rgildein/ceph-mon-3]: https://jaas.ai/u/rgildein/ceph-mon/3
