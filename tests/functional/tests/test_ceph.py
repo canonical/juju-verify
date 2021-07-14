@@ -1,6 +1,7 @@
 """Test deployment and functionality of juju-verify."""
 import logging
 import re
+import time
 
 import zaza
 from juju import loop
@@ -26,6 +27,9 @@ class CephOsdTests(BaseTestCase):
         _ = zaza.model.run_action("ceph-mon/0", "create-pool",
                                   action_params={"name": self.test_pool,
                                                  "percent-data": percent_data})
+        # wait a bit so it settles
+        logger.debug("wait 60s for the test pool to settle...")
+        time.sleep(60)
 
     def _remove_test_pool(self):
         """Delete a test pool."""
@@ -78,7 +82,7 @@ class CephOsdTests(BaseTestCase):
         check = "shutdown"
         unit_objects = loop.run(juju_verify.find_units(self.model, units))
 
-        self._add_test_pool(percent_data=50)
+        self._add_test_pool(percent_data=80)
         # check that Ceph cluster is healthy
         verifier = get_verifier(unit_objects)
         result = verifier.verify(check)
