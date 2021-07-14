@@ -1,4 +1,11 @@
 series: bionic
+machines:
+  '0':
+    series: bionic
+  '1':
+    series: bionic
+  '2':
+    series: bionic
 applications:
   ceph-mon:
     charm: cs:~rgildein/ceph-mon-3
@@ -6,11 +13,19 @@ applications:
     options:
       expected-osd-count: 3
       monitor-count: 3
+    to:
+    - lxd:0
+    - lxd:1
+    - lxd:2
   ceph-osd:
     charm: cs:~rgildein/ceph-osd-0
     num_units: 3
     options:
       osd-devices: /srv/osd
+    to:
+      - 0
+      - 1
+      - 2
 relations:
 - - ceph-osd:mon
   - ceph-mon:osd
