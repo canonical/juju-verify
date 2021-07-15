@@ -17,7 +17,7 @@
 """NeutronGateway verifier class test suite."""
 import json
 from copy import deepcopy
-from itertools import cycle
+from itertools import cycle, permutations
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -358,7 +358,7 @@ def test_warn_lbaas_present_pass(mocker, model, units_with_lbaas, checked_units)
         resource_list.append({'juju-entity-id': unit})
     mock_get_resource_list.return_value = resource_list
 
-    affected_units = checked_units & units_with_lbaas
+    affected_units: set = checked_units & units_with_lbaas
 
     units = [Unit(unit, model) for unit in checked_units]
     verifier = NeutronGateway(units)
@@ -367,9 +367,15 @@ def test_warn_lbaas_present_pass(mocker, model, units_with_lbaas, checked_units)
     if affected_units:
         message = ('Following units have neutron LBaasV2 load-balancers that will be'
                    ' lost on unit shutdown: {}')
-        reason = message.format(", ".join(affected_units))
-        expected_result = Result(Severity.WARN, reason)
+        expected_results = []
+        # Note (martin-kalcok): Since the order of the affected units in the resulting
+        #                       message is not guaranteed, We need to create permutations
+        #                       of all possible options and check if our result is in
+        #                       there.
+        for permutation in permutations(affected_units):
+            reason = message.format(", ".join(permutation))
+            expected_results.append(Result(Severity.WARN, reason))
+        assert result in expected_results
     else:
-        expected_result = Result()
+        assert result == Result()
 
-    assert result == expected_result
