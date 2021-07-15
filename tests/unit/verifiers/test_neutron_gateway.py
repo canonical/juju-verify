@@ -17,6 +17,7 @@
 """NeutronGateway verifier class test suite."""
 import json
 from copy import deepcopy
+from itertools import cycle
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -24,8 +25,6 @@ from juju.unit import Unit
 import pytest
 
 from juju_verify.verifiers import NeutronGateway, Result, Severity
-from juju_verify.verifiers.neutron_gateway import get_unit_hostname
-from juju_verify.verifiers.neutron_gateway import get_unit_resource_list
 
 all_ngw_units = []
 for i in range(3):
@@ -56,7 +55,7 @@ mock_data = [
     },
 ]
 
-all_ngw_host_names = [h["host"] for h in mock_data]
+all_ngw_host_names = [host["host"] for host in mock_data]
 
 model = MagicMock()
 
@@ -69,12 +68,12 @@ def get_ngw_verifier():
 
 def get_resource_lists():
     """Get all routers in mock data."""
-    return [h["routers"] for h in mock_data]
+    return [host["routers"] for host in mock_data]
 
 
 def get_shutdown_host_name_list():
     """Get all hostnames of all hosts being shutdown."""
-    return [h["host"] for h in mock_data if h["shutdown"]]
+    return [host["host"] for host in mock_data if host["shutdown"]]
 
 
 def set_router_status(routerid, status):
@@ -85,9 +84,9 @@ def set_router_status(routerid, status):
                 router["status"] = status
 
 
-@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_resource_list")
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501 pylint: disable=C0301
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
-@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_hostname")
 def test_get_resource_list(mock_get_unit_hostname,
                            mock_get_all_ngw_units,
                            mock_get_unit_resource_list):
@@ -106,9 +105,9 @@ def test_get_resource_list(mock_get_unit_hostname,
     assert len(router_list) == router_count
 
 
-@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_resource_list")
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501 pylint: disable=C0301
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
-@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_hostname")
 def test_get_shutdown_resource_list(mock_get_unit_hostname,
                                     mock_get_all_ngw_units,
                                     mock_get_unit_resource_list):
@@ -143,9 +142,9 @@ def test_get_shutdown_resource_list(mock_get_unit_hostname,
     set_router_status("router0", "ACTIVE")
 
 
-@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_resource_list")
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501 pylint: disable=C0301
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
-@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_hostname")
 def test_get_online_resource_list(mock_get_unit_hostname,
                                   mock_get_all_ngw_units,
                                   mock_get_unit_resource_list):
@@ -180,17 +179,17 @@ def test_get_online_resource_list(mock_get_unit_hostname,
     set_router_status("router2", "ACTIVE")
 
 
-@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_resource_list")
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501 pylint: disable=C0301
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
-@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_hostname")
 def test_check_non_redundant_resource(mock_get_unit_hostname,
                                       mock_get_all_ngw_units,
                                       mock_get_unit_resource_list):
     """Test validity of list of resources determined to not be redundant."""
-    mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
-                                          all_ngw_host_names)
+    mock_get_unit_hostname.side_effect = cycle(get_shutdown_host_name_list() +
+                                               all_ngw_host_names)
     mock_get_all_ngw_units.return_value = all_ngw_units
-    mock_get_unit_resource_list.side_effect = get_resource_lists()
+    mock_get_unit_resource_list.side_effect = cycle(get_resource_lists())
 
     ngw_verifier = get_ngw_verifier()
 
@@ -198,10 +197,10 @@ def test_check_non_redundant_resource(mock_get_unit_hostname,
     result = ngw_verifier.check_non_redundant_resource("get-status-routers")
     assert result.success is False
 
-    mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
-                                          all_ngw_host_names)
+    mock_get_unit_hostname.side_effect = cycle(get_shutdown_host_name_list() +
+                                               all_ngw_host_names)
     mock_get_all_ngw_units.return_value = all_ngw_units
-    mock_get_unit_resource_list.side_effect = get_resource_lists()
+    mock_get_unit_resource_list.side_effect = cycle(get_resource_lists())
 
     ngw_verifier = get_ngw_verifier()
 
@@ -211,22 +210,22 @@ def test_check_non_redundant_resource(mock_get_unit_hostname,
     # add redundancy (but not HA) for router0, router1 onto non-shutdown hosts
     mock_data[1]["routers"].append({"id": "router0", "ha": False, "status": "ACTIVE"})
     mock_data[2]["routers"].append({"id": "router1", "ha": False, "status": "ACTIVE"})
-    mock_get_unit_resource_list.side_effect = get_resource_lists()
+    mock_get_unit_resource_list.side_effect = cycle(get_resource_lists())
     result = ngw_verifier.check_non_redundant_resource("get-status-routers")
     assert result.success
 
     # test setting redundant redundant router0 to NOTACTIVE will result in failure
     mock_data[1]["routers"][-1]["status"] = "NOTACTIVE"
-    mock_get_unit_resource_list.side_effect = get_resource_lists()
+    mock_get_unit_resource_list.side_effect = cycle(get_resource_lists())
     result = ngw_verifier.check_non_redundant_resource("get-status-routers")
     assert result.success is False
 
     # test shutdown host1, which will take down the redundant router0
     mock_data[1]["shutdown"] = True
-    mock_get_unit_hostname.side_effect = (get_shutdown_host_name_list() +
-                                          all_ngw_host_names)
+    mock_get_unit_hostname.side_effect = cycle(get_shutdown_host_name_list() +
+                                               all_ngw_host_names)
     mock_get_all_ngw_units.return_value = all_ngw_units
-    mock_get_unit_resource_list.side_effect = get_resource_lists()
+    mock_get_unit_resource_list.side_effect = cycle(get_resource_lists())
 
     ngw_verifier = get_ngw_verifier()
     result = ngw_verifier.check_non_redundant_resource("get-status-routers")
@@ -236,9 +235,9 @@ def test_check_non_redundant_resource(mock_get_unit_hostname,
     mock_data = original_mock
 
 
-@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_resource_list")
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list")  # noqa: E501 pylint: disable=C0301
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
-@mock.patch("juju_verify.verifiers.neutron_gateway.get_unit_hostname")
+@mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_hostname")
 def test_warn_router_ha(mock_get_unit_hostname,
                         mock_get_all_ngw_units,
                         mock_get_unit_resource_list):
@@ -315,7 +314,7 @@ def test_verify_reboot_shutdown(mock_aggregate_results,
 @mock.patch("juju_verify.verifiers.neutron_gateway.data_from_action")
 def test_get_unit_hostname(mock_data_from_action, mock_run_action_on_unit):
     """Test getting remote Unit's hostname."""
-    get_unit_hostname(all_ngw_units[0])
+    NeutronGateway.get_unit_hostname(all_ngw_units[0])
     mock_run_action_on_unit.assert_called_once()
     mock_data_from_action.assert_called_once()
 
@@ -326,7 +325,8 @@ def test_get_unit_resource_list(mock_data_from_action, mock_run_action_on_unit):
     """Test Neutron agent resources are retrieved via Juju actions."""
     resource = {"routers": [{"id": "r1"}]}
     mock_data_from_action.return_value = json.dumps(resource)
-    resource_list = get_unit_resource_list(all_ngw_units[0], "get-status-routers")
+    resource_list = NeutronGateway.get_unit_resource_list(all_ngw_units[0],
+                                                          "get-status-routers")
     mock_run_action_on_unit.assert_called_once()
     assert resource == resource_list
 
