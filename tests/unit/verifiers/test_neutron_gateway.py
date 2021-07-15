@@ -378,4 +378,3 @@ def test_warn_lbaas_present_pass(mocker, model, units_with_lbaas, checked_units)
         assert result in expected_results
     else:
         assert result == Result()
-
