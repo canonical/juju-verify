@@ -20,7 +20,8 @@ import os
 
 import pytest
 
-from juju_verify.verifiers.result import aggregate_results, Partial, Result, Severity
+from juju_verify.exceptions import CharmException
+from juju_verify.verifiers.result import Partial, Result, Severity, checks_executor
 
 
 @pytest.mark.parametrize('severity, lesser_group, greater_group', [
@@ -250,32 +251,29 @@ def test_result_empty(result, expected_emptiness):
     assert result.empty == expected_emptiness
 
 
-def test_aggregate_results():
-    """Test aggregation of multiple results."""
+def test_checks_executor():
+    """Test executing and aggregation result of multiple checks."""
+
+    def mock_failing_check():
+        raise CharmException("check failed")
+
     partial_1 = Partial(Severity.OK, 'foo')
     partial_2 = Partial(Severity.WARN, 'bar')
     partial_3 = Partial(Severity.UNSUPPORTED, 'baz')
     partial_4 = Partial(Severity.FAIL, 'quz')
-    partial_list = [
-        partial_1,
-        partial_2,
-        partial_3,
-        partial_4,
-    ]
-    result_1 = Result(partial_1.severity, partial_1.message)
-    result_2 = Result(partial_2.severity, partial_2.message)
-    result_3 = Result(partial_3.severity, partial_3.message)
-    result_4 = Result(partial_4.severity, partial_4.message)
+    partial_5 = Partial(Severity.FAIL, "mock_failing_check check failed with error: "
+                                       "check failed")
 
     expected_result = Result()
-    for partial in partial_list:
+    for partial in [partial_1, partial_2, partial_3, partial_4, partial_5]:
         expected_result.add_partial_result(partial.severity, partial.message)
 
-    final_result = aggregate_results(
-        result_1,
-        result_2,
-        result_3,
-        result_4,
+    final_result = checks_executor(
+        lambda: Result(partial_1.severity, partial_1.message),
+        lambda: Result(partial_2.severity, partial_2.message),
+        lambda: Result(partial_3.severity, partial_3.message),
+        lambda: Result(partial_4.severity, partial_4.message),
+        mock_failing_check,
     )
 
     assert final_result == expected_result

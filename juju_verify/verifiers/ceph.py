@@ -31,7 +31,7 @@ from juju_verify.utils.unit import (
     get_applications_names
 )
 from juju_verify.verifiers.base import BaseVerifier
-from juju_verify.verifiers.result import aggregate_results, Result, Severity
+from juju_verify.verifiers.result import Result, Severity, checks_executor
 from juju_verify.exceptions import CharmException
 
 logger = logging.getLogger()
@@ -329,9 +329,9 @@ class CephOsd(CephCommon):
 
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected ceph-osd units."""
-        return aggregate_results(self.check_ceph_cluster_health(),
-                                 self.check_replication_number(),
-                                 self.check_availability_zone())
+        return checks_executor(self.check_ceph_cluster_health,
+                               self.check_replication_number,
+                               self.check_availability_zone)
 
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected ceph-osd units."""
@@ -345,23 +345,24 @@ class CephMon(CephCommon):
 
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected ceph-mon units."""
-        version_check = self.check_version()
+        version_check = checks_executor(self.check_version)
         if not version_check.success:
             return version_check
 
-        # Get one ceph-mon unit per each application
-        app_map = {unit.application: unit for unit in self.units}
-        unique_app_units = app_map.values()
-
-        return aggregate_results(
-            version_check,
-            self.check_quorum(),
-            self.check_cluster_health(*unique_app_units)
+        return version_check + checks_executor(
+            self.check_quorum, self.check_ceph_cluster_health,
         )
 
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected units."""
         return self.verify_reboot()
+
+    def check_ceph_cluster_health(self) -> Result:
+        """Check Ceph cluster health for unique ceph-mon application."""
+        # Get one ceph-mon unit per each application
+        app_map = {unit.application: unit for unit in self.units}
+        unique_app_units = app_map.values()
+        return self.check_cluster_health(*unique_app_units)
 
     def check_quorum(self) -> Result:
         """Check that the shutdown does not result in <50% mons alive."""
@@ -402,7 +403,7 @@ class CephMon(CephCommon):
             try:
                 if Version(juju_version) < min_version:
                     fail_msg = (f'Juju agent on unit {unit.entity_id} has lower than '
-                                f'minumum required version. {juju_version} < '
+                                f'minimum required version. {juju_version} < '
                                 f'{min_version}')
                     result.add_partial_result(Severity.FAIL, fail_msg)
             except InvalidVersion as exc:

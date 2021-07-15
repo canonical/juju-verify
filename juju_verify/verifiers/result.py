@@ -19,7 +19,10 @@ import logging
 import os
 from enum import Enum
 from functools import total_ordering
-from typing import List
+from json import JSONDecodeError
+from typing import List, Callable
+
+from juju_verify.exceptions import ActionFailed, CharmException
 
 logger = logging.getLogger(__name__)
 
@@ -171,12 +174,26 @@ class Result:
         self.partials.append(Partial(severity, message))
 
 
-def aggregate_results(*results: Result) -> Result:
-    """Return aggregate value of multiple results."""
-    result_list = list(results)
-    final_result = result_list.pop(0)
+def checks_executor(*checks: Callable) -> Result:
+    """Executor that aggregates checks and captures errors.
 
-    for result in result_list:
-        final_result += result
+    This executor will accept checks as a callable function and will aggregate all
+    their results in order. If the check does not return any input, then the default
+    value is used in the form: `Result(OK, "<check .__ name __> check successful").
+    At the same time, if the check fails on one of the following errors (ActionFailed,
+    CharmException, KeyError, JSONDecodeError), it will be marked as failed with
+    the result in the form:
+    `Result(FAIL, f"{check.__name__} check failed with error: {error}"`.
+    """
+    aggregate_result = Result()
+    for check in checks:
+        try:
+            result = check()
+            aggregate_result += result or Result(Severity.OK,
+                                                 f"{check.__name__} check passed")
+        except (ActionFailed, CharmException, KeyError, JSONDecodeError) as error:
+            aggregate_result += Result(
+                Severity.FAIL, f"{check.__name__} check failed with error: {error}"
+            )
 
-    return final_result
+    return aggregate_result

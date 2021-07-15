@@ -27,7 +27,7 @@ from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError
 from juju_verify.utils.unit import run_action_on_units
-from juju_verify.verifiers.result import aggregate_results, Result, Severity
+from juju_verify.verifiers.result import Result, Severity, checks_executor
 
 logger = logging.getLogger(__name__)
 
@@ -181,24 +181,24 @@ class BaseVerifier:
         :raises VerificationError: If check fails in unexpected manner or if
                                    list of self.units is empty
         """
-        preflight_results = aggregate_results(
-            self.check_affected_machines(),
-            self.check_has_sub_machines()
-        )
-        verify_action = self._action_map().get(check)
-        if verify_action is None:
+        if check not in self.supported_checks():
             raise NotImplementedError('Unsupported verification check "{}" for'
                                       ' charm {}'.format(check, self.NAME))
 
+        def verify_action() -> Result:
+            return self._action_map()[check](self)
+
+        preflight_checks = (
+            self.check_affected_machines, self.check_has_sub_machines
+        )
+
         try:
             logger.debug('Running check %s on units: %s', check, ','.join(self.unit_ids))
-            main_results = verify_action(self)
-            return aggregate_results(preflight_results, main_results)
+            return checks_executor(*preflight_checks, verify_action)
         except NotImplementedError as exc:
             raise exc
         except Exception as exc:
-            err = VerificationError('Verification failed: {}'.format(exc))
-            raise err from exc
+            raise VerificationError('Verification failed: {}'.format(exc)) from exc
 
     def run_action_on_all(self, action: str, use_cache: bool = True,
                           params: Optional[Dict[str, Any]] = None) -> Dict[str, Action]:
@@ -220,7 +220,7 @@ class BaseVerifier:
     def verify_reboot(self) -> Result:
         """Child classes must override this method with custom implementation.
 
-        'reboot' check needds to be implemented on child classes.
+        'reboot' check needs to be implemented on child classes.
         """
         raise NotImplementedError('Requested check "reboot" is not '
                                   'implemented for "{}" '

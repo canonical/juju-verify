@@ -21,10 +21,11 @@ import re
 from typing import List, Dict, Any, Optional
 
 from juju.action import Action
+from juju.errors import JujuError
 from juju.model import Model
 from juju.unit import Unit
 
-from juju_verify.exceptions import VerificationError, CharmException
+from juju_verify.exceptions import VerificationError, CharmException, ActionFailed
 from juju_verify.utils.action import cache
 
 CHARM_URL_PATTERN = re.compile(r'^(.*):(.*/)?(?P<charm>.*)(-\d+)$')
@@ -44,8 +45,11 @@ async def run_action(unit: Unit, action: str, use_cache: bool = True,
     key = get_cache_key(unit, action, **params)
 
     if key not in cache or not use_cache:
-        _action = await unit.run_action(action, **params)
-        result = await _action.wait()  # wait for result
+        try:
+            _action = await unit.run_action(action, **params)
+            result = await _action.wait()  # wait for result
+        except JujuError as error:
+            raise ActionFailed(error, unit, action, params) from error
         cache[key] = result  # save result to cache
         return result
 
