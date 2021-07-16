@@ -19,6 +19,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from collections import namedtuple
+from functools import wraps
 from typing import Callable, Dict, List, Optional, Any
 
 from juju.action import Action
@@ -96,6 +97,21 @@ class BaseVerifier:
             'shutdown': cls.verify_shutdown,
             'reboot': cls.verify_reboot,
         }
+
+    def get_verify_action(self, check: str) -> Callable:
+        """Return verification check as callable function without any arguments."""
+        if check not in self.supported_checks():
+            raise NotImplementedError(f'Unsupported verification check "{check}" for'
+                                      f' charm {self.NAME}')
+
+        _verify_action = self._action_map()[check]
+
+        @wraps(_verify_action)
+        def wrapper() -> Result:
+            """Wrap the classmethod so that it is callable without any arguments."""
+            return _verify_action(self)
+
+        return wrapper
 
     def unit_from_id(self, unit_id: str) -> Unit:
         """Search self.units for unit that matches 'unit_id'.
@@ -181,13 +197,7 @@ class BaseVerifier:
         :raises VerificationError: If check fails in unexpected manner or if
                                    list of self.units is empty
         """
-        if check not in self.supported_checks():
-            raise NotImplementedError('Unsupported verification check "{}" for'
-                                      ' charm {}'.format(check, self.NAME))
-
-        def verify_action() -> Result:
-            return self._action_map()[check](self)
-
+        verify_action = self.get_verify_action(check)
         preflight_checks = (
             self.check_affected_machines, self.check_has_sub_machines
         )

@@ -345,11 +345,11 @@ class CephMon(CephCommon):
 
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected ceph-mon units."""
-        version_check = checks_executor(self.check_version)
-        if not version_check.success:
-            return version_check
+        ceph_version = checks_executor(self.check_version)
+        if not ceph_version.success:
+            return ceph_version
 
-        return version_check + checks_executor(
+        return ceph_version + checks_executor(
             self.check_quorum, self.check_ceph_cluster_health,
         )
 

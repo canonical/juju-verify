@@ -24,7 +24,7 @@ from juju.errors import JujuError
 from juju.model import Model
 from juju.unit import Unit
 
-from juju_verify.exceptions import CharmException, ActionFailed
+from juju_verify.exceptions import CharmException, JujuActionFailed
 from juju_verify.verifiers.ceph import AvailabilityZone, CephCommon, CephOsd, CephMon
 from juju_verify.verifiers.result import Result, Severity
 
@@ -121,7 +121,7 @@ def test_check_cluster_health_unknown_state(mock_run_action_on_units, model):
 def test_check_cluster_health_error(model):
     """Test check Ceph cluster health raise CharmException."""
     model.units["ceph-mon/0"].run_action.side_effect = JujuError("action not exists")
-    with pytest.raises(ActionFailed):
+    with pytest.raises(JujuActionFailed):
         CephCommon.check_cluster_health(model.units["ceph-mon/0"])
 
 

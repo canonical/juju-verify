@@ -22,7 +22,7 @@ from functools import total_ordering
 from json import JSONDecodeError
 from typing import List, Callable
 
-from juju_verify.exceptions import ActionFailed, CharmException
+from juju_verify.exceptions import JujuActionFailed, CharmException
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +191,7 @@ def checks_executor(*checks: Callable) -> Result:
             result = check()
             aggregate_result += result or Result(Severity.OK,
                                                  f"{check.__name__} check passed")
-        except (ActionFailed, CharmException, KeyError, JSONDecodeError) as error:
+        except (JujuActionFailed, CharmException, KeyError, JSONDecodeError) as error:
             aggregate_result += Result(
                 Severity.FAIL, f"{check.__name__} check failed with error: {error}"
             )
