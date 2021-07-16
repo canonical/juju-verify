@@ -37,27 +37,6 @@ Alternatively, a machine can be targeted:
 $ juju-verify shutdown --machines 0
 ```
 
-## How to contribute
-
-Is your favorite charm missing from the list of supported charm? Don't hesitate
-to add it. This plugin is easily extensible.
-
-All you need to do is create new class in `juju_verify.verifiers` package that
-inherits from `juju_verify.verifiers.BaseVerifier` (see the class documentation for
-more details) and implement the necessary logic.
-
-Then, the charm name needs to be added to `SUPPORTED_CHARMS` dictionary in
-`juju_verify/verifiers/__init__.py` *et voilà*, the charm is now supported.
-
-Don't forget to add unit and functional tests, and run:
-
-```bash
-make test
-```
-
-Functional tests require some applications to use a VIP. Please ensure the `OS_VIP00`
-environment variable is set to a suitable VIP address before running functional tests.
-
 ## Submit a bug
 
 If you prefer, file a bug or feature request at:
