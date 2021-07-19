@@ -17,6 +17,11 @@ or `reboot`.
 
 **NOTE:** Final list of supported checks and what they represent is still WIP
 
+## Contribution and lifecycle
+
+For more information on how to contribute and the lifecycle of ``juju-verify`` tools,
+visit [CONTRIBUTING] page.
+
 ## Usage example
 
 To verify that it is safe to stop/shutdown units `nova-compute/0` and
@@ -42,3 +47,6 @@ $ juju-verify shutdown --machines 0
 If you prefer, file a bug or feature request at:
 
 * https://bugs.launchpad.net/juju-verify
+
+
+[CONTRIBUTING]: https://juju-verify.readthedocs.io/en/latest/contributing.html

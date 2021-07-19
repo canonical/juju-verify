@@ -14,29 +14,18 @@ This tool has been supported since Pythone version 3.6.
 
 We have adopted the [Ubuntu Code of Conduct][COC].
 
-## Developer workflow
+## Releases and versions
 
-The workflow for contributing code is as follows:
+The juju-verify uses semantic versioning three-part version number, where the numbers
+describe:
 
-1. [Submit a bug][bugs] to explain the need for and track the change.
-2. Create a branch on your fork of the repo with your changes, including a unit
-   test covering the new or modified code. Functional tests are not mandatory, but
-   it is preferred to have them.
-3. Submit a PR. The PR description should include a link to the bug on Launchpad.
-4. Update the Launchpad bug to include a link to the PR and the `review-needed` tag.
-5. Once reviewed and merged into the master branch, the change will become available at
-   the edge channel in **snapcraft**.
-6. Stable release is performed after tagging the master branch and merging it into
-   the stable branch.
-   
-## Checks and checks_executor
+1. major - version of ``juju`` with which it is compatible
+2. minir - will increase when a new verifier becomes available or the base verification
+           logic of any verifiers changes 
+3. path - if a new check is added or modified, but the base logic does not change
 
-Each check must be run using the `checks_executor` function. This function accepts
-arguments as checks as a called function that is executed in a try/except with list
-of exceptions. Each error from the exception list is captured and returned as a check
-failure `Result(FAIL, f"{check.__name__} check failed with error: {error}")`, but not
-as a whole juju-verify failure. If the performed check does not return any output,
-the `Result(OK, "<check .__ name __> check successful")` form is used.
+The version should not be increased if there is any change in the documentation and
+in the lint, unit or functional tests.
    
 ## How to contribute
 
@@ -68,6 +57,29 @@ new approach to existing functional tests.
 Functional tests require some applications to use a VIP. Please ensure the `OS_VIP00`
 environment variable is set to a suitable VIP address before running functional tests.
 
+### Developer workflow
+
+The workflow for contributing code is as follows:
+
+1. [Submit a bug][bugs] to explain the need for and track the change.
+2. Create a branch on your fork of the repo with your changes, including a unit
+   test covering the new or modified code. Functional tests are not mandatory, but
+   it is preferred to have them.
+3. Submit a PR. The PR description should include a link to the bug on Launchpad.
+4. Update the Launchpad bug to include a link to the PR and the `review-needed` tag.
+5. Once reviewed and merged into the master branch, the change will become available at
+   the edge channel in **snapcraft**.
+6. Stable release is performed after tagging the master branch and merging it into
+   the stable branch.
+   
+### Checks and checks_executor
+
+Each check must be run using the `checks_executor` function. This function accepts
+arguments as checks as a called function that is executed in a try/except with list
+of exceptions. Each error from the exception list is captured and returned as a check
+failure `Result(FAIL, f"{check.__name__} check failed with error: {error}")`, but not
+as a whole juju-verify failure. If the performed check does not return any output,
+the `Result(OK, "<check .__ name __> check successful")` form is used.
 
 ## Lint, unit and functional tests
 
@@ -114,7 +126,7 @@ The latest documentation for this project could be found in the
 
 
 <!-- Links -->
-[LICENSE]: ./LICENSE
+[LICENSE]: https://github.com/canonical/juju-verify/blob/master/LICENSE
 [COC]: https://ubuntu.com/community/code-of-conduct
 [bugs]: https://bugs.launchpad.net/juju-verify/+filebug
 [readthedocs]: https://juju-verify.readthedocs.io/en/latest/index.html
