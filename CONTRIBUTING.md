@@ -90,6 +90,8 @@ executed be running:
 
 ```bash
 make lint
+# or 
+tox -e lint
 ```
 
 To find out what's actually running you can look in `tox.ini`, specifically on
@@ -104,10 +106,29 @@ this command:
 
 ```bash
 make unittest
+# or
+tox -e unit
 ```
 
 To find out what's actually running you can look in `tox.ini`, specifically on
 "testenv" and configuration can be found in `pytest.ini`.
+
+Example of unit tests:
+
+```python
+def test_verify_ceph_mon_shutdown(mocker):
+    """Test that verify_shutdown links to verify_reboot."""
+    mocker.patch.object(CephMon, "verify_reboot")
+    unit = Unit("ceph-mon/0", Model())
+    verifier = CephMon([unit])
+    verifier.verify_shutdown()
+    verifier.verify_reboot.assert_called_once()
+```
+
+This example show how to test the `verify_shutdown` function in the `CephMon` class. 
+Function `verify_shutdown` is in fact only a symbolic reference to funkciu
+`verify_reboot` and we need to test whaether this function was called.
+
 
 ### Functional tests
 
@@ -115,9 +136,45 @@ The function tests are runs by [zaza][zaza]. These tests must be configured in
 `tests/functional/tests.yaml`, where you need to add tests in the tests section
 and define a bundle for these tests in gate_bundles section.
 
-As an exmple you can have a look in to functional tests for `nova-compute` charm.
-The bundle can be found in `tests/functional/bundles/nova-compute.yaml` and the tests in 
-`tests/functional/tests/test_nova_compute.py`
+To create functional tests for `nova-compute` charm, you need to add a budnle to the 
+`tests/functional/bundles` directory. name of this bundle should correspond to the name
+of the charm or a bundle of which this charm is a part. E.g. `nova-compute` is part of
+the `openstack-base` bundle. The last step is to add the Python file that contains the
+tests to `tests/functional/tests/` directory.
+
+```bash
+make functional
+# or
+tox -e func
+```
+
+To find out what's actually running you can look in `tox.ini`, specifically on
+"testenv:func".
+
+**NOTE:** If you want to run functional tests in debug mode, you can use the 
+`tox -e func-debug`, which will provide more logs and models will not be destroyed.
+This can be used to create functional tests, where you can then test them on this model.
+
+Example of unit functional tests:
+
+```python
+class CephTests(BaseTestCase):
+    def test_single_osd_unit(self):
+        """Test that shutdown of a single unit returns OK."""
+        # juju-verify shutdown --units ceph-osd/1
+
+        units = ['ceph-osd/0']
+        check = 'shutdown'
+        unit_objects = loop.run(juju_verify.find_units(self.model, units))
+        verifier = get_verifier(unit_objects)
+        result = verifier.verify(check)
+        logger.info("result: %s", result)
+        self.assertTrue(result.success)
+```
+
+This is a test that simulates the CLI call `juju-verify shutdown --units ceph-osd/1`
+on a healthy CEPH cluster, which should end with an OK result.
+
 
 ## Documentation
 
