@@ -4,10 +4,10 @@
 ^^^^^
 Monday Jul 12 2021
 
-* This version has been tested and required revisions:
+* This version has been tested and requires revisions:
 
   * to verify ceph-osd units: **cs:~/rgildein/ceph-osd-0** and **cs:~/rgildein/ceph-mon-3**
-  * to verify ceph-mon units: **not published**
+  * to verify ceph-mon units: **cs:~/rgildein/ceph-mon-3**
   * to verify nova-compute units: **cs:~openstack-charmers-next/nova-compute-562**
 
 0.2.1
@@ -17,7 +17,7 @@ Tuesday June 29 2021
 * Move Git repo and CI/CD workflows to GitHub
 * Create this changelog
 
-0.2k
+0.2
 ^^^
 Thursday June 10 2021
 

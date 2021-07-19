@@ -6,13 +6,13 @@ or `reboot`.
 
 ## Requirements
 
-The minimum version of Juju is 2.8.10, which must be used with juju-verify.
+The juju-verify requires Juju 2.8.10 or higher.
 
 ## Supported charms
 
 * nova-compute (Usable with the next stable release of the charm. Currently available as a [nova-compute-rc])
 * ceph-osd (Usable with the custom release of the charm in rgildein namespace. [cs:~/rgildein/ceph-osd-0] and [cs:~/rgildein/ceph-mon-3])
-* ceph-mon (Currently not published)
+* ceph-mon (Usable with the custom release of the charm in rgildein namespace. [cs:~/rgildein/ceph-mon-3])
 * neutron-gateway (WIP)
 
 ## Supported checks

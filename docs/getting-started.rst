@@ -6,8 +6,8 @@ This section provides information on how to install and use ``juju-verify``.
 Requirements
 ------------
 
-The ``juju`` version 2.8.10 need to be installed. More information about installing
-``juju`` can be found `juju_installing`_.
+Juju 2.8.10 or higher is required. More information about installing ``juju``
+can be found `juju_installing`_.
 
 Charms revisions
 ^^^^^^^^^^^^^^^^
@@ -15,7 +15,7 @@ Charms revisions
 The ``juju-verify`` tool works with this charm revisions:
 
 * to verify ceph-osd units: **cs:~/rgildein/ceph-osd-0** and **cs:~/rgildein/ceph-mon-3**
-* to verify ceph-mon units: **not published**
+* to verify ceph-mon units: **cs:~/rgildein/ceph-mon-3**
 * to verify nova-compute units: **cs:~openstack-charmers-next/nova-compute-562**
 
 
