@@ -99,8 +99,8 @@ class NeutronGateway(BaseVerifier):
         shutdown_resource_list = self.get_shutdown_resource_list(action_name)
         redundant_resource_list = self.get_online_resource_list(action_name)
 
-        shutdown_resource_set = set(r["id"] for r in shutdown_resource_list)
-        redundant_resource_set = set(r["id"] for r in redundant_resource_list)
+        shutdown_resource_set = set(res["id"] for res in shutdown_resource_list)
+        redundant_resource_set = set(res["id"] for res in redundant_resource_list)
         non_redundant_list = shutdown_resource_set - redundant_resource_set
         if non_redundant_list:
             failure_string = self.action_name_failure_string_map[action_name]
