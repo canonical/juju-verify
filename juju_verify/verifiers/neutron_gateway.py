@@ -19,6 +19,7 @@ import json
 from typing import List
 
 from juju.unit import Unit
+from packaging.version import Version
 
 from juju_verify.verifiers.base import BaseVerifier, Result, Severity
 from juju_verify.verifiers.result import aggregate_results
@@ -41,13 +42,6 @@ class NeutronGateway(BaseVerifier):
                                                         "found: {}. LBaasV2 does not "
                                                         "offer HA.")}
 
-    @staticmethod
-    def get_unit_hostname(unit: Unit) -> str:
-        """Return name of the host on which the unit is running."""
-        get_hostname_action = run_action_on_unit(unit, "node-name")
-        hostname = data_from_action(get_hostname_action, "node-name")
-        return hostname
-
     @classmethod
     def get_unit_resource_list(cls, unit: Unit,
                                get_resource_action_name: str) -> List[dict]:
@@ -66,10 +60,10 @@ class NeutronGateway(BaseVerifier):
     def get_resource_list(self, get_resource_action_name: str) -> List[dict]:
         """Given a get resource action, return matching resources from all units."""
         resource_list = []
-        shutdown_hostname_list = [self.get_unit_hostname(unit) for unit in self.units]
+        shutdown_hostname_list = [unit.machine.hostname for unit in self.units]
 
         for unit in self.get_all_ngw_units():
-            hostname = self.get_unit_hostname(unit)
+            hostname = unit.machine.hostname
             host_resource_list = self.get_unit_resource_list(unit,
                                                              get_resource_action_name)
 
@@ -149,13 +143,26 @@ class NeutronGateway(BaseVerifier):
 
         return result
 
+    def version_check(self) -> Result:
+        """Check minimum required version of Juju agents.
+
+        NeutronGateway verifier requires that all the neutron-gateway units run juju
+        agent >=2.8.10 due to reliance on juju.Machine.hostname feature.
+        """
+        return self.check_minimum_version(Version("2.8.10"), self.get_all_ngw_units())
+
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected neutron-gateway units."""
         return self.verify_shutdown()
 
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected neutron-gateway units."""
-        return aggregate_results(self.warn_router_ha(),
+        version_check = self.version_check()
+        if not version_check.success:
+            return version_check
+
+        return aggregate_results(version_check,
+                                 self.warn_router_ha(),
                                  self.warn_lbaas_present(),
                                  self.check_non_redundant_resource("get-status-routers"),
                                  self.check_non_redundant_resource("get-status-dhcp")
