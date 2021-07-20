@@ -8,7 +8,7 @@ the license and read this page before start working on any contributions.
 
 ## Python version
 
-This tool has been supported since Pythone version 3.6.
+This tool has been supported since Python version 3.6.
 
 ## Code of conduct
 
@@ -16,11 +16,12 @@ We have adopted the [Ubuntu Code of Conduct][COC].
 
 ## Releases and versions
 
-The juju-verify uses semantic versioning three-part version number, where the numbers
+Juju-verify uses semantic versioning three-part version number, where the numbers
 describe:
 
-1. major - version of ``juju`` with which it is compatible
-2. minir - will increase when a new verifier becomes available or the base verification
+1. major - this represents a major change in the logic of the code or add a new whole
+           e.g. support for kubernetes verifiers
+2. minor - will increase when a new verifier becomes available or the base verification
            logic of any verifiers changes 
 3. path - if a new check is added or modified, but the base logic does not change
 
