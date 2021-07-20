@@ -257,15 +257,25 @@ def test_checks_executor():
     def mock_failing_check():
         raise CharmException("check failed")
 
+    def mock_check_with_argument(test=None):
+        if test is None:
+            raise CharmException("missing argument")
+
+        return Result(Severity.OK, f"argument: {test}")
+
     partial_1 = Partial(Severity.OK, 'foo')
     partial_2 = Partial(Severity.WARN, 'bar')
     partial_3 = Partial(Severity.UNSUPPORTED, 'baz')
     partial_4 = Partial(Severity.FAIL, 'quz')
     partial_5 = Partial(Severity.FAIL, "mock_failing_check check failed with error: "
                                        "check failed")
+    partial_6 = Partial(Severity.FAIL, "mock_check_with_argument check failed with "
+                                       "error: missing argument")
+    partial_7 = Partial(Severity.OK, "argument: argument")
 
     expected_result = Result()
-    for partial in [partial_1, partial_2, partial_3, partial_4, partial_5]:
+    for partial in [partial_1, partial_2, partial_3, partial_4, partial_5,
+                    partial_6, partial_7]:
         expected_result.add_partial_result(partial.severity, partial.message)
 
     final_result = checks_executor(
@@ -274,6 +284,8 @@ def test_checks_executor():
         lambda: Result(partial_3.severity, partial_3.message),
         lambda: Result(partial_4.severity, partial_4.message),
         mock_failing_check,
+        mock_check_with_argument,
+        (mock_check_with_argument, dict(test="argument"), ),
     )
 
     assert final_result == expected_result

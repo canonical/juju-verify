@@ -20,7 +20,7 @@ import os
 from enum import Enum
 from functools import total_ordering
 from json import JSONDecodeError
-from typing import List, Callable
+from typing import Any, Callable, Dict, List, Tuple, Union
 
 from juju_verify.exceptions import JujuActionFailed, CharmException
 
@@ -174,7 +174,8 @@ class Result:
         self.partials.append(Partial(severity, message))
 
 
-def checks_executor(*checks: Callable) -> Result:
+def checks_executor(
+        *checks: Union[Callable, Tuple[Callable, Dict[str, Any]]]) -> Result:
     """Executor that aggregates checks and captures errors.
 
     This executor will accept checks as a callable function and will aggregate all
@@ -186,9 +187,16 @@ def checks_executor(*checks: Callable) -> Result:
     `Result(FAIL, f"{check.__name__} check failed with error: {error}"`.
     """
     aggregate_result = Result()
-    for check in checks:
+    for check_definition in checks:
+        # split check definition into check and paramters
+        if callable(check_definition):
+            check: Callable = check_definition
+            check_kwargs: Dict = {}
+        else:
+            check, check_kwargs = check_definition
+
         try:
-            result = check()
+            result = check(**check_kwargs)
             aggregate_result += result or Result(Severity.OK,
                                                  f"{check.__name__} check passed")
         except (JujuActionFailed, CharmException, KeyError, JSONDecodeError) as error:
