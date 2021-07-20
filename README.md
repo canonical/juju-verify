@@ -97,8 +97,8 @@ The basic structure of the verifier is defined in the `/juju_verify/verifiers/ba
 file as the `BaseVerifier` class. Every other verifier must inherit from this class,
 with the following variable and functions having to be overrided. 
 
-* NAME - name of verifier
-* verify_<action-with-unit> - function to run all necessary checks when trying to 
+* `NAME` - name of verifier
+* `verify_<action-with-unit>` - function to run all necessary checks when trying to 
 	                          perform "action" with the unit
 
 Each verifier will contain these two variables:
