@@ -26,7 +26,6 @@ import pytest
 
 from juju_verify.verifiers import NeutronGateway, Result, Severity
 
-MIN_JUJU_VERSION = "2.8.10"
 all_ngw_units = []
 for i in range(3):
     ngw = MagicMock()
