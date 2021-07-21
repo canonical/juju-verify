@@ -55,6 +55,7 @@ def model_units():
         'ceph-mon/0': unit_data("ceph-mon", "ceph-mon", "active"),
         'ceph-mon/1': unit_data("ceph-mon", "ceph-mon", "active"),
         'ceph-mon/2': unit_data("ceph-mon", "ceph-mon", "active"),
+        'neutron-gateway/0': unit_data("neutron-gateway", "neutron-gateway", "active"),
     }
 
 
