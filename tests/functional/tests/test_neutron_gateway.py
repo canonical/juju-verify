@@ -27,7 +27,6 @@ import zaza.openstack.utilities.openstack as openstack_utils
 
 from juju_verify import juju_verify
 from juju_verify.verifiers import get_verifier
-from juju_verify.verifiers.result import Partial, Severity
 
 logger = logging.getLogger()
 
@@ -130,14 +129,18 @@ class NeutronTests(OpenstackBaseTestCase):
         units = loop.run(juju_verify.find_units_on_machine(self.model,
                                                            [juju_machine_id]))
 
-        # expected_result
-        affected_untis = ", ".join([unit.entity_id for unit in units])
-        message = "Following units have neutron LBaasV2 load-balancers that will be " \
-                  "lost on unit shutdown: {}".format(affected_untis)
-        expected_result = Partial(Severity.WARN, message)
+        # expected units in the warning message
+        affected_untis = [unit.entity_id for unit in units]
+        lbaas_warning = "Following units have neutron LBaasV2 load-balancers that " \
+                        "will be lost on unit shutdown:"
 
         verifier = get_verifier(units)
         result = verifier.verify_shutdown()
         logger.info("result: %s", result)
 
-        self.assertIn(expected_result, result.partials)
+        for partial in result.partials:
+            if partial.message.startswith(lbaas_warning):
+                self.assertTrue(all(unit in partial.message for unit in affected_untis))
+                break
+        else:
+            self.fail('LBaas warning message not found in result.')
