@@ -42,18 +42,24 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
     needs: lint-unittests-docs
+    outputs:
+      files-changed: ${{ steps.files-changed.outputs.changed }}
     steps:
     - uses: actions/checkout@v2
     - uses: snapcore/action-build@v1
       id: snapcraft
     - name: Install snap
       run: sudo snap install --dangerous ${{ steps.snapcraft.outputs.snap }}
+    - id: files-changed
+      run: |
+        git diff --name-only origin/master | grep -qE 'juju_verify|tests'
+        echo "::set-output name=changed::$?"
 
   func-tests:
     name: Integration tests
     runs-on: self-hosted
-    if: ${{ !github.event.pull_request.draft }}
     needs: build-snap
+    if: ${{ !github.event.pull_request.draft && needs.build-snap.outputs.files-changed == 0 }}
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.8
