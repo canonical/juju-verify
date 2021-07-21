@@ -13,6 +13,7 @@
    getting-started
    modules
    verifiers
+   contributing
 
 .. toctree::
    :caption: Changelog
