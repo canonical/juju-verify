@@ -4,12 +4,14 @@ name: Test suite
 
 on:
   pull_request:
+    # default types are: opened, synchronize, reopened
     branches: [ master ]
 
 jobs:
   lint-unittests-docs:
     name: Lint, Unit tests and Docs
     runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.draft }}
     strategy:
       fail-fast: true
       matrix:
@@ -38,6 +40,7 @@ jobs:
   build-snap:
     name: Build snap
     runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.draft }}
     needs: lint-unittests-docs
     steps:
     - uses: actions/checkout@v2
@@ -49,6 +52,7 @@ jobs:
   func-tests:
     name: Integration tests
     runs-on: self-hosted
+    if: ${{ !github.event.pull_request.draft }}
     needs: build-snap
     steps:
       - uses: actions/checkout@v2
