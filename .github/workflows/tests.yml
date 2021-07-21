@@ -52,7 +52,7 @@ jobs:
       run: sudo snap install --dangerous ${{ steps.snapcraft.outputs.snap }}
     - id: files-changed
       run: |
-        git diff --name-only origin/master | grep -qE 'juju_verify|tests'
+        git diff --name-only origin/master | grep -qE '^(juju_verify|tests)'
         echo "::set-output name=changed::$?"
 
   func-tests:
