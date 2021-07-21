@@ -203,10 +203,10 @@ def checks_executor(
 
         return Result(Severity.OK, f"check 3 passed ({resources})")
 
-
     result_1 = checks_executor(check_without_parameter_1,
                                check_without_parameter_2,
                                (check_with_parameter, dict(resources="DHCP")))
+
     print(resurce_1)
     Checks:
     [OK] check 1 passed
@@ -215,10 +215,10 @@ def checks_executor(
 
     Overall result: OK (All checks passed)
 
-
     result_2 = checks_executor(check_without_parameter_1,
                                check_without_parameter_2,
                                check_with_parameter)
+
     print(result_2)
     Checks:
     [OK] check 1 passed
