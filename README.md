@@ -6,7 +6,7 @@ or `reboot`.
 
 ## Requirements
 
-The juju-verify requires Juju 2.8.10 or higher.
+Juju-verify requires Juju 2.8.10 or higher.
 
 ## Supported charms
 
