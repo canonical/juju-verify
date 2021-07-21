@@ -34,7 +34,7 @@ $ juju-verify shutdown --units nova-compute/0 nova-compute/1
 
 ## Known limitations
 
-1. If you run check on multiple units at the same time, they must all run
+1. If a check is run on multiple units at the same time, they must all run
    the same charm. Trying, for example, `juju-verify shutdown --units nova-compute/1
    ceph-osd/0` will result in error.
 
@@ -44,10 +44,10 @@ $ juju-verify shutdown --units nova-compute/0 nova-compute/1
    $ juju-verify shutdown --machines 0
    ```
 
-2. If you run a check on unit, which contains a subordinate unit, you will got only
-   a warning message about existence of the subordinate unit. To check if it is safe
-   to remove this unit, you must perform a check on this unit or if the check is not
-   supported, you must check manually.
+2. If you run a check on a unit which contains a subordinate unit, you will only get
+   a warning message about the existence of the subordinate unit. In order to check if
+   it is safe to remove this unit, juju-verify needs to be explictly run against this subordinate unit, or the unit needs to be manually checked (if juju-verify does not
+   support this charm yet)
 
    Example:
    ```bash
@@ -85,8 +85,9 @@ environment variable is set to a suitable VIP address before running functional 
 ## Code decisions
 
 The main idea of `juju-verify` is to be used as a CLI tool with an entry point defined
-in `juju verify/juju verify.py`. We use the `argparse` to parse CLI arguments and to
-provide help information, which can be accessed using `juju-verify --help` command.
+in `juju verify/juju verify.py`. We use the `argparse` library to parse CLI arguments
+and to provide help information, which can be accessed using `juju-verify --help`
+command.
 
 Despite the main purpose, it is possible to use `juju-verify` as python pacakge. It
 can be installed directly from [pypi.org].
@@ -106,7 +107,7 @@ Each verifier will contain these two variables:
 * units - list of units we want to verify
 * model - corresponding model containing units
 
-The verifier should run verification using the `verify` function, which will check
+The verifier should run a verification using the `verify` function, which will check
 if the verification is supported and adds these pre-checks:
 
 * check_affected_machines - Check if affected machines run other principal units.
