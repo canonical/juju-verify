@@ -50,12 +50,14 @@ jobs:
       id: snapcraft
     - name: Install snap
       run: sudo snap install --dangerous ${{ steps.snapcraft.outputs.snap }}
-    - id: files-changed
+    - name: Track changed files in the PR
+      id: files-changed
       run: |
         git remote add upstream https://github.com/canonical/juju-verify
-        git fetch upstream
-        git diff --name-only upstream/master | grep -qE '^(juju_verify|tests)'
-        echo "::set-output name=changed::$?"
+        git fetch upstream master
+        failed=0
+        git diff --name-only upstream/master | grep -qE '^(juju_verify|tests)' || failed=1
+        echo "::set-output name=changed::$failed"
 
   func-tests:
     name: Integration tests
