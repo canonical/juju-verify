@@ -36,7 +36,7 @@ class JujuActionFailed(Exception):
 
     def __init__(self, error: JujuError, unit: Unit, action: str,
                  params: Optional[Dict[str, Any]] = None):
-        """Initialize ActionFailed error message."""
+        """Initialize JujuActionFailed error message."""
         params = params or {}
         params_str = " ".join(f"{name}={value}" for name, value in params.items())
         juju_error_message = os.linesep.join(f"  {err}" for err in error.errors)

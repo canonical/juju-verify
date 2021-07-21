@@ -178,13 +178,54 @@ def checks_executor(
         *checks: Union[Callable, Tuple[Callable, Dict[str, Any]]]) -> Result:
     """Executor that aggregates checks and captures errors.
 
-    This executor will accept checks as a callable function and will aggregate all
-    their results in order. If the check does not return any input, then the default
-    value is used in the form: `Result(OK, "<check .__ name __> check successful").
-    At the same time, if the check fails on one of the following errors (ActionFailed,
-    CharmException, KeyError, JSONDecodeError), it will be marked as failed with
-    the result in the form:
+    This executor will accept checks as a callable function or as a tuple with first
+    object callable (check) and second as a dictionary containing parameters for
+    performing the check. The executor's output aggregates all check results into one
+    result, while the order is preserved. If the check does not return any input, then
+    the default value is used in the form:
+    `Result(OK, "<check .__ name __> check successful").
+    At the same time, if the check fails on one of the following errors
+    (JujuActionFailed, CharmException, KeyError, JSONDecodeError), it will be marked
+    as failed with the result in the form:
     `Result(FAIL, f"{check.__name__} check failed with error: {error}"`.
+
+    Examples of use:
+
+    def check_without_parameter_1():
+        return Result(Severity.OK, "check 1 passed")
+
+    def check_without_parameter_2():
+        return Result(Severity.OK, "check 2 passed")
+
+    def check_with_parameter(resources=None):
+        if resources is None:
+            return Result(Severity.FAIL, "check 3 failed")
+
+        return Result(Severity.OK, f"check 3 passed ({resources})")
+
+
+    result_1 = checks_executor(check_without_parameter_1,
+                               check_without_parameter_2,
+                               (check_with_parameter, dict(resources="DHCP")))
+    print(resurce_1)
+    Checks:
+    [OK] check 1 passed
+    [OK] check 2 passed
+    [OK] check 3 passed (DHCP)
+
+    Overall result: OK (All checks passed)
+
+
+    result_2 = checks_executor(check_without_parameter_1,
+                               check_without_parameter_2,
+                               check_with_parameter)
+    print(result_2)
+    Checks:
+    [OK] check 1 passed
+    [OK] check 2 passed
+    [FAIL] check 3 failed
+
+    Overall result: Failed
     """
     aggregate_result = Result()
     for check_definition in checks:
