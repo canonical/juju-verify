@@ -31,6 +31,7 @@ from juju.unit import Unit
 
 from juju_verify.exceptions import CharmException, VerificationError
 from juju_verify.verifiers import BaseVerifier, get_verifier
+from juju_verify.verifiers.result import set_stop_on_failure
 
 logger = logging.getLogger(__package__)
 
@@ -121,6 +122,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-l', '--log-level', type=str.lower,
                         help='Set amount of displayed information',
                         default='info', choices=['trace', 'debug', 'info'])
+    parser.add_argument("--stop-on-failure", action="store_true",
+                        help="Prevent all checks from running and stop at the first"
+                             "failed check.")
 
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument('--units', '-u', action="extend", nargs='+', type=str,
@@ -151,6 +155,7 @@ def config_logger(log_level: str) -> None:
 def main() -> None:
     """Execute 'juju-verify' command."""
     args = parse_args()
+    set_stop_on_failure(args.stop_on_failure)
     config_logger(args.log_level)
     model = loop.run(connect_model(args.model))
     units: List[Unit] = []

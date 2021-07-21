@@ -25,6 +25,19 @@ from typing import Any, Callable, Dict, List, Tuple, Union
 from juju_verify.exceptions import JujuActionFailed, CharmException
 
 logger = logging.getLogger(__name__)
+STOP_ON_FAILURE: bool = False
+
+
+def stop_on_failure() -> bool:
+    """Get the configuration to stop on failure."""
+    global STOP_ON_FAILURE  # pylint: disable=W0603
+    return STOP_ON_FAILURE
+
+
+def set_stop_on_failure(stop: bool = False) -> None:
+    """Set stop on failure."""
+    global STOP_ON_FAILURE  # pylint: disable=W0603
+    STOP_ON_FAILURE = stop
 
 
 @total_ordering
@@ -211,7 +224,7 @@ def checks_executor(
                                check_without_parameter_2,
                                (check_with_parameter, dict(resources="DHCP")))
 
-    print(resurce_1)
+    print(result_1)
     Checks:
     [OK] check 1 passed
     [OK] check 2 passed
@@ -233,7 +246,7 @@ def checks_executor(
     """
     aggregate_result = Result()
     for check_definition in checks:
-        # split check definition into check and paramters
+        # split check definition into check and parameters
         if callable(check_definition):
             check: Callable = check_definition
             check_kwargs: Dict = {}
@@ -241,12 +254,15 @@ def checks_executor(
             check, check_kwargs = check_definition
 
         try:
-            result = check(**check_kwargs)
-            aggregate_result += result or Result(Severity.OK,
-                                                 f"{check.__name__} check passed")
+            aggregate_result += (check(**check_kwargs) or
+                                 Result(Severity.OK, f"{check.__name__} check passed"))
         except (JujuActionFailed, CharmException, KeyError, JSONDecodeError) as error:
             aggregate_result += Result(
                 Severity.FAIL, f"{check.__name__} check failed with error: {error}"
             )
+
+        if not aggregate_result.success and stop_on_failure():
+            # break if verify was called with the `--stop-on-failure` flag
+            break
 
     return aggregate_result
