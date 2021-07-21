@@ -2,7 +2,8 @@ tests:
   - nova-compute:
     - tests.test_novacompute.NovaCompute
   - ceph:
-    - tests.test_ceph.CephTests
+    - tests.test_ceph.CephOsdTests
+    - tests.test_ceph.CephMonTests
 gate_bundles:
   - nova-compute: nova-compute
   - ceph: ceph
