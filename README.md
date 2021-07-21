@@ -6,7 +6,7 @@ or `reboot`.
 
 ## Supported charms
 
-* nova-compute (WIP) (Usable with [this nova-compute charm](https://jaas.ai/u/martin-kalcok/nova-compute/0))
+* nova-compute (Usable with the next stable release of the charm. Currently available as a [pre-release](https://jaas.ai/u/openstack-charmers-next/nova-compute/562))
 * ceph-osd (WIP)
 * neutron-gateway (WIP) (Usable with [dev release of neutron-gateway charm](https://jaas.ai/u/martin-kalcok/neutron-gateway/1))
 
