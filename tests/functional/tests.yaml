@@ -3,7 +3,8 @@ tests:
     - tests.test_novacompute.NovaCompute
     - tests.test_neutron_gateway.NeutronTests
   - ceph:
-    - tests.test_ceph.CephTests
+    - tests.test_ceph.CephOsdTests
+    - tests.test_ceph.CephMonTests
 gate_bundles:
   - openstack: openstack
   - ceph: ceph
