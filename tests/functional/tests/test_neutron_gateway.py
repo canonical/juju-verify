@@ -70,27 +70,38 @@ class NeutronTests(OpenstackBaseTestCase):
         unit_objects = loop.run(juju_verify.find_units(self.model, units))
         verifier = get_verifier(unit_objects)
 
-        # expected router redundancy error
+        # expected routers in error message
         routers = self.NEUTRON.list_routers().get('routers', [])
-        router_list = ", ".join({router['id'] for router in routers})
-        router_message = 'The following routers are non-redundant: {}'.format(
-            router_list)
-        router_error = Partial(Severity.FAIL, router_message)
+        router_list = [router['id'] for router in routers]
 
-        # expected network redundancy error
+        # expected networks in error message
         networks = self.NEUTRON.list_networks().get('networks', [])
-        network_list = ', '.join({network['id'] for network in networks})
-        network_message = 'The following DHCP networks are non-redundant: {}'.format(
-            network_list)
-        network_error = Partial(Severity.FAIL, network_message)
+        network_list = [network['id'] for network in networks]
 
         # run verifier
         result = verifier.verify(self.CHECK)
         logger.info("result: %s", result)
 
         self.assertFalse(result.success)
-        self.assertIn(router_error, result.partials)
-        self.assertIn(network_error, result.partials)
+
+        # Check that result contains expected error about non-redundant routers.
+        # Router IDs in the error message can be in any oerder
+        for partial in result.partials:
+            if partial.message.startswith('The following routers are non-redundant:'):
+                self.assertTrue(all(router in partial.message for router in router_list))
+                break
+        else:
+            self.fail('Non-redundant router error message not found in result.')
+
+        # Check that result contains expected error about non-redundant networks.
+        # Netowrk IDs in the error message can be in any oerder
+        for partial in result.partials:
+            if partial.message.startswith('The following DHCP networks are '
+                                          'non-redundant:'):
+                self.assertTrue(all(net in partial.message for net in network_list))
+                break
+        else:
+            self.fail('Non-redundant network error message not found in result')
 
     def test_lbaas_warning(self):
         """Test that juju-verify reports if loadbalancers are present on target units."""
