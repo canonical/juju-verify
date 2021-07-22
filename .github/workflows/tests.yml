@@ -66,4 +66,3 @@ jobs:
         run: |
           source ~/novarc
           tox -e func
-
