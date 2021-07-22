@@ -4,11 +4,16 @@ This CLI tool is a Juju plugin that allows user to check whether it's safe
 to perform some disruptive maintenance operations on Juju units, like `shutdown`
 or `reboot`.
 
+## Requirements
+
+Juju-verify requires Juju 2.8.10 or higher.
+
 ## Supported charms
 
-* nova-compute (Usable with the next stable release of the charm. Currently available as a [pre-release](https://jaas.ai/u/openstack-charmers-next/nova-compute/562))
-* ceph-osd (WIP)
-* neutron-gateway (WIP)
+* nova-compute (Usable with the next stable release of the charm. Currently available as a [nova-compute-rc])
+* ceph-osd (Usable with the custom release of the charm in rgildein namespace. [cs:~/rgildein/ceph-osd-0] and [cs:~/rgildein/ceph-mon-3])
+* ceph-mon (Usable with the custom release of the charm in rgildein namespace. [cs:~/rgildein/ceph-mon-3])
+* neutron-gateway (Usable with the custom release of the charm in rgildein namespace. [cs:~/martin-kalcok/neutron-gateway-0])
 
 ## Supported checks
 
@@ -48,5 +53,9 @@ If you prefer, file a bug or feature request at:
 
 * https://bugs.launchpad.net/juju-verify
 
-
+---
+[nova-compute-rc]: https://jaas.ai/u/openstack-charmers-next/nova-compute/562
+[cs:~/rgildein/ceph-osd-0]: https://jaas.ai/u/rgildein/ceph-osd/0
+[cs:~/rgildein/ceph-mon-3]: https://jaas.ai/u/rgildein/ceph-mon/3
+[cs:~/martin-kalcok/neutron-gateway-0]: https://jaas.ai/u/martin-kalcok/neutron-gateway/0
 [CONTRIBUTING]: https://juju-verify.readthedocs.io/en/latest/contributing.html
