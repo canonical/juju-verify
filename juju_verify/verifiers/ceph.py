@@ -286,10 +286,7 @@ class CephOsd(CephCommon):
                     f"active."
                 )
 
-        if result.empty:
-            result.add_partial_result(Severity.OK,
-                                      'Minimum replica number check passed.')
-        return result
+        return result or Result(Severity.OK, 'Minimum replica number check passed.')
 
     def check_availability_zone(self) -> Result:
         """Check availability zones resources.
@@ -322,10 +319,7 @@ class CephOsd(CephCommon):
                     f"{free_units:d}, inactive_units={len(inactive_units):d}]"
                 )
 
-        if result.empty:
-            result.add_partial_result(Severity.OK,
-                                      'Availability zone check passed.')
-        return result
+        return result or Result(Severity.OK, 'Availability zone check passed.')
 
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected ceph-osd units."""
@@ -384,10 +378,7 @@ class CephMon(CephCommon):
                 result.add_partial_result(Severity.FAIL, f"Removing unit {unit_id} will"
                                                          f" lose Ceph mon quorum")
 
-        if result.empty:
-            result.add_partial_result(Severity.OK, 'Ceph-mon quorum check passed.')
-
-        return result
+        return result or Result(Severity.OK, 'Ceph-mon quorum check passed.')
 
     def check_version(self) -> Result:
         """Check minimum required version of juju agents on units.
@@ -409,7 +400,4 @@ class CephMon(CephCommon):
                 raise CharmException(f'Failed to parse juju version from '
                                      f'unit {unit.entity_id}.') from exc
 
-        if result.empty:
-            result.add_partial_result(Severity.OK, 'Minimum juju version check passed.')
-
-        return result
+        return result or Result(Severity.OK, 'Minimum juju version check passed.')
