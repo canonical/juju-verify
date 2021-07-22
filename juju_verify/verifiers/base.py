@@ -126,10 +126,7 @@ class BaseVerifier:
                 raise CharmException(f'Failed to parse juju version from '
                                      f'unit {unit.entity_id}.') from exc
 
-        if result.empty:
-            result.add_partial_result(Severity.OK, 'Minimum juju version check passed.')
-
-        return result
+        return result or Result(Severity.OK, 'Minimum juju version check passed.')
 
     def check_affected_machines(self) -> Result:
         """Check if affected machines run other principal units.
