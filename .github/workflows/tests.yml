@@ -50,6 +50,7 @@ jobs:
     name: Integration tests
     runs-on: self-hosted
     needs: build-snap
+    if: ${{ github.event.pull_request.review_requested }}
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.8
