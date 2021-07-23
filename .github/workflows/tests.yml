@@ -7,11 +7,17 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [ master ]
 
+  issue_comment:
+    types: [created]
+
 jobs:
   lint-unittests-docs:
     name: Lint, Unit tests and Docs
     runs-on: ubuntu-latest
-    if: ${{ !github.event.pull_request.draft }}
+    if: >-
+      github.event_name == 'pull_request'
+      || github.event.comment.body == 'recheck-snap'
+      || github.event.comment.body == 'recheck-full'
     strategy:
       fail-fast: true
       matrix:
@@ -40,7 +46,14 @@ jobs:
   build-snap:
     name: Build snap
     runs-on: ubuntu-latest
-    if: ${{ !github.event.pull_request.draft }}
+    if: >-
+      (
+      github.event_name == 'pull_request'
+      && !github.event.pull_request.draft
+      && github.event.pull_request_review.state == 'APPROVED'
+      )
+      || github.event.comment.body == 'recheck-snap'
+      || github.event.comment.body == 'recheck-full'
     needs: lint-unittests-docs
     outputs:
       files-changed: ${{ steps.files-changed.outputs.changed }}
@@ -63,7 +76,14 @@ jobs:
     name: Integration tests
     runs-on: self-hosted
     needs: build-snap
-    if: ${{ !github.event.pull_request.draft && needs.build-snap.outputs.files-changed == 0 }}
+    if: >-
+      (
+      github.event_name == 'pull_request'
+      && !github.event.pull_request.draft
+      && github.event.pull_request_review.state == 'APPROVED'
+      && needs.build-snap.outputs.files-changed == 0
+      )
+      || github.event.comment.body == 'recheck-full'
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.8
