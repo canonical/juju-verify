@@ -7,7 +7,7 @@ on:
     types: [ opened, synchronize, reopened, ready_for_review ]
     branches: [ master ]
 
-  pull_request_review_comment:
+  issue_comment:
     types: [ created ]
 
 jobs:
@@ -15,12 +15,12 @@ jobs:
     name: Lint, Unit tests, Docs and Build
     runs-on: ubuntu-latest
     if: >-
-      github.event_name == 'pull_request'
+      github.event.pull_request
       || (
-        github.event_name == 'pull_request_review_comment'
+        github.event.issue.pull_request
         && (
-          github.event.pull_request_review_comment.comment.body == 'recheck-snap'
-          || github.event.pull_request_review_comment.comment.body == 'recheck-full'
+          github.event.issue.comment.body == 'recheck-snap'
+          || github.event.issue.comment.body == 'recheck-full'
         )
       )
     strategy:
@@ -54,15 +54,15 @@ jobs:
     needs: lint-unittests-docs-build
     if: >-
       (
-        github.event_name == 'pull_request'
+        github.event.pull_request
         && !github.event.pull_request.draft
         && github.event.pull_request_review.state == 'APPROVED'
       )
       || (
-        github.event_name == 'pull_request_review_comment'
+        github.event.issue.pull_request
         && (
-          github.event.pull_request_review_comment.comment.body == 'recheck-snap'
-          || github.event.pull_request_review_comment.comment.body == 'recheck-full'
+          github.event.issue.comment.body == 'recheck-snap'
+          || github.event.issue.comment.body == 'recheck-full'
         )
       )
     outputs:
@@ -88,14 +88,14 @@ jobs:
     needs: build-snap
     if: >-
       (
-        github.event_name == 'pull_request'
+        github.event.pull_request
         && !github.event.pull_request.draft
         && github.event.pull_request_review.state == 'APPROVED'
         && needs.build-snap.outputs.code-changed == 0
       )
       || (
-        github.event_name == 'pull_request_review_comment'
-        && github.event.pull_request_review_comment.comment.body == 'recheck-full'
+        github.event.issue.pull_request
+        && github.event.issue.comment.body == 'recheck-full'
       )
     steps:
       - uses: actions/checkout@v2
