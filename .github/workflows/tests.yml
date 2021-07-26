@@ -11,36 +11,9 @@ on:
     types: [ submitted ]
 
 jobs:
-  yolo:
-    runs-on: ubuntu-latest
-    steps:
-      - name: print
-        env:
-          REVIEW: ${{ toJSON(github.event.review) }}
-          COMMENT: ${{ toJSON(github.event.comment) }}
-          PR: ${{ toJSON(github.event.pull_request) }}
-          PR_COMMENTS: ${{ toJSON(github.event.pull_request.comments) }}
-          PR_STATUSES: ${{ toJSON(github.event.pull_request.statuses) }}
-        run: |
-          echo "review=$REVIEW"
-          echo "=========================================================="
-          echo "comment=$COMMENT"
-          echo "=========================================================="
-          echo "PR=$PR"
-          echo "=========================================================="
-          echo "comments=$PR_COMMENTS"
-          echo "=========================================================="
-          echo "statuses=$PR_STATUSES"
-
   lint-unittests-docs-build:
     name: Lint, Unit tests, Docs and Build
     runs-on: ubuntu-latest
-    if: >-
-      github.event.pull_request
-      || (
-        github.event.comment.body == 'recheck-snap'
-        || github.event.comment.body == 'recheck-full'
-      )
     strategy:
       fail-fast: true
       matrix:
@@ -72,10 +45,8 @@ jobs:
     needs: lint-unittests-docs-build
     if: >-
       github.event.review.state == 'approved'
-      || (
-        github.event.comment.body == 'recheck-snap'
-        || github.event.comment.body == 'recheck-full'
-      )
+      || github.event.review.body == 'recheck-snap'
+      || github.event.review.body == 'recheck-full'
     outputs:
       code-changed: ${{ steps.code-changed.outputs.changed }}
     steps:
@@ -102,7 +73,7 @@ jobs:
         github.event.review.state == 'approved'
         && needs.build-snap.outputs.code-changed == 0
       )
-      || github.event.comment.body == 'recheck-full'
+      || github.event.review.body == 'recheck-full'
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.8
