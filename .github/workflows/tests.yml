@@ -10,7 +10,7 @@ on:
   pull_request_review:
     types: [ submitted ]
 
-  issue_comment:
+  pull_request_review_comment:
     types: [ created ]
 
 jobs:
@@ -21,6 +21,7 @@ jobs:
         env:
           PR_COMMENT: ${{ toJSON(github.event.comment) }}
         run: echo "comment=$PR_COMMENT"
+
   lint-unittests-docs-build:
     name: Lint, Unit tests, Docs and Build
     runs-on: ubuntu-latest
