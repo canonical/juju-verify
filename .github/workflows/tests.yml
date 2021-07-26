@@ -10,7 +10,7 @@ on:
   pull_request_review:
     types: [ submitted ]
 
-  pull_request_review_comment:
+  commit_comment:
     types: [ created ]
 
 jobs:
@@ -19,10 +19,13 @@ jobs:
     steps:
       - name: print
         env:
+          COMMENT: ${{ toJSON(github.event.comment) }}
           PR: ${{ toJSON(github.event.pull_request) }}
           PR_COMMENTS: ${{ toJSON(github.event.pull_request.comments) }}
           PR_STATUSES: ${{ toJSON(github.event.pull_request.statuses) }}
         run: |
+          echo "comment=$COMMENT"
+          echo "=========================================================="
           echo "PR=$PR"
           echo "=========================================================="
           echo "comments=$PR_COMMENTS"
