@@ -21,7 +21,13 @@ jobs:
         env:
           PR: ${{ toJSON(github.event.pull_request) }}
           PR_COMMENTS: ${{ toJSON(github.event.pull_request.comments) }}
-        run: echo "comment=$PR"
+          PR_STATUSES: ${{ toJSON(github.event.pull_request.statuses) }}
+        run: |
+          echo "PR=$PR"
+          echo "=========================================================="
+          echo "comments=$PR_COMMENTS"
+          echo "=========================================================="
+          echo "statuses=$PR_STATUSES"
 
   lint-unittests-docs-build:
     name: Lint, Unit tests, Docs and Build
