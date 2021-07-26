@@ -7,7 +7,7 @@ on:
     types: [ opened, synchronize, reopened, ready_for_review ]
     branches: [ master ]
 
-  issue_comment:
+  pull_request_review_comment:
     types: [ created ]
 
 jobs:
@@ -17,10 +17,10 @@ jobs:
     if: >-
       github.event_name == 'pull_request'
       || (
-        github.event_name == 'issue_comment'
+        github.event_name == 'pull_request_review_comment'
         && (
-          github.event.issue_comment.comment.body == 'recheck-snap'
-          || github.event.issue_comment.comment.body == 'recheck-full'
+          github.event.pull_request_review_comment.comment.body == 'recheck-snap'
+          || github.event.pull_request_review_comment.comment.body == 'recheck-full'
         )
       )
     strategy:
@@ -59,10 +59,10 @@ jobs:
         && github.event.pull_request_review.state == 'APPROVED'
       )
       || (
-        github.event_name == 'issue_comment'
+        github.event_name == 'pull_request_review_comment'
         && (
-          github.event.issue_comment.comment.body == 'recheck-snap'
-          || github.event.issue_comment.comment.body == 'recheck-full'
+          github.event.pull_request_review_comment.comment.body == 'recheck-snap'
+          || github.event.pull_request_review_comment.comment.body == 'recheck-full'
         )
       )
     outputs:
@@ -94,8 +94,8 @@ jobs:
         && needs.build-snap.outputs.code-changed == 0
       )
       || (
-        github.event_name == 'issue_comment'
-        && github.event.issue_comment.comment.body == 'recheck-full'
+        github.event_name == 'pull_request_review_comment'
+        && github.event.pull_request_review_comment.comment.body == 'recheck-full'
       )
     steps:
       - uses: actions/checkout@v2
