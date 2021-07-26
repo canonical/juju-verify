@@ -10,20 +10,20 @@ on:
   pull_request_review:
     types: [ submitted ]
 
-  pull_request_review_comment:
-    types: [ created ]
-
 jobs:
   yolo:
     runs-on: ubuntu-latest
     steps:
       - name: print
         env:
+          REVIEW: ${{ toJSON(github.event.review) }}
           COMMENT: ${{ toJSON(github.event.comment) }}
           PR: ${{ toJSON(github.event.pull_request) }}
           PR_COMMENTS: ${{ toJSON(github.event.pull_request.comments) }}
           PR_STATUSES: ${{ toJSON(github.event.pull_request.statuses) }}
         run: |
+          echo "review=$REVIEW"
+          echo "=========================================================="
           echo "comment=$COMMENT"
           echo "=========================================================="
           echo "PR=$PR"
