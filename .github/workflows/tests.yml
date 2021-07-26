@@ -19,8 +19,9 @@ jobs:
     steps:
       - name: print
         env:
-          PR_COMMENT: ${{ toJSON(github.event.comment) }}
-        run: echo "comment=$PR_COMMENT"
+          PR: ${{ toJSON(github.event.pull_request) }}
+          PR_COMMENTS: ${{ toJSON(github.event.pull_request.comments) }}
+        run: echo "comment=$PR"
 
   lint-unittests-docs-build:
     name: Lint, Unit tests, Docs and Build
