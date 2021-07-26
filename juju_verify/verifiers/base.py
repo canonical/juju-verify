@@ -25,8 +25,9 @@ from typing import Callable, Dict, List, Optional, Any
 from juju.action import Action
 from juju.model import Model
 from juju.unit import Unit
+from packaging.version import Version, InvalidVersion
 
-from juju_verify.exceptions import VerificationError
+from juju_verify.exceptions import VerificationError, CharmException
 from juju_verify.utils.unit import run_action_on_units
 from juju_verify.verifiers.result import Result, Severity, checks_executor
 
@@ -124,6 +125,24 @@ class BaseVerifier:
                 return unit
         raise VerificationError('Unit {} was not found in {} verifier.'
                                 ''.format(unit_id, self.NAME))
+
+    @staticmethod
+    def check_minimum_version(min_version: Version, units: List[Unit]) -> Result:
+        """Check minimum required version of juju agents on units."""
+        result = Result()
+        for unit in units:
+            juju_version = unit.safe_data.get('agent-status', {}).get('version', '')
+            try:
+                if Version(juju_version) < min_version:
+                    fail_msg = (f'Juju agent on unit {unit.entity_id} has lower than '
+                                f'minimum required version. {juju_version} < '
+                                f'{min_version}')
+                    result.add_partial_result(Severity.FAIL, fail_msg)
+            except InvalidVersion as exc:
+                raise CharmException(f'Failed to parse juju version from '
+                                     f'unit {unit.entity_id}.') from exc
+
+        return result or Result(Severity.OK, 'Minimum juju version check passed.')
 
     def check_affected_machines(self) -> Result:
         """Check if affected machines run other principal units.
