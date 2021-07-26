@@ -147,6 +147,10 @@ class Result:
 
         return self.partials == other.partials and self.success == other.success
 
+    def __bool__(self) -> bool:
+        """Return True if result does contain any partial results."""
+        return bool(self.partials)
+
     @property
     def success(self) -> bool:
         """Return overall Result's success.

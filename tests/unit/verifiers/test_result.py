@@ -208,6 +208,19 @@ def test_result_eq():
     assert result_original != result_not_matching
 
 
+def test_result_bool():
+    """Test using Result in conditions."""
+    default_result = Result(Severity.OK, "passed")
+    result_1 = Result()
+    result_2 = Result(Severity.OK, "test")
+
+    assert not result_1, "result is not empty"
+    assert (result_1 or default_result) == default_result
+
+    assert result_2, "result is empty"
+    assert (result_2 or default_result) != default_result
+
+
 def test_result_add_partial_result():
     """Test method add_partial_result."""
     result = Result()
