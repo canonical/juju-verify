@@ -4,11 +4,14 @@ name: Test suite
 
 on:
   pull_request:
-    types: [ opened, synchronize, reopened, ready_for_review, edited ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
     branches: [ master ]
 
   pull_request_review:
     types: [ submitted ]
+
+  pull_request_review_comment:
+    types: [ created ]
 
 jobs:
   yolo:
