@@ -14,6 +14,13 @@ on:
     types: [ created ]
 
 jobs:
+  yolo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: print
+        env:
+          PR_COMMENT: ${{ toJSON(github.event.comment) }}
+        run: echo "comment=$PR_COMMENT"
   lint-unittests-docs-build:
     name: Lint, Unit tests, Docs and Build
     runs-on: ubuntu-latest
