@@ -19,7 +19,7 @@ jobs:
     steps:
     - name: Get latest workflow run status
       uses: actions/github-script@v3
-      id: latest-workflow-status
+      id: latest-workflow
       with:
         script: |
           const runs = await github.actions.listWorkflowRuns({
@@ -29,10 +29,16 @@ jobs:
             per_page: 2
           })
           return runs.data.workflow_runs[1]
+    - name: Track changed files since lastest workflow
+      id: latest-workflow-code-changed
+      run: |
+        failed=0
+        git diff --name-only ${{ steps.latest-workflow.outputs.head_sha }} | grep -qE '^(juju_verify|tests)' || failed=1
+        echo "::set-output name=changed::$failed"
     - name: yolo
-      env:
-        LAST_RUN:  ${{ toJSON(steps.latest-workflow-status.outputs) }}
-      run: echo "last_run=$LAST_RUN"
+      run: |
+        echo "latest-workflow=${{ steps.latest-workflow.outputs }}"
+        echo "atest-workflow-code-changed=${{ steps.latest-workflow-code-changed.outputs }}"
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
