@@ -8,6 +8,7 @@ on:
     branches: [ master ]
 
 jobs:
+
   lint-unittests-docs-build:
     name: Lint, Unit tests, Docs and Build
     runs-on: ubuntu-latest
@@ -16,6 +17,23 @@ jobs:
       matrix:
         python-version: [3.6, 3.7, 3.8, 3.9]
     steps:
+    - name: Get latest workflow run status
+      uses: actions/github-script@v3
+      id: latest-workflow-status
+      with:
+        script: |
+          const runs = await github.actions.listWorkflowRuns({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'tests.yml',
+            per_page: 2
+          })
+          return runs.data.workflow_runs[1].conclusion
+        result-encoding: string
+    - name: yolo
+      env:
+        LAST_RUN:  ${{ toJSON(steps.latest-workflow-status.outputs) }}
+      run: echo "last_run=$LAST_RUN"
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
