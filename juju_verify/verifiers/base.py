@@ -219,8 +219,7 @@ class BaseVerifier:
         verify_action = self._action_map().get(check)
         if verify_action is None:
             raise NotImplementedError(
-                f"Unsupported verification check '{check}' for"
-                f" charm {self.NAME}"
+                f"Unsupported verification check '{check}' for" f" charm {self.NAME}"
             )
 
         try:

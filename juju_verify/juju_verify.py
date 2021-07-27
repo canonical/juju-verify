@@ -111,9 +111,7 @@ class ExtendAction(argparse.Action):  # pylint: disable=too-few-public-methods
 
 def parse_args() -> argparse.Namespace:
     """Parse cli arguments."""
-    description = (
-        "Verify that it's safe to perform selected action on specified units"
-    )
+    description = "Verify that it's safe to perform selected action on specified units"
     parser = argparse.ArgumentParser(description=description)
     parser.register("action", "extend", ExtendAction)
 

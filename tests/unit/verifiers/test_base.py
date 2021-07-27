@@ -129,8 +129,10 @@ def test_base_verifier_unsupported_check(mocker):
     """Raise exception if check is unknown/unsupported."""
     unit = Unit("foo", Model())
     bad_check = "bar"
-    expected_msg = f"Unsupported verification check '{bad_check}' for charm " \
-                   f"{BaseVerifier.NAME}"
+    expected_msg = (
+        f"Unsupported verification check '{bad_check}' for charm "
+        f"{BaseVerifier.NAME}"
+    )
     mocker.patch.object(BaseVerifier, "check_has_sub_machines")
     verifier = BaseVerifier([unit])
 
