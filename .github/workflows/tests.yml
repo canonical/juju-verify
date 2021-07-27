@@ -18,7 +18,7 @@ jobs:
         python-version: [3.9]  #[3.6, 3.7, 3.8, 3.9]
     steps:
     - name: Get latest workflow run status
-      uses: actions/github-script@v3
+      uses: actions/github-script@v4
       id: latest-workflow
       with:
         script: |
@@ -38,6 +38,8 @@ jobs:
     - name: yolo
       run: |
         echo "latest-workflow=${{ steps.latest-workflow.outputs }}"
+        echo "latest-workflow.result=${{ steps.latest-workflow.outputs.result }}"
+        echo "latest-workflow.conclusion=${{ steps.latest-workflow.outputs.conclusion }}"
         echo "atest-workflow-code-changed=${{ steps.latest-workflow-code-changed.outputs }}"
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
