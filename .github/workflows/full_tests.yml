@@ -39,7 +39,7 @@ jobs:
           LATEST_HEAD_SHA: ${{ fromJson(steps.latest-workflow.outputs.result).head_sha }}
         run: |
           result=0
-          git log | head -n 1 | grep -qE $LATEST_HEAD_SHA || result=1
+          git log | head -n 2 | grep -qE $LATEST_HEAD_SHA || result=1
           echo "::set-output name=new::$result"
       - name: Track changed files in the PR
         id: code-changed
