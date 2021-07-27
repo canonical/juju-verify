@@ -17,6 +17,8 @@ jobs:
         python-version: [3.6, 3.8]
     steps:
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 2
     - name: git log
       run: git log
     - name: Get latest workflow run status
@@ -42,7 +44,7 @@ jobs:
         echo "latest-workflow.result=${{ steps.latest-workflow.outputs.result }}"
         echo "latest-workflow.result.head_sha=${{ fromJson(steps.latest-workflow.outputs.result).head_sha }}"
         echo "latest-workflow.result.conclusion=${{ fromJson(steps.latest-workflow.outputs.result).conclusion }}"
-        echo "atest-workflow-code-changed=${{ steps.latest-workflow-code-changed.outputs }}"
+        echo "atest-workflow-code-changed=${{ steps.latest-workflow-code-changed.outputs.latest-workflow-code-changed }}"
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
