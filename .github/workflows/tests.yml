@@ -39,7 +39,7 @@ jobs:
     - name: yolo
       run: |
         echo "latest-workflow.result=${{ steps.latest-workflow.outputs.result }}"
-        echo "latest-workflow.result.conclusion=${{ steps.latest-workflow.outputs.result.conclusion }}"
+        echo "latest-workflow.result.conclusion=${{ steps.latest-workflow.outputs.result['conclusion'] }}"
         echo "latest-workflow.result.conclusion=${{ steps.latest-workflow.outputs.result.conclusion }}"
         echo "atest-workflow-code-changed=${{ steps.latest-workflow-code-changed.outputs }}"
     - uses: actions/checkout@v2
