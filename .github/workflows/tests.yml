@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9]
+        python-version: [3.9]  #[3.6, 3.7, 3.8, 3.9]
     steps:
     - name: Get latest workflow run status
       uses: actions/github-script@v3
@@ -28,8 +28,7 @@ jobs:
             workflow_id: 'tests.yml',
             per_page: 2
           })
-          return runs.data.workflow_runs[1].conclusion
-        result-encoding: string
+          return runs.data.workflow_runs[1]
     - name: yolo
       env:
         LAST_RUN:  ${{ toJSON(steps.latest-workflow-status.outputs) }}
