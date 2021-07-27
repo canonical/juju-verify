@@ -97,7 +97,7 @@ class NeutronTests(OpenstackBaseTestCase):
         # Netowrk IDs in the error message can be in any oerder
         for partial in result.partials:
             if partial.message.startswith(
-                "The following DHCP networks are " "non-redundant:"
+                "The following DHCP networks are non-redundant:"
             ):
                 self.assertTrue(all(net in partial.message for net in network_list))
                 break
@@ -114,7 +114,7 @@ class NeutronTests(OpenstackBaseTestCase):
         )
 
         if not subnet_list:
-            raise RuntimeError('Expected subnet "private_subnet" not configured.')
+            raise RuntimeError("Expected subnet 'private_subnet' not configured.")
 
         subnet = subnet_list[0]
         loadbalancer_data = {

@@ -37,9 +37,7 @@ def test_get_verifier_supported_charms(model, charm, verifier_type):
     for name, unit in model.units.items():
         if name.startswith(charm):
             units.append(unit)
-    assert units, 'Expected units for charm {} not found in "model"' " fixture".format(
-        charm
-    )
+    assert units, f"Expected units for charm {charm} not found in 'model' fixture"
 
     verifier = get_verifier(units)
     assert isinstance(verifier, verifier_type)
@@ -49,12 +47,12 @@ def test_get_verifier_supported_charms(model, charm, verifier_type):
 def test_get_verifier_unsupported_charm(mocker, model):
     """Raise exception if unsupported charm is requested."""
     charm_name = "unsupported-charm"
-    unit_name = "{}/0".format(charm_name)
-    charm_url = "cs:focal/{}-1".format(charm_name)
+    unit_name = f"{charm_name}/0"
+    charm_url = f"cs:focal/{charm_name}-1"
     supported_charms = os.linesep.join(SUPPORTED_CHARMS.keys())
     expected_msg = (
-        'Charm "{}" is not supported by juju-verify. Supported '
-        "charms:{}{}".format(charm_name, os.linesep, supported_charms)
+        f"Charm '{charm_name}' is not supported by juju-verify. Supported "
+        f"charms:{os.linesep}{supported_charms}"
     )
 
     mocker.patch.object(Unit, "data")
@@ -83,7 +81,7 @@ def test_get_verifier_fail_parse_charm_url(mocker, model):
     """Raise exception if parsing of charm-url fails."""
     mocker.patch.object(Unit, "data")
     bad_url = "foo"
-    expected_msg = 'Failed to parse charm-url: "{}"'.format(bad_url)
+    expected_msg = f"Failed to parse charm-url: '{bad_url}'"
     unit = Unit("nova-compute", model)
     unit.data = {"charm-url": "foo"}
 
@@ -98,7 +96,7 @@ def test_get_verifier_mixed_charms(mocker, model):
     mocker.patch.object(Unit, "data")
     nova_url = "cs:nova-compute-0"
     ceph_url = "cs:ceph-osd-0"
-    expected_msg = "Units are not running same charm. Detected types: " "{}".format(
+    expected_msg = "Units are not running same charm. Detected types: {}".format(
         {"nova-compute", "ceph-osd"}
     )
 

@@ -71,7 +71,7 @@ async def test_connect_model(mocker, fail, model_name, func_name):
 
     err_msg = "foo"
     connection_method.side_effect = errors.JujuError(err_msg)
-    expected_msg = "Failed to connect to the model.{}{}".format(os.linesep, err_msg)
+    expected_msg = f"Failed to connect to the model.{os.linesep}{err_msg}"
 
     await juju_verify.connect_model(model_name)
 
@@ -93,7 +93,7 @@ async def test_find_units(model, all_units, fail):
     # fail if requested unit is not in the list of all units
 
     missing_unit = "foo/0"
-    expected_message = 'Unit "{}" not found in the model.'.format(missing_unit)
+    expected_message = f"Unit '{missing_unit}' not found in the model."
 
     await juju_verify.find_units(model, [missing_unit])
 
@@ -160,7 +160,7 @@ def test_logger_setup_deep_logging(mocker, log_level):
 @pytest.mark.parametrize("log_level", ["warning", "error", "critical", "foo"])
 def test_unsupported_log_levels(fail, log_level):
     """juju-verify cli supports only info(default)/debug/trace log levels."""
-    expected_msg = 'Unsupported log level requested: "{}"'.format(log_level)
+    expected_msg = f"Unsupported log level requested: '{log_level}'"
 
     juju_verify.config_logger(log_level)
 

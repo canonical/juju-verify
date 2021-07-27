@@ -81,7 +81,7 @@ class NovaCompute(OpenstackBaseTestCase):
             self.fail("Failed to find launched VM on any of the nova-compute" " units")
 
         expected_partial = Partial(
-            Severity.FAIL, "Unit {} is running 1 " "VMs.".format(compute_with_vm)
+            Severity.FAIL, f"Unit {compute_with_vm} is running 1 VMs."
         )
         target_unit = loop.run(juju_verify.find_units(self.model, [compute_with_vm]))
         verifier = get_verifier(target_unit)

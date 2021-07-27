@@ -59,7 +59,7 @@ def test_nova_compute_no_running_vms(mocker, vm_count, expect_severity):
 
 
 @pytest.mark.parametrize(
-    "all_hosts, remove_hosts, host_state, host_status, " "expect_severity",
+    "all_hosts, remove_hosts, host_state, host_status, expect_severity",
     [
         param(2, 2, "up", "enabled", Severity.FAIL, id="fail-on-empty-az"),
         param(3, 2, "up", "enabled", Severity.OK, id="success-non-empty-az"),
@@ -107,7 +107,7 @@ def test_nova_compute_empty_az(
             Severity.FAIL,
             "Removing these units would leave "
             "following availability zones empty: "
-            "{}".format({zone}),
+            f"{set(zone)}",
         )
 
     # mock results of 'node-names' action on all verified units

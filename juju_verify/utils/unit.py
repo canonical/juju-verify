@@ -87,7 +87,7 @@ def run_action_on_units(
             failed_actions_msg.append(
                 f"Action {action} (ID: {action_result.entity_id}) failed to complete "
                 f"on unit {unit_id}. For more info see "
-                f'"juju show-action-output {action_result.entity_id}"'
+                f"'juju show-action-output {action_result.entity_id}'"
             )
 
     if failed_actions_msg:
@@ -119,7 +119,7 @@ def parse_charm_name(charm_url: str) -> str:
     """
     match = CHARM_URL_PATTERN.match(charm_url)
     if match is None:
-        raise CharmException(f'Failed to parse charm-url: "{charm_url}"')
+        raise CharmException(f"Failed to parse charm-url:'{charm_url}'")
     return match.group("charm")
 
 

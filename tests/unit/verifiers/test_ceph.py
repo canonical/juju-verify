@@ -445,9 +445,9 @@ def test_verify_shutdown(
 @pytest.mark.parametrize(
     "action_return_value, severity, msg, hostname",
     [
-        ('["host0", "host1", "host2"]', Severity.OK, CEPH_MON_QUORUM_OK, "host1"),
-        ('["host0", "host1"]', Severity.FAIL, CEPH_MON_QUORUM_FAIL, "host1"),
-        ('["host0", "host1", "host2"]', Severity.OK, CEPH_MON_QUORUM_OK, "host5"),
+        ("['host0', 'host1', 'host2']", Severity.OK, CEPH_MON_QUORUM_OK, "host1"),
+        ("['host0', 'host1']", Severity.FAIL, CEPH_MON_QUORUM_FAIL, "host1"),
+        ("['host0', 'host1', 'host2']", Severity.OK, CEPH_MON_QUORUM_OK, "host5"),
     ],
 )
 def test_check_ceph_mon_quorum(mocker, action_return_value, severity, msg, hostname):

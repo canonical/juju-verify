@@ -31,7 +31,7 @@ from juju_verify.verifiers.result import Partial, Severity
 def test_base_verifier_verify_no_units():
     """Function 'verify' should fail if verifier has not units."""
     expected_msg = (
-        "Can not run verification. This verifier " "is not associated with any units."
+        "Can not run verification. This verifier is not associated with any units."
     )
 
     with pytest.raises(VerificationError) as exc:
@@ -51,7 +51,7 @@ def test_base_verifier_multiple_models():
     with pytest.raises(VerificationError) as exc:
         BaseVerifier([unit_1, unit_2])
 
-    assert str(exc.value) == "Verifier initiated with units from multiple " "models."
+    assert str(exc.value) == "Verifier initiated with units from multiple models."
 
 
 def test_base_verifier_warn_on_unchecked_units(mocker):
@@ -129,9 +129,8 @@ def test_base_verifier_unsupported_check(mocker):
     """Raise exception if check is unknown/unsupported."""
     unit = Unit("foo", Model())
     bad_check = "bar"
-    expected_msg = 'Unsupported verification check "{}" for charm ' "{}".format(
-        bad_check, BaseVerifier.NAME
-    )
+    expected_msg = f"Unsupported verification check '{bad_check}' for charm " \
+                   f"{BaseVerifier.NAME}"
     mocker.patch.object(BaseVerifier, "check_has_sub_machines")
     verifier = BaseVerifier([unit])
 
@@ -161,7 +160,7 @@ def test_base_verifier_unexpected_verify_error(mocker):
     check_method = BaseVerifier._action_map().get(check).__name__
     internal_msg = "Something failed."
     internal_err = RuntimeError(internal_msg)
-    expected_msg = "Verification failed: {}".format(internal_msg)
+    expected_msg = f"Verification failed: {internal_msg}"
     mocker.patch.object(BaseVerifier, check_method).side_effect = internal_err
 
     with pytest.raises(VerificationError) as exc:
@@ -174,9 +173,7 @@ def test_base_verifier_unit_from_id():
     """Test finding units in verifier by their IDs."""
     present_unit = "compute/0"
     missing_unit = "compute/1"
-    expected_msg = "Unit {} was not found in {} " "verifier.".format(
-        missing_unit, BaseVerifier.NAME
-    )
+    expected_msg = f"Unit {missing_unit} was not found in {BaseVerifier.NAME} verifier."
     unit = Unit(present_unit, Model())
     verifier = BaseVerifier([unit])
 

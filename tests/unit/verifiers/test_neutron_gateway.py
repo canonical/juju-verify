@@ -270,7 +270,7 @@ def test_warn_router_ha(mock_get_all_ngw_units, mock_get_unit_resource_list):
     router_format = f"{expected_router} (on {expected_unit}, hostname: {expected_host})"
     expected_message = (
         "It's recommended that you manually failover the following "
-        "routers: {}".format(router_format)
+        f"routers: {router_format}"
     )
     expected_result = Result(Severity.WARN, expected_message)
     # router is in HA, given instructions to failover

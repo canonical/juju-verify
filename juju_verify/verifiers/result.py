@@ -108,7 +108,7 @@ class Result:
         if not self.partials:
             return (
                 "No result or additional information. This may be a bug in "
-                '"juju-verify".'
+                "'juju-verify'."
             )
         output = f"Checks:{os.linesep}"
         for partial in self.partials:

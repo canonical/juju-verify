@@ -56,7 +56,7 @@ async def find_units(model: Model, units: List[str]) -> List[Unit]:
     for unit_name in units:
         unit = model.units.get(unit_name)
         if unit is None:
-            fail('Unit "{}" not found in the model.'.format(unit_name))
+            fail(f"Unit '{unit_name}' not found in the model.")
         selected_units.append(unit)
     return selected_units
 
@@ -84,13 +84,13 @@ async def connect_model(model_name: Union[str, None]) -> Model:
     model = Model()
     try:
         if model_name:
-            logger.debug('Connecting to model "%s".', model_name)
+            logger.debug("Connecting to model '%s'.", model_name)
             await model.connect_model(model_name)
         else:
             logger.debug("Connecting to currently active model.")
             await model.connect_current()
     except errors.JujuError as exc:
-        fail("Failed to connect to the model.{}{}".format(os.linesep, exc))
+        fail(f"Failed to connect to the model.{os.linesep}{exc}")
     return model
 
 
@@ -112,7 +112,7 @@ class ExtendAction(argparse.Action):  # pylint: disable=too-few-public-methods
 def parse_args() -> argparse.Namespace:
     """Parse cli arguments."""
     description = (
-        "Verify that it's safe to perform selected action on " "specified units"
+        "Verify that it's safe to perform selected action on specified units"
     )
     parser = argparse.ArgumentParser(description=description)
     parser.register("action", "extend", ExtendAction)
@@ -165,7 +165,7 @@ def config_logger(log_level: str) -> None:
         elif log_level == "info":
             logger.setLevel(logging.INFO)
         else:
-            fail('Unsupported log level requested: "{}"'.format(log_level))
+            fail(f"Unsupported log level requested: '{log_level}'")
 
 
 def main() -> None:

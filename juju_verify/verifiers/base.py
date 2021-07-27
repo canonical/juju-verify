@@ -73,7 +73,7 @@ class BaseVerifier:
         # (correct) or multiple models (incorrect) in the 'models' set.
         if len(models) > 1:
             raise VerificationError(
-                "Verifier initiated with units from " "multiple models."
+                "Verifier initiated with units from multiple models."
             )
         self.model: Model = models.pop()
         self._unit_ids: List[str] = []
@@ -110,7 +110,7 @@ class BaseVerifier:
             if unit.entity_id == unit_id:
                 return unit
         raise VerificationError(
-            "Unit {} was not found in {} verifier." "".format(unit_id, self.NAME)
+            f"Unit {unit_id} was not found in {self.NAME} verifier."
         )
 
     @staticmethod
@@ -219,8 +219,8 @@ class BaseVerifier:
         verify_action = self._action_map().get(check)
         if verify_action is None:
             raise NotImplementedError(
-                'Unsupported verification check "{}" for'
-                " charm {}".format(check, self.NAME)
+                f"Unsupported verification check '{check}' for"
+                f" charm {self.NAME}"
             )
 
         try:
@@ -232,7 +232,7 @@ class BaseVerifier:
         except NotImplementedError as exc:
             raise exc
         except Exception as exc:
-            err = VerificationError("Verification failed: {}".format(exc))
+            err = VerificationError(f"Verification failed: {exc}")
             raise err from exc
 
     def run_action_on_all(
@@ -253,9 +253,7 @@ class BaseVerifier:
         'shutdown' check needs to be implemented on child classes.
         """
         raise NotImplementedError(
-            'Requested check "shutdown" is not '
-            'implemented for "{}" '
-            "charm.".format(self.NAME)
+            f"Requested check 'shutdown' is not implemented for '{self.NAME}' charm."
         )
 
     def verify_reboot(self) -> Result:
@@ -264,7 +262,5 @@ class BaseVerifier:
         'reboot' check needds to be implemented on child classes.
         """
         raise NotImplementedError(
-            'Requested check "reboot" is not '
-            'implemented for "{}" '
-            "charm.".format(self.NAME)
+            f"Requested check 'reboot' is not implemented for '{self.NAME}' charm."
         )

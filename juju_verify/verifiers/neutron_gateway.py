@@ -37,10 +37,10 @@ class NeutronGateway(BaseVerifier):
         "get-status-lb": "load-balancers",
     }
     action_name_failure_string_map = {
-        "get-status-routers": ("The following routers are " "non-redundant: {}"),
-        "get-status-dhcp": ("The following DHCP networks " "are non-redundant: {}"),
+        "get-status-routers": ("The following routers are non-redundant: {}"),
+        "get-status-dhcp": ("The following DHCP networks are non-redundant: {}"),
         "get-status-lb": (
-            "The following LBaasV2 LBs were " "found: {}. LBaasV2 does not " "offer HA."
+            "The following LBaasV2 LBs were found: {}. LBaasV2 does not offer HA."
         ),
     }
 
@@ -117,7 +117,7 @@ class NeutronGateway(BaseVerifier):
             result = Result(Severity.FAIL, reason)
         else:
             resource = self.action_name_result_map[action_name]
-            reason = "Redundancy check passed for: {}".format(resource)
+            reason = f"Redundancy check passed for: {resource}"
             result = Result(Severity.OK, reason)
         return result
 
@@ -132,7 +132,7 @@ class NeutronGateway(BaseVerifier):
                 _id = router["id"]
                 entity_id = router["juju-entity-id"]
                 host = router["host"]
-                error_string = "{} (on {}, hostname: {})".format(_id, entity_id, host)
+                error_string = f"{_id} (on {entity_id}, hostname: {host})"
                 router_failover_err_list.append(error_string)
 
         if router_failover_err_list:
