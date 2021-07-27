@@ -21,25 +21,25 @@ import pytest
 from juju.unit import Unit
 
 from juju_verify.exceptions import CharmException
-from juju_verify.verifiers import (
-    CephOsd,
-    NovaCompute,
-    SUPPORTED_CHARMS,
-    get_verifier,
+from juju_verify.verifiers import SUPPORTED_CHARMS, CephOsd, NovaCompute, get_verifier
+
+
+@pytest.mark.parametrize(
+    "charm, verifier_type",
+    [
+        ("nova-compute", NovaCompute),
+        ("ceph-osd", CephOsd),
+    ],
 )
-
-
-@pytest.mark.parametrize('charm, verifier_type',
-                         [('nova-compute', NovaCompute),
-                          ('ceph-osd', CephOsd), ])
 def test_get_verifier_supported_charms(model, charm, verifier_type):
     """Test creating correct verifiers from supported charm names."""
     units = []
     for name, unit in model.units.items():
         if name.startswith(charm):
             units.append(unit)
-    assert units, 'Expected units for charm {} not found in "model"' \
-                  ' fixture'.format(charm)
+    assert units, 'Expected units for charm {} not found in "model"' " fixture".format(
+        charm
+    )
 
     verifier = get_verifier(units)
     assert isinstance(verifier, verifier_type)
@@ -48,18 +48,19 @@ def test_get_verifier_supported_charms(model, charm, verifier_type):
 
 def test_get_verifier_unsupported_charm(mocker, model):
     """Raise exception if unsupported charm is requested."""
-    charm_name = 'unsupported-charm'
-    unit_name = '{}/0'.format(charm_name)
-    charm_url = 'cs:focal/{}-1'.format(charm_name)
+    charm_name = "unsupported-charm"
+    unit_name = "{}/0".format(charm_name)
+    charm_url = "cs:focal/{}-1".format(charm_name)
     supported_charms = os.linesep.join(SUPPORTED_CHARMS.keys())
-    expected_msg = 'Charm "{}" is not supported by juju-verify. Supported ' \
-                   'charms:{}{}'.format(charm_name, os.linesep,
-                                        supported_charms)
+    expected_msg = (
+        'Charm "{}" is not supported by juju-verify. Supported '
+        "charms:{}{}".format(charm_name, os.linesep, supported_charms)
+    )
 
-    mocker.patch.object(Unit, 'data')
+    mocker.patch.object(Unit, "data")
 
     unit = Unit(unit_name, model)
-    unit.data = {'charm-url': charm_url}
+    unit.data = {"charm-url": charm_url}
 
     with pytest.raises(CharmException) as exc:
         get_verifier([unit])
@@ -67,13 +68,12 @@ def test_get_verifier_unsupported_charm(mocker, model):
     assert str(exc.value) == expected_msg
 
 
-@pytest.mark.parametrize('charm_url', ['cs:nova-compute-1',
-                                       'cs:focal/nova-compute-1'])
+@pytest.mark.parametrize("charm_url", ["cs:nova-compute-1", "cs:focal/nova-compute-1"])
 def test_get_verifier_parse_urls(mocker, model, charm_url):
     """Successfully parse various chrm url formats."""
-    mocker.patch.object(Unit, 'data')
-    unit = Unit('nova-compute/0', model)
-    unit.data = {'charm-url': charm_url}
+    mocker.patch.object(Unit, "data")
+    unit = Unit("nova-compute/0", model)
+    unit.data = {"charm-url": charm_url}
 
     # no exception raised
     get_verifier([unit])
@@ -81,11 +81,11 @@ def test_get_verifier_parse_urls(mocker, model, charm_url):
 
 def test_get_verifier_fail_parse_charm_url(mocker, model):
     """Raise exception if parsing of charm-url fails."""
-    mocker.patch.object(Unit, 'data')
-    bad_url = 'foo'
+    mocker.patch.object(Unit, "data")
+    bad_url = "foo"
     expected_msg = 'Failed to parse charm-url: "{}"'.format(bad_url)
-    unit = Unit('nova-compute', model)
-    unit.data = {'charm-url': 'foo'}
+    unit = Unit("nova-compute", model)
+    unit.data = {"charm-url": "foo"}
 
     with pytest.raises(CharmException) as exc:
         get_verifier([unit])
@@ -95,17 +95,18 @@ def test_get_verifier_fail_parse_charm_url(mocker, model):
 
 def test_get_verifier_mixed_charms(mocker, model):
     """Fail if verifier is requested for units with different charms."""
-    mocker.patch.object(Unit, 'data')
-    nova_url = 'cs:nova-compute-0'
-    ceph_url = 'cs:ceph-osd-0'
-    expected_msg = 'Units are not running same charm. Detected types: ' \
-                   '{}'.format({'nova-compute', 'ceph-osd'})
+    mocker.patch.object(Unit, "data")
+    nova_url = "cs:nova-compute-0"
+    ceph_url = "cs:ceph-osd-0"
+    expected_msg = "Units are not running same charm. Detected types: " "{}".format(
+        {"nova-compute", "ceph-osd"}
+    )
 
-    nova = Unit('nova-compute/0', model)
-    nova.data = {'charm-url': nova_url}
+    nova = Unit("nova-compute/0", model)
+    nova.data = {"charm-url": nova_url}
 
-    ceph = Unit('ceph-osd/0', model)
-    ceph.data = {'charm-url': ceph_url}
+    ceph = Unit("ceph-osd/0", model)
+    ceph.data = {"charm-url": ceph_url}
 
     with pytest.raises(CharmException) as exc:
         get_verifier([nova, ceph])
@@ -115,8 +116,7 @@ def test_get_verifier_mixed_charms(mocker, model):
 
 def test_get_verifier_empty_list():
     """Fail if list of units is empty."""
-    expected_msg = 'List of units can not be empty when creating' \
-                   ' verifier'
+    expected_msg = "List of units can not be empty when creating" " verifier"
 
     with pytest.raises(CharmException) as exc:
         get_verifier([])

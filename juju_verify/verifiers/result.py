@@ -59,7 +59,7 @@ class Partial:
 
     def __str__(self) -> str:
         """Return string representation of the Partial class instance."""
-        return f'[{self.severity.name}] {self.message}'
+        return f"[{self.severity.name}] {self.message}"
 
     def __eq__(self, other: object) -> bool:
         """Perform equal comparison with another Partial instance."""
@@ -77,13 +77,13 @@ class Result:
     """
 
     VERBOSE_MAP = {
-        Severity.OK: 'OK (All checks passed)',
-        Severity.WARN: 'OK (Checks passed with warnings)',
-        Severity.UNSUPPORTED: 'Failed (Targeted charms are not supported)',
-        Severity.FAIL: 'Failed',
+        Severity.OK: "OK (All checks passed)",
+        Severity.WARN: "OK (Checks passed with warnings)",
+        Severity.UNSUPPORTED: "Failed (Targeted charms are not supported)",
+        Severity.FAIL: "Failed",
     }
 
-    def __init__(self, severity: Severity = Severity.OK, message: str = ''):
+    def __init__(self, severity: Severity = Severity.OK, message: str = ""):
         """Initialize result instance.
 
         Initial arguments 'severity' and 'message' will automatically create Partial
@@ -106,18 +106,20 @@ class Result:
         string will be error message.
         """
         if not self.partials:
-            return ('No result or additional information. This may be a bug in '
-                    '"juju-verify".')
-        output = f'Checks:{os.linesep}'
+            return (
+                "No result or additional information. This may be a bug in "
+                '"juju-verify".'
+            )
+        output = f"Checks:{os.linesep}"
         for partial in self.partials:
-            output += f'{partial}{os.linesep}'
+            output += f"{partial}{os.linesep}"
         output += os.linesep
 
         max_severity = max(partial.severity for partial in self.partials)
-        output += f'Overall result: {self.VERBOSE_MAP.get(max_severity)}'
+        output += f"Overall result: {self.VERBOSE_MAP.get(max_severity)}"
         return output
 
-    def __add__(self, other: object) -> 'Result':
+    def __add__(self, other: object) -> "Result":
         """Perform "add" operation with another Result instance."""
         if not isinstance(other, Result):
             return NotImplemented
@@ -128,7 +130,7 @@ class Result:
 
         return new_obj
 
-    def __iadd__(self, other: object) -> 'Result':
+    def __iadd__(self, other: object) -> "Result":
         """Perform "inplace add" operation with another Result instance."""
         if not isinstance(other, Result):
             return NotImplemented

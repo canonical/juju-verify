@@ -16,12 +16,12 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """Helper function to manage Juju action."""
 from collections import OrderedDict
-from typing import List, Any, Generator
+from typing import Any, Generator, List
 
 from juju.action import Action
 
 
-def data_from_action(action: Action, key: str, default: str = '') -> str:
+def data_from_action(action: Action, key: str, default: str = "") -> str:
     """Extract value from Action.data['results'] dictionary.
 
     :param action: juju.Action instance
@@ -29,7 +29,7 @@ def data_from_action(action: Action, key: str, default: str = '') -> str:
     :param default: default value to return if the 'key' is not found
     :return: value from the action's results identified by 'key' or default
     """
-    return action.data.get('results', {}).get(key, default)
+    return action.data.get("results", {}).get(key, default)
 
 
 class _Cache:

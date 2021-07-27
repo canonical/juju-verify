@@ -15,20 +15,23 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """Result class and related function test suite."""
-from copy import deepcopy
 import os
+from copy import deepcopy
 
 import pytest
 
-from juju_verify.verifiers.result import aggregate_results, Partial, Result, Severity
+from juju_verify.verifiers.result import Partial, Result, Severity, aggregate_results
 
 
-@pytest.mark.parametrize('severity, lesser_group, greater_group', [
-    (Severity.OK, [], [Severity.WARN, Severity.UNSUPPORTED, Severity.FAIL]),
-    (Severity.WARN, [Severity.OK], [Severity.UNSUPPORTED, Severity.FAIL]),
-    (Severity.UNSUPPORTED, [Severity.OK, Severity.WARN], [Severity.FAIL]),
-    (Severity.FAIL, [Severity.OK, Severity.WARN, Severity.UNSUPPORTED], [])
-])
+@pytest.mark.parametrize(
+    "severity, lesser_group, greater_group",
+    [
+        (Severity.OK, [], [Severity.WARN, Severity.UNSUPPORTED, Severity.FAIL]),
+        (Severity.WARN, [Severity.OK], [Severity.UNSUPPORTED, Severity.FAIL]),
+        (Severity.UNSUPPORTED, [Severity.OK, Severity.WARN], [Severity.FAIL]),
+        (Severity.FAIL, [Severity.OK, Severity.WARN, Severity.UNSUPPORTED], []),
+    ],
+)
 def test_severity_comparison(severity, lesser_group, greater_group):
     """Test ordering of the Severity enum values."""
     # test eq comparison
@@ -52,16 +55,19 @@ def test_severity_comparison(severity, lesser_group, greater_group):
         assert severity < greater_severity
 
 
-@pytest.mark.parametrize('severity', [
-    Severity.OK,
-    Severity.WARN,
-    Severity.UNSUPPORTED,
-    Severity.FAIL,
-])
+@pytest.mark.parametrize(
+    "severity",
+    [
+        Severity.OK,
+        Severity.WARN,
+        Severity.UNSUPPORTED,
+        Severity.FAIL,
+    ],
+)
 def test_partial_formatting(severity):
     """Test formatting of partial result."""
-    msg = 'foo'
-    expected_str = f'[{severity.name}] {msg}'
+    msg = "foo"
+    expected_str = f"[{severity.name}] {msg}"
     partial_result = Partial(severity, msg)
 
     assert str(partial_result) == expected_str
@@ -70,45 +76,43 @@ def test_partial_formatting(severity):
 def test_partial_equal():
     """Test 'equal" operation between Partial instances."""
     # comparing with other types returns False
-    assert Partial(Severity.OK, 'foo') != 'foo'
+    assert Partial(Severity.OK, "foo") != "foo"
 
     # equal must match both severity and message
     severity = Severity.OK
-    msg = 'bar'
+    msg = "bar"
     assert Partial(severity, msg) == Partial(severity, msg)
 
     # Partials with different severities are not equal
-    msg = 'baz'
+    msg = "baz"
     assert Partial(Severity.OK, msg) != Partial(Severity.WARN, msg)
 
     # Partials with different messages are not equal
     severity = Severity.OK
-    assert Partial(severity, 'foo') != Partial(severity, 'baz')
+    assert Partial(severity, "foo") != Partial(severity, "baz")
 
 
-@pytest.mark.parametrize('severity', [
-    Severity.OK,
-    Severity.WARN,
-    Severity.UNSUPPORTED,
-    Severity.FAIL
-])
+@pytest.mark.parametrize(
+    "severity", [Severity.OK, Severity.WARN, Severity.UNSUPPORTED, Severity.FAIL]
+)
 def test_result_formatting(severity):
     """Test expected format of the Result.format()."""
-    partial_result = Partial(severity, 'foo')
+    partial_result = Partial(severity, "foo")
     result = Result(partial_result.severity, partial_result.message)
 
     expected_success_msg = Result.VERBOSE_MAP.get(partial_result.severity)
-    expected_msg = 'Checks:{0}{1}{0}{0}Overall result: {2}'.format(os.linesep,
-                                                                   partial_result,
-                                                                   expected_success_msg)
+    expected_msg = "Checks:{0}{1}{0}{0}Overall result: {2}".format(
+        os.linesep, partial_result, expected_success_msg
+    )
 
     assert str(result) == expected_msg
 
 
 def test_result_empty_formatting():
     """Test expected format if Result is empty."""
-    expected_msg = ('No result or additional information. This may be a bug in '
-                    '"juju-verify".')
+    expected_msg = (
+        "No result or additional information. This may be a bug in " '"juju-verify".'
+    )
     assert str(Result()) == expected_msg
 
 
@@ -119,15 +123,15 @@ def test_result_add():
     assert result == Result()
 
     # Adding empty and filled result
-    result = Result(Severity.OK, 'foo')
+    result = Result(Severity.OK, "foo")
     assert result + Result() == result
 
     # Adding results with content
-    result_1 = Result(Severity.OK, 'foo')
-    result_2 = Result(Severity.WARN, 'bar')
+    result_1 = Result(Severity.OK, "foo")
+    result_2 = Result(Severity.WARN, "bar")
     expect_result = Result()
-    expect_result.add_partial_result(Severity.OK, 'foo')
-    expect_result.add_partial_result(Severity.WARN, 'bar')
+    expect_result.add_partial_result(Severity.OK, "foo")
+    expect_result.add_partial_result(Severity.WARN, "bar")
     assert result_1 + result_2 == expect_result
 
 
@@ -140,26 +144,26 @@ def test_result_iadd():
 
     # Add empty and filled result
     empty_result = Result()
-    filled_result = Result(Severity.OK, 'foo')
+    filled_result = Result(Severity.OK, "foo")
     empty_result += filled_result
     assert empty_result == filled_result
 
     # Add two filled results
-    result_1 = Result(Severity.OK, 'foo')
-    result_2 = Result(Severity.WARN, 'bar')
+    result_1 = Result(Severity.OK, "foo")
+    result_2 = Result(Severity.WARN, "bar")
     expected_result = Result()
-    expected_result.add_partial_result(Severity.OK, 'foo')
-    expected_result.add_partial_result(Severity.WARN, 'bar')
+    expected_result.add_partial_result(Severity.OK, "foo")
+    expected_result.add_partial_result(Severity.WARN, "bar")
     result_1 += result_2
     assert result_1 == expected_result
 
 
 def test_result_adding_does_not_modifies_operands():
     """Test that '+' operation does not modify the original operands."""
-    operand_1 = Result(Severity.OK, 'foo')
+    operand_1 = Result(Severity.OK, "foo")
     original_1 = deepcopy(operand_1)
 
-    operand_2 = Result(Severity.WARN, 'bar')
+    operand_2 = Result(Severity.WARN, "bar")
     original_2 = deepcopy(operand_2)
 
     _ = operand_1 + operand_2
@@ -181,15 +185,15 @@ def test_result_add_raises_not_implemented():
 def test_result_eq():
     """Test comparing two results."""
     # Compare with other type
-    assert Result(Severity.OK, 'foo') != 'foo'
+    assert Result(Severity.OK, "foo") != "foo"
     # Compare empty results
     assert Result() == Result()
-    assert Result() != Result(Severity.OK, 'foo')
+    assert Result() != Result(Severity.OK, "foo")
 
     # Compare results with content
-    assert Result(Severity.OK, 'foo') == Result(Severity.OK, 'foo')
-    assert Result(Severity.OK, 'bar') != Result(Severity.OK, 'foo')
-    assert Result(Severity.FAIL, 'foo') != Result(Severity.OK, 'foo')
+    assert Result(Severity.OK, "foo") == Result(Severity.OK, "foo")
+    assert Result(Severity.OK, "bar") != Result(Severity.OK, "foo")
+    assert Result(Severity.FAIL, "foo") != Result(Severity.OK, "foo")
 
     # Compare results with multiple partial results
     result_original = Result()
@@ -197,11 +201,11 @@ def test_result_eq():
     result_not_matching = Result()
 
     for result in (result_original, result_matching):
-        result.add_partial_result(Severity.OK, 'foo')
-        result.add_partial_result(Severity.WARN, 'bar')
+        result.add_partial_result(Severity.OK, "foo")
+        result.add_partial_result(Severity.WARN, "bar")
 
-    result_not_matching.add_partial_result(Severity.OK, 'baz')
-    result_not_matching.add_partial_result(Severity.FAIL, 'quz')
+    result_not_matching.add_partial_result(Severity.OK, "baz")
+    result_not_matching.add_partial_result(Severity.FAIL, "quz")
 
     assert result_original == result_matching
     assert result_original != result_not_matching
@@ -225,8 +229,8 @@ def test_result_add_partial_result():
     result = Result()
 
     expected_partials = [
-        Partial(Severity.OK, 'foo'),
-        Partial(Severity.FAIL, 'bar'),
+        Partial(Severity.OK, "foo"),
+        Partial(Severity.FAIL, "bar"),
     ]
 
     for partial in expected_partials:
@@ -242,22 +246,25 @@ def test_result_success():
     assert result.success
 
     # OK and WARN partial results still produces success == True
-    result.add_partial_result(Severity.OK, 'foo')
+    result.add_partial_result(Severity.OK, "foo")
     assert result.success
-    result.add_partial_result(Severity.WARN, 'bar')
+    result.add_partial_result(Severity.WARN, "bar")
     assert result.success
 
     # UNSUPPORTED nad FAIL witll produce success == False
-    result.add_partial_result(Severity.UNSUPPORTED, 'baz')
+    result.add_partial_result(Severity.UNSUPPORTED, "baz")
     assert not result.success
-    result.add_partial_result(Severity.FAIL, 'quz')
+    result.add_partial_result(Severity.FAIL, "quz")
     assert not result.success
 
 
-@pytest.mark.parametrize('result, expected_emptiness', [
-    pytest.param(Result(), True, id='result-empty'),
-    pytest.param(Result(Severity.OK, 'foo'), False, id='result-not-empty')
-])
+@pytest.mark.parametrize(
+    "result, expected_emptiness",
+    [
+        pytest.param(Result(), True, id="result-empty"),
+        pytest.param(Result(Severity.OK, "foo"), False, id="result-not-empty"),
+    ],
+)
 def test_result_empty(result, expected_emptiness):
     """Test expected values of Result.empty property."""
     assert result.empty == expected_emptiness
@@ -265,10 +272,10 @@ def test_result_empty(result, expected_emptiness):
 
 def test_aggregate_results():
     """Test aggregation of multiple results."""
-    partial_1 = Partial(Severity.OK, 'foo')
-    partial_2 = Partial(Severity.WARN, 'bar')
-    partial_3 = Partial(Severity.UNSUPPORTED, 'baz')
-    partial_4 = Partial(Severity.FAIL, 'quz')
+    partial_1 = Partial(Severity.OK, "foo")
+    partial_2 = Partial(Severity.WARN, "bar")
+    partial_3 = Partial(Severity.UNSUPPORTED, "baz")
+    partial_4 = Partial(Severity.FAIL, "quz")
     partial_list = [
         partial_1,
         partial_2,

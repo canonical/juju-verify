@@ -18,16 +18,16 @@
 import asyncio
 import os
 import re
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 from juju.action import Action
 from juju.model import Model
 from juju.unit import Unit
 
-from juju_verify.exceptions import VerificationError, CharmException
+from juju_verify.exceptions import CharmException, VerificationError
 from juju_verify.utils.action import cache
 
-CHARM_URL_PATTERN = re.compile(r'^(.*):(.*/)?(?P<charm>.*)(-\d+)$')
+CHARM_URL_PATTERN = re.compile(r"^(.*):(.*/)?(?P<charm>.*)(-\d+)$")
 
 
 def get_cache_key(unit: Unit, action: str, **params: Any) -> int:
@@ -37,8 +37,12 @@ def get_cache_key(unit: Unit, action: str, **params: Any) -> int:
     )
 
 
-async def run_action(unit: Unit, action: str, use_cache: bool = True,
-                     params: Optional[Dict[str, Any]] = None) -> Action:
+async def run_action(
+    unit: Unit,
+    action: str,
+    use_cache: bool = True,
+    params: Optional[Dict[str, Any]] = None,
+) -> Action:
     """Run Juju action and wait for results."""
     params = params or {}
     key = get_cache_key(unit, action, **params)
@@ -52,8 +56,12 @@ async def run_action(unit: Unit, action: str, use_cache: bool = True,
     return cache[key]
 
 
-def run_action_on_units(units: List[Unit], action: str, use_cache: bool = True,
-                        params: Optional[Dict[str, Any]] = None) -> Dict[str, Action]:
+def run_action_on_units(
+    units: List[Unit],
+    action: str,
+    use_cache: bool = True,
+    params: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Action]:
     """Run Juju action on specified units.
 
     :param units: List/Tuple of Unit object
@@ -64,8 +72,9 @@ def run_action_on_units(units: List[Unit], action: str, use_cache: bool = True,
              provided in 'units' and actions are their matching,
              juju.Action objects that have been executed and awaited.
     """
-    task_map = {unit.entity_id: run_action(unit, action, use_cache, params)
-                for unit in units}
+    task_map = {
+        unit.entity_id: run_action(unit, action, use_cache, params) for unit in units
+    }
     loop = asyncio.get_event_loop()
     tasks = asyncio.gather(*task_map.values())
     results: List[Action] = loop.run_until_complete(tasks)
@@ -74,10 +83,10 @@ def run_action_on_units(units: List[Unit], action: str, use_cache: bool = True,
 
     failed_actions_msg = []
     for unit_id, action_result in result_map.items():
-        if action_result.status != 'completed':
+        if action_result.status != "completed":
             failed_actions_msg.append(
-                f'Action {action} (ID: {action_result.entity_id}) failed to complete '
-                f'on unit {unit_id}. For more info see '
+                f"Action {action} (ID: {action_result.entity_id}) failed to complete "
+                f"on unit {unit_id}. For more info see "
                 f'"juju show-action-output {action_result.entity_id}"'
             )
 
@@ -87,8 +96,12 @@ def run_action_on_units(units: List[Unit], action: str, use_cache: bool = True,
     return result_map
 
 
-def run_action_on_unit(unit: Unit, action: str,  use_cache: bool = True,
-                       params: Optional[Dict[str, Any]] = None) -> Action:
+def run_action_on_unit(
+    unit: Unit,
+    action: str,
+    use_cache: bool = True,
+    params: Optional[Dict[str, Any]] = None,
+) -> Action:
     """Run juju action on single unit.
 
     For more info, see docstring for 'run_action_on_units'. The only
@@ -107,15 +120,17 @@ def parse_charm_name(charm_url: str) -> str:
     match = CHARM_URL_PATTERN.match(charm_url)
     if match is None:
         raise CharmException(f'Failed to parse charm-url: "{charm_url}"')
-    return match.group('charm')
+    return match.group("charm")
 
 
 def verify_charm_unit(charm_name: str, *units: Unit) -> None:
     """Verify that units are based on required charm."""
     for unit in units:
         if not parse_charm_name(unit.charm_url) == charm_name:
-            raise CharmException(f"The unit {unit.entity_id} does not belong to the "
-                                 f"charm {charm_name}.")
+            raise CharmException(
+                f"The unit {unit.entity_id} does not belong to the "
+                f"charm {charm_name}."
+            )
 
 
 def get_first_active_unit(units: List[Unit]) -> Optional[Unit]:

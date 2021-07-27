@@ -20,28 +20,25 @@ from unittest.mock import PropertyMock
 from juju.action import Action
 from juju.model import Model
 
-from juju_verify.utils.action import (
-    data_from_action,
-    cache
-)
+from juju_verify.utils.action import cache, data_from_action
 
 
 def test_data_from_action(mocker):
     """Test helper function that parses data from Action.data.results dict."""
-    host_key = 'host'
-    host_value = 'compute.0'
-    data = {'results': {host_key: host_value}}
-    default = 'default'
+    host_key = "host"
+    host_value = "compute.0"
+    data = {"results": {host_key: host_value}}
+    default = "default"
 
-    mocker.patch.object(Action, 'data', new_callable=PropertyMock(return_value=data))
-    action = Action('0', Model())
+    mocker.patch.object(Action, "data", new_callable=PropertyMock(return_value=data))
+    action = Action("0", Model())
 
     output = data_from_action(action, host_key, default)
     assert output == host_value
 
     # return default on missing key
 
-    output = data_from_action(action, 'foo', default)
+    output = data_from_action(action, "foo", default)
     assert output == default
 
 

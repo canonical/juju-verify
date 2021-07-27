@@ -18,20 +18,20 @@
 import json
 import logging
 from collections import defaultdict
-from typing import Dict, Optional, Any, List
+from typing import Any, Dict, List, Optional
 
 from juju.unit import Unit
 from packaging.version import Version
 
 from juju_verify.utils.action import data_from_action
 from juju_verify.utils.unit import (
-    verify_charm_unit,
-    run_action_on_units,
+    get_applications_names,
     get_first_active_unit,
-    get_applications_names
+    run_action_on_units,
+    verify_charm_unit,
 )
 from juju_verify.verifiers.base import BaseVerifier
-from juju_verify.verifiers.result import aggregate_results, Result, Severity
+from juju_verify.verifiers.result import Result, Severity, aggregate_results
 
 logger = logging.getLogger()
 
@@ -60,8 +60,11 @@ class AvailabilityZone:
     def __str__(self) -> str:
         """Return string representation of AZ objects."""
         return ",".join(
-            [f"{crush_map_type}={self._data[crush_map_type]}" for crush_map_type
-             in self.crush_map_hierarchy if crush_map_type in self._data]
+            [
+                f"{crush_map_type}={self._data[crush_map_type]}"
+                for crush_map_type in self.crush_map_hierarchy
+                if crush_map_type in self._data
+            ]
         )
 
     def __hash__(self) -> int:
@@ -106,15 +109,17 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
             logger.debug("Unit (%s): Ceph cluster health '%s'", unit, cluster_health)
 
             if "HEALTH_OK" in cluster_health and result.success:
-                result.add_partial_result(Severity.OK,
-                                          f"{unit}: Ceph cluster is healthy")
+                result.add_partial_result(
+                    Severity.OK, f"{unit}: Ceph cluster is healthy"
+                )
             elif "HEALTH_WARN" in cluster_health or "HEALTH_ERR" in cluster_health:
-                result.add_partial_result(Severity.FAIL,
-                                          f"{unit}: Ceph cluster is unhealthy")
+                result.add_partial_result(
+                    Severity.FAIL, f"{unit}: Ceph cluster is unhealthy"
+                )
             else:
-                result.add_partial_result(Severity.FAIL,
-                                          f"{unit}: Ceph cluster is in an unknown "
-                                          f"state")
+                result.add_partial_result(
+                    Severity.FAIL, f"{unit}: Ceph cluster is in an unknown " f"state"
+                )
 
         if not action_map:
             result = Result(Severity.FAIL, "Ceph cluster is in an unknown state")
@@ -133,8 +138,12 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
         :raises json.decoder.JSONDecodeError: if json.loads failed
         """
         verify_charm_unit("ceph-mon", unit)
-        action_map = run_action_on_units([unit], "list-pools", params={"format": "json"})
-        action_output = data_from_action(action_map.get(unit.entity_id), "message", "[]")
+        action_map = run_action_on_units(
+            [unit], "list-pools", params={"format": "json"}
+        )
+        action_output = data_from_action(
+            action_map.get(unit.entity_id), "message", "[]"
+        )
         logger.debug("parse information about pools: %s", action_output)
         pools: List[Dict[str, Any]] = json.loads(action_output)
 
@@ -153,13 +162,15 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
         verify_charm_unit("ceph-mon", unit)
         # NOTE (rgildein): This functionality is not complete and will be part of the
         #                  fix on LP#1921121.
-        logger.warning("WARNING: The function to get the number of free units from "
-                       "'ceph df' is in WIP and returns only 1. See LP#1921121 "
-                       "for more information.")
+        logger.warning(
+            "WARNING: The function to get the number of free units from "
+            "'ceph df' is in WIP and returns only 1. See LP#1921121 "
+            "for more information."
+        )
         return 1
 
     @classmethod
-    def get_availability_zones(cls,  *units: Unit) -> Dict[str, AvailabilityZone]:
+    def get_availability_zones(cls, *units: Unit) -> Dict[str, AvailabilityZone]:
         """Get information about availability zones for ceph-osd units."""
         # NOTE (rgildein): This has been tested, but it will be fully functional only
         #                  after merging the changes.
@@ -239,7 +250,8 @@ class CephOsd(CephCommon):
         return free_units
 
     def get_apps_availability_zones(
-            self, apps: List[str]) -> Dict[AvailabilityZone, List[Unit]]:
+        self, apps: List[str]
+    ) -> Dict[AvailabilityZone, List[Unit]]:
         """Get information about availability zone for each ceph-osd unit in application.
 
         This function return dictionary contain AZ as key and list of units as value.
@@ -272,7 +284,8 @@ class CephOsd(CephCommon):
                 unit.entity_id for unit in self.units if unit.application == app_name
             }
             inactive_units = {
-                unit.entity_id for unit in self.model.applications[app_name].units
+                unit.entity_id
+                for unit in self.model.applications[app_name].units
                 if unit.workload_status != "active"
             }
 
@@ -282,10 +295,10 @@ class CephOsd(CephCommon):
                     f"The minimum number of replicas in '{app_name}' is "
                     f"{min_replication_number:d} and it's not safe to restart/shutdown "
                     f"{len(units):d} units. {len(inactive_units):d} units are not "
-                    f"active."
+                    f"active.",
                 )
 
-        return result or Result(Severity.OK, 'Minimum replica number check passed.')
+        return result or Result(Severity.OK, "Minimum replica number check passed.")
 
     def check_availability_zone(self) -> Result:
         """Check availability zones resources.
@@ -306,25 +319,32 @@ class CephOsd(CephCommon):
                 unit.entity_id for unit in units if unit.entity_id in self.unit_ids
             }
             free_units = min(free_app_units[unit.application] for unit in units)
-            logger.debug("The availability zone %s has %d inactive and %d free units. "
-                         "Trying to remove %s units.", str(availability_zone),
-                         len(inactive_units), free_units, units_to_remove)
+            logger.debug(
+                "The availability zone %s has %d inactive and %d free units. "
+                "Trying to remove %s units.",
+                str(availability_zone),
+                len(inactive_units),
+                free_units,
+                units_to_remove,
+            )
 
             if len(units_to_remove.union(inactive_units)) > free_units:
                 result += Result(
                     Severity.FAIL,
                     f"It's not safe to removed units {units_to_remove} in the "
                     f"availability zone '{availability_zone}'. [free_units="
-                    f"{free_units:d}, inactive_units={len(inactive_units):d}]"
+                    f"{free_units:d}, inactive_units={len(inactive_units):d}]",
                 )
 
-        return result or Result(Severity.OK, 'Availability zone check passed.')
+        return result or Result(Severity.OK, "Availability zone check passed.")
 
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected ceph-osd units."""
-        return aggregate_results(self.check_ceph_cluster_health(),
-                                 self.check_replication_number(),
-                                 self.check_availability_zone())
+        return aggregate_results(
+            self.check_ceph_cluster_health(),
+            self.check_replication_number(),
+            self.check_availability_zone(),
+        )
 
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected ceph-osd units."""
@@ -349,7 +369,7 @@ class CephMon(CephCommon):
         return aggregate_results(
             version_check,
             self.check_quorum(),
-            self.check_cluster_health(*unique_app_units)
+            self.check_cluster_health(*unique_app_units),
         )
 
     def verify_shutdown(self) -> Result:
@@ -374,10 +394,12 @@ class CephMon(CephCommon):
             mons_after_change = len(online_mons - affected_hosts)
 
             if mons_after_change <= mon_count // 2:
-                result.add_partial_result(Severity.FAIL, f"Removing unit {unit_id} will"
-                                                         f" lose Ceph mon quorum")
+                result.add_partial_result(
+                    Severity.FAIL,
+                    f"Removing unit {unit_id} will" f" lose Ceph mon quorum",
+                )
 
-        return result or Result(Severity.OK, 'Ceph-mon quorum check passed.')
+        return result or Result(Severity.OK, "Ceph-mon quorum check passed.")
 
     def check_version(self) -> Result:
         """Check minimum required version of Juju agent.

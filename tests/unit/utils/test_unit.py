@@ -16,7 +16,7 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """Utils unit test suite."""
 import os
-from typing import List, Callable, Coroutine, Any, Dict
+from typing import Any, Callable, Coroutine, Dict, List
 from unittest import mock
 from unittest.mock import MagicMock, call
 
@@ -24,16 +24,16 @@ import pytest
 from juju.unit import Unit
 from pytest import raises
 
-from juju_verify.exceptions import VerificationError, CharmException
+from juju_verify.exceptions import CharmException, VerificationError
 from juju_verify.utils.unit import (
+    get_applications_names,
+    get_cache_key,
+    get_first_active_unit,
+    parse_charm_name,
+    run_action,
+    run_action_on_unit,
     run_action_on_units,
     verify_charm_unit,
-    parse_charm_name,
-    get_first_active_unit,
-    get_applications_names,
-    run_action,
-    get_cache_key,
-    run_action_on_unit,
 )
 
 
@@ -44,10 +44,12 @@ def test_get_cache_key():
 
     assert get_cache_key(unit_1, "test-action") == get_cache_key(unit_1, "test-action")
     assert get_cache_key(unit_1, "test-action") != get_cache_key(unit_1, "action")
-    assert get_cache_key(unit_1, "test-action", format="text") != \
-           get_cache_key(unit_1, "test-action", format="json")
-    assert get_cache_key(unit_1, "test-action", format="text", test=True) == \
-           get_cache_key(unit_1, "test-action", test=True, format="text")
+    assert get_cache_key(unit_1, "test-action", format="text") != get_cache_key(
+        unit_1, "test-action", format="json"
+    )
+    assert get_cache_key(
+        unit_1, "test-action", format="text", test=True
+    ) == get_cache_key(unit_1, "test-action", test=True, format="text")
     assert get_cache_key(unit_1, "test-action") != get_cache_key(unit_2, "test-action")
 
 
@@ -84,9 +86,13 @@ async def test_run_action():
     await run_action(unit_2, "action-1", use_cache=False)
 
     assert unit_1.run_action.call_count == 3
-    unit_1.run_action.assert_has_calls([call("action-1", format="json"),
-                                        call("action-2"),
-                                        call("action-1", format="json")])
+    unit_1.run_action.assert_has_calls(
+        [
+            call("action-1", format="json"),
+            call("action-2"),
+            call("action-1", format="json"),
+        ]
+    )
     unit_2.run_action.assert_called_once_with("action-1")
     unit_1.run_action.reset_mock()
     unit_2.run_action.reset_mock()
@@ -101,8 +107,9 @@ async def test_run_action():
     await run_action(unit_2, "action-2")
 
     assert unit_1.run_action.call_count == 2
-    unit_1.run_action.assert_has_calls([call("action-3"),
-                                        call("action-1", format="text")])
+    unit_1.run_action.assert_has_calls(
+        [call("action-3"), call("action-1", format="text")]
+    )
     unit_2.run_action.assert_called_once_with("action-2")
 
 
@@ -110,8 +117,8 @@ async def test_run_action():
 def test_run_action_on_units(mock_run_action, model):
     """Test running action on list of units and returning results."""
     # Prepare units and actions data
-    action = 'unit-action'
-    action_params = {'force': True, 'debug': False}
+    action = "unit-action"
+    action_params = {"force": True, "debug": False}
     run_on_unit_ids = [f"nova-compute/{i}" for i in [0, 1]]
     run_on_units = [model.units[unit_id] for unit_id in run_on_unit_ids]
 
@@ -129,11 +136,13 @@ def test_run_action_on_units(mock_run_action, model):
     mock_run_action.side_effect = mock_action_result("completed")
 
     # create verifier and run actions
-    results = run_action_on_units(run_on_units, action, use_cache=False,
-                                  params=action_params)
+    results = run_action_on_units(
+        run_on_units, action, use_cache=False, params=action_params
+    )
 
     mock_run_action.assert_has_calls(
-        [call(unit, action, False, action_params) for unit in run_on_units])
+        [call(unit, action, False, action_params) for unit in run_on_units]
+    )
 
     assert len(results) == len(run_on_unit_ids)
     assert all(unit_id in results for unit_id in run_on_unit_ids)
@@ -142,10 +151,14 @@ def test_run_action_on_units(mock_run_action, model):
     # Raise error if one of the actions failed
     mock_run_action.side_effect = mock_action_result("failed")
 
-    expect_err = os.linesep.join([
-        f"Action {action} (ID: {action_result.entity_id}) failed to complete on unit "
-        f"{unit_id}. For more info see \"juju show-action-output "
-        f"{action_result.entity_id}\"" for unit_id, action_result in results.items()])
+    expect_err = os.linesep.join(
+        [
+            f"Action {action} (ID: {action_result.entity_id}) failed to complete on unit "
+            f'{unit_id}. For more info see "juju show-action-output '
+            f'{action_result.entity_id}"'
+            for unit_id, action_result in results.items()
+        ]
+    )
 
     with raises(VerificationError) as exc:
         run_action_on_units(run_on_units, action, use_cache=False, params=action_params)
@@ -160,21 +173,32 @@ def test_base_verifier_run_action_on_unit(mock_run_action_on_units, model):
     mock_run_action_on_units.assert_called_with([unit], "test", True, None)
 
 
-@pytest.mark.parametrize("charm_url, exp_name", [
-    ("cs:focal/nova-compute-141", "nova-compute"),
-    ("cs:hacluster-74", "hacluster"),
-])
+@pytest.mark.parametrize(
+    "charm_url, exp_name",
+    [
+        ("cs:focal/nova-compute-141", "nova-compute"),
+        ("cs:hacluster-74", "hacluster"),
+    ],
+)
 def test_parse_charm_name(charm_url, exp_name):
     """Test function for parsing charm name from charm-ulr."""
     assert parse_charm_name(charm_url) == exp_name
 
 
-@pytest.mark.parametrize("charm_name, units", [
-    ("ceph-osd", [("ceph-osd", "ceph-osd/0")]),
-    ("ceph-osd", [("ceph-osd", "ceph-osd/0"), ("ceph-osd", "ceph-osd/1")]),
-    ("ceph-osd", [("ceph-osd", "ceph-osd-cluster-1/0"),
-                  ("ceph-osd", "ceph-osd-cluster-2/0")]),
-])
+@pytest.mark.parametrize(
+    "charm_name, units",
+    [
+        ("ceph-osd", [("ceph-osd", "ceph-osd/0")]),
+        ("ceph-osd", [("ceph-osd", "ceph-osd/0"), ("ceph-osd", "ceph-osd/1")]),
+        (
+            "ceph-osd",
+            [
+                ("ceph-osd", "ceph-osd-cluster-1/0"),
+                ("ceph-osd", "ceph-osd-cluster-2/0"),
+            ],
+        ),
+    ],
+)
 def test_verify_charm_unit(charm_name: str, units: List[str]):
     """Test function to verify if units are based on required charm."""
     mock_units = []
@@ -187,9 +211,12 @@ def test_verify_charm_unit(charm_name: str, units: List[str]):
     verify_charm_unit(charm_name, *mock_units)
 
 
-@pytest.mark.parametrize("charm_name, units", [
-    ("ceph-osd", [("ceph-mon", "ceph-mon/0")]),
-])
+@pytest.mark.parametrize(
+    "charm_name, units",
+    [
+        ("ceph-osd", [("ceph-mon", "ceph-mon/0")]),
+    ],
+)
 def test_verify_charm_unit_fail(charm_name: str, units: List[str]):
     """Test function to raise an error if units aren't base on charm."""
     mock_units = []
