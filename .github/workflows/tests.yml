@@ -29,6 +29,7 @@ jobs:
             per_page: 2
           })
           return runs.data.workflow_runs[1]
+        result-encoding: json
     - name: Track changed files since lastest workflow
       id: latest-workflow-code-changed
       run: |
@@ -37,6 +38,8 @@ jobs:
         echo "::set-output name=changed::$failed"
     - name: yolo
       run: |
+        echo "latest-workflow.result=${{ steps.latest-workflow.outputs.result }}"
+        echo "latest-workflow.result.conclusion=${{ steps.latest-workflow.outputs.result.conclusion }}"
         echo "latest-workflow.result.conclusion=${{ steps.latest-workflow.outputs.result.conclusion }}"
         echo "atest-workflow-code-changed=${{ steps.latest-workflow-code-changed.outputs }}"
     - uses: actions/checkout@v2
