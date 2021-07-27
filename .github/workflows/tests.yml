@@ -35,15 +35,17 @@ jobs:
           return runs.data.workflow_runs[1]
     - name: Track changed files since lastest workflow
       id: latest-workflow-code-changed
+      env:
+        LATEST_HEAD_SHA: ${{ fromJson(steps.latest-workflow.outputs.result).head_sha }}
       run: |
         failed=0
-        git diff --name-only ${{ fromJson(steps.latest-workflow.outputs.result).head_sha }} | grep -qE '^(juju_verify|tests)' || failed=1
+        git diff --name-only $LATEST_HEAD_SHA | grep -qE '^(juju_verify|tests)' || failed=1
         echo "::set-output name=changed::$failed"
     - name: yolo
       run: |
         echo "latest-workflow.result.head_sha=${{ fromJson(steps.latest-workflow.outputs.result).head_sha }}"
         echo "latest-workflow.result.conclusion=${{ fromJson(steps.latest-workflow.outputs.result).conclusion }}"
-        echo "atest-workflow-code-changed=${{ steps.latest-workflow-code-changed.outputs.latest-workflow-code-changed }}"
+        echo "latest-workflow-code-changed=${{ steps.latest-workflow-code-changed.outputs.changed }}"
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
