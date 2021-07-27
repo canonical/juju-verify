@@ -33,13 +33,11 @@ jobs:
       id: latest-workflow-code-changed
       run: |
         failed=0
-        git diff --name-only ${{ steps.latest-workflow.outputs.head_sha }} | grep -qE '^(juju_verify|tests)' || failed=1
+        git diff --name-only ${{ steps.latest-workflow.outputs.result.head_sha }} | grep -qE '^(juju_verify|tests)' || failed=1
         echo "::set-output name=changed::$failed"
     - name: yolo
       run: |
-        echo "latest-workflow=${{ steps.latest-workflow.outputs }}"
-        echo "latest-workflow.result=${{ steps.latest-workflow.outputs.result }}"
-        echo "latest-workflow.conclusion=${{ steps.latest-workflow.outputs.conclusion }}"
+        echo "latest-workflow.result.conclusion=${{ steps.latest-workflow.outputs.result.conclusion }}"
         echo "atest-workflow-code-changed=${{ steps.latest-workflow-code-changed.outputs }}"
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
