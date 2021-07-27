@@ -8,14 +8,13 @@ on:
     branches: [ master ]
 
 jobs:
-
   lint-unittests-docs-build:
     name: Lint, Unit tests, Docs and Build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
       matrix:
-        python-version: [3.9]  #[3.6, 3.7, 3.8, 3.9]
+        python-version: [3.6, 3.8]
     steps:
     - name: Get latest workflow run status
       uses: actions/github-script@v4
@@ -29,7 +28,6 @@ jobs:
             per_page: 2
           })
           return runs.data.workflow_runs[1]
-        result-encoding: json
     - name: Track changed files since lastest workflow
       id: latest-workflow-code-changed
       run: |
@@ -39,7 +37,7 @@ jobs:
     - name: yolo
       run: |
         echo "latest-workflow.result=${{ steps.latest-workflow.outputs.result }}"
-        echo "latest-workflow.result.conclusion=${{ steps.latest-workflow.outputs.result['conclusion'] }}"
+        echo "latest-workflow.result.head_sha=${{ steps.latest-workflow.outputs.result.head_sha }}"
         echo "latest-workflow.result.conclusion=${{ steps.latest-workflow.outputs.result.conclusion }}"
         echo "atest-workflow-code-changed=${{ steps.latest-workflow-code-changed.outputs }}"
     - uses: actions/checkout@v2
@@ -55,9 +53,3 @@ jobs:
       run: tox -e lint
     - name: Run unit tests
       run: tox -e unit
-    - name: Build docs
-      run: tox -e docs
-    - name: Build package
-      run: tox -e build
-    - name: Verify package
-      run: tox -e build-verify

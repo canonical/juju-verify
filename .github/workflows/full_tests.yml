@@ -7,9 +7,42 @@ on:
     types: [ submitted ]
 
 jobs:
+  lint-unittests-docs-build:
+    name: Lint, Unit tests, Docs and Build
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.review.state == 'approved'
+      || github.event.review.body == 'recheck-snap'
+      || github.event.review.body == 'recheck-full'
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install tox
+      - name: Run lint checkers
+        run: tox -e lint
+      - name: Run unit tests
+        run: tox -e unit
+      - name: Build docs
+        run: tox -e docs
+      - name: Build package
+        run: tox -e build
+      - name: Verify package
+        run: tox -e build-verify
+
   build-snap:
     name: Build snap
     runs-on: ubuntu-latest
+    needs: lint-unittests-docs-build
     if: >-
       github.event.review.state == 'approved'
       || github.event.review.body == 'recheck-snap'
