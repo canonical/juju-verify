@@ -1,5 +1,5 @@
 """Generic setup for functional tests."""
-
+import logging
 import unittest
 
 from juju import loop
@@ -9,6 +9,8 @@ import zaza.model
 from juju_verify import juju_verify
 from juju_verify.utils.action import cache
 
+logger = logging.getLogger(__file__)
+
 
 class BaseTestCase(unittest.TestCase):
     """Base class for functional testing of verifiers."""
@@ -16,6 +18,7 @@ class BaseTestCase(unittest.TestCase):
     def tearDown(self) -> None:
         """Teardown after each test."""
         cache.clear()
+        logger.debug("cache was cleared")
 
     @classmethod
     def setUpClass(cls):
