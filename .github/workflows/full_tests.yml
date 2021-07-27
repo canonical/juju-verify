@@ -41,7 +41,7 @@ jobs:
       - name: Skip tests
         id: skip-tests
         if: >-
-          fromJson(steps.latest-workflow.outputs.result).conclusion == "success"
+          fromJson(steps.latest-workflow.outputs.result).conclusion == 'success'
           && steps.new-commit-changed.outputs.new == 0
         run: echo "::set-output name=skip::1"
 
