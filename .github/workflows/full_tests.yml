@@ -21,8 +21,6 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 2
-      - name: git log
-        run: git log
       - name: Get latest workflow run status
         uses: actions/github-script@v4
         id: latest-workflow
