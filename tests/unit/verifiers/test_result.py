@@ -111,7 +111,7 @@ def test_result_formatting(severity):
 def test_result_empty_formatting():
     """Test expected format if Result is empty."""
     expected_msg = (
-        "No result or additional information. This may be a bug in " '"juju-verify".'
+        "No result or additional information. This may be a bug in 'juju-verify'."
     )
     assert str(Result()) == expected_msg
 

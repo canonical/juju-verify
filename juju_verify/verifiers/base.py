@@ -123,7 +123,7 @@ class BaseVerifier:
                 if Version(juju_version) < min_version:
                     fail_msg = (
                         f"Juju agent on unit {unit.entity_id} has lower than "
-                        f"minumum required version. {juju_version} < "
+                        f"minimum required version. {juju_version} < "
                         f"{min_version}"
                     )
                     result.add_partial_result(Severity.FAIL, fail_msg)

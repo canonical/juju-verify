@@ -445,9 +445,9 @@ def test_verify_shutdown(
 @pytest.mark.parametrize(
     "action_return_value, severity, msg, hostname",
     [
-        ("['host0', 'host1', 'host2']", Severity.OK, CEPH_MON_QUORUM_OK, "host1"),
-        ("['host0', 'host1']", Severity.FAIL, CEPH_MON_QUORUM_FAIL, "host1"),
-        ("['host0', 'host1', 'host2']", Severity.OK, CEPH_MON_QUORUM_OK, "host5"),
+        ('["host0", "host1", "host2"]', Severity.OK, CEPH_MON_QUORUM_OK, "host1"),
+        ('["host0", "host1"]', Severity.FAIL, CEPH_MON_QUORUM_FAIL, "host1"),
+        ('["host0", "host1", "host2"]', Severity.OK, CEPH_MON_QUORUM_OK, "host5"),
     ],
 )
 def test_check_ceph_mon_quorum(mocker, action_return_value, severity, msg, hostname):
@@ -488,7 +488,7 @@ def test_ceph_mon_version_check(juju_version, expected_severity, mocker):
     else:
         fail_msg = (
             f"Juju agent on unit {unit_name} has lower than "
-            f"minumum required version. {juju_version} < 2.8.10"
+            f"minimum required version. {juju_version} < 2.8.10"
         )
         expected_result = Result(Severity.FAIL, fail_msg)
 

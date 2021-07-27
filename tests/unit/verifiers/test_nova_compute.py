@@ -105,9 +105,8 @@ def test_nova_compute_empty_az(
         expected_success = False
         expected_partial = Partial(
             Severity.FAIL,
-            "Removing these units would leave "
-            "following availability zones empty: "
-            f"{set(zone)}",
+            "Removing these units would leave following availability zones empty: "
+            "{}".format({zone}),
         )
 
     # mock results of 'node-names' action on all verified units

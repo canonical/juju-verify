@@ -153,8 +153,8 @@ def test_run_action_on_units(mock_run_action, model):
 
     expect_err = os.linesep.join(
         [
-            f"Action {action} (ID: {action_result.entity_id}) failed to complete on unit "
-            f"{unit_id}. For more info see 'juju show-action-output "
+            f"Action {action} (ID: {action_result.entity_id}) failed to complete on "
+            f"unit {unit_id}. For more info see 'juju show-action-output "
             f"{action_result.entity_id}'"
             for unit_id, action_result in results.items()
         ]

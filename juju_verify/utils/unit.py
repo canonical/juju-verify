@@ -119,7 +119,7 @@ def parse_charm_name(charm_url: str) -> str:
     """
     match = CHARM_URL_PATTERN.match(charm_url)
     if match is None:
-        raise CharmException(f"Failed to parse charm-url:'{charm_url}'")
+        raise CharmException(f"Failed to parse charm-url: '{charm_url}'")
     return match.group("charm")
 
 
