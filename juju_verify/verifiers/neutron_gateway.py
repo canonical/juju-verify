@@ -46,7 +46,8 @@ class NeutronGateway(BaseVerifier):
     def get_unit_resource_list(cls, unit: Unit,
                                get_resource_action_name: str) -> List[dict]:
         """Given a get resource action, return the relevant resources on the unit."""
-        get_resource_action = run_action_on_unit(unit, get_resource_action_name)
+        get_resource_action = run_action_on_unit(unit, get_resource_action_name,
+                                                 params={"format": "json"})
         action_name_res = cls.action_name_result_map[get_resource_action_name]
         resource_list_json = data_from_action(get_resource_action, action_name_res)
         resource_list = json.loads(resource_list_json)
