@@ -13,7 +13,7 @@ Juju-verify requires Juju 2.8.10 or higher.
 * nova-compute (Usable with the next stable release of the charm. Currently available as a [nova-compute-rc])
 * ceph-osd (Usable with the custom release of the charm in rgildein namespace. [cs:~/rgildein/ceph-osd-0] and [cs:~/rgildein/ceph-mon-3])
 * ceph-mon (Usable with the custom release of the charm in rgildein namespace. [cs:~/rgildein/ceph-mon-3])
-* neutron-gateway (Usable with the custom release of the charm in rgildein namespace. [cs:~/martin-kalcok/neutron-gateway-0])
+* neutron-gateway (Usable with the custom release of the charm in martin-kalcok namespace. [cs:~/martin-kalcok/neutron-gateway-2])
 
 ## Supported checks
 
@@ -51,7 +51,8 @@ $ juju-verify shutdown --units nova-compute/0 nova-compute/1
 
 2. If you run a check on a unit which contains a subordinate unit, you will only get
    a warning message about the existence of the subordinate unit. In order to check if
-   it is safe to remove this unit, juju-verify needs to be explictly run against this subordinate unit, or the unit needs to be manually checked (if juju-verify does not
+   it is safe to remove this unit, juju-verify needs to be explictly run against this
+   subordinate unit, or the unit needs to be manually checked (if juju-verify does not
    support this charm yet)
 
    Example:
@@ -172,10 +173,10 @@ If you prefer, file a bug or feature request at:
 
 
 ---
-[nova-compute-rc]: https://jaas.ai/u/openstack-charmers-next/nova-compute/562
-[cs:~/rgildein/ceph-osd-0]: https://jaas.ai/u/rgildein/ceph-osd/0
-[cs:~/rgildein/ceph-mon-3]: https://jaas.ai/u/rgildein/ceph-mon/3
-[cs:~/martin-kalcok/neutron-gateway-0]: https://jaas.ai/u/martin-kalcok/neutron-gateway/0
 [pypi.org]: https://pypi.org/
 [juju-verify-verifiers]: https://juju-verify.readthedocs.io/en/latest/verifiers.html
 [CONTRIBUTING]: https://juju-verify.readthedocs.io/en/latest/contributing.html
+[nova-compute-rc]: https://jaas.ai/u/openstack-charmers-next/nova-compute/562
+[cs:~/rgildein/ceph-osd-0]: https://jaas.ai/u/rgildein/ceph-osd/0
+[cs:~/rgildein/ceph-mon-3]: https://jaas.ai/u/rgildein/ceph-mon/3
+[cs:~/martin-kalcok/neutron-gateway-2]: https://jaas.ai/u/martin-kalcok/neutron-gateway/2
