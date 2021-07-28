@@ -24,6 +24,11 @@ Juju-verify requires Juju 2.8.10 or higher.
 
 ## Contribution and lifecycle
 
+The basic idea of the life cycle of contributing and Pull Request is shown in 
+the following diagram. 
+
+![Pull Request workflow diagram](img/pr-workflow.svg)
+
 For more information on how to contribute and the lifecycle of ``juju-verify`` tools,
 visit [CONTRIBUTING] page.
 
@@ -59,3 +64,4 @@ If you prefer, file a bug or feature request at:
 [cs:~/rgildein/ceph-mon-3]: https://jaas.ai/u/rgildein/ceph-mon/3
 [cs:~/martin-kalcok/neutron-gateway-2]: https://jaas.ai/u/martin-kalcok/neutron-gateway/2
 [CONTRIBUTING]: https://juju-verify.readthedocs.io/en/latest/contributing.html
+
