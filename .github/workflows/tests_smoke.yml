@@ -9,7 +9,7 @@ on:
 
 jobs:
   lint-unittests-docs-build:
-    name: Lint, Unit tests, Docs and Build
+    name: Lint and Unit tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
