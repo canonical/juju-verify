@@ -22,9 +22,9 @@ from juju.unit import Unit
 from packaging.version import Version
 
 from juju_verify.verifiers.base import BaseVerifier, Result, Severity
-from juju_verify.verifiers.result import aggregate_results
 from juju_verify.utils.action import data_from_action
 from juju_verify.utils.unit import parse_charm_name, run_action_on_unit
+from juju_verify.verifiers.result import checks_executor
 
 
 class NeutronGateway(BaseVerifier):
@@ -158,13 +158,12 @@ class NeutronGateway(BaseVerifier):
 
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected neutron-gateway units."""
-        version_check = self.version_check()
+        version_check = checks_executor(self.version_check)
         if not version_check.success:
             return version_check
 
-        return aggregate_results(version_check,
-                                 self.warn_router_ha(),
-                                 self.warn_lbaas_present(),
-                                 self.check_non_redundant_resource("get-status-routers"),
-                                 self.check_non_redundant_resource("get-status-dhcp")
-                                 )
+        return version_check + checks_executor(
+            self.warn_router_ha,
+            self.warn_lbaas_present,
+            (self.check_non_redundant_resource, {"action_name": "get-status-routers"}),
+            (self.check_non_redundant_resource, {"action_name": "get-status-dhcp"}))

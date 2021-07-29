@@ -266,9 +266,7 @@ def test_warn_router_ha(mock_get_all_ngw_units,
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.check_non_redundant_resource")  # noqa: E501 pylint: disable=C0301
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.warn_lbaas_present")
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.warn_router_ha")
-@mock.patch("juju_verify.verifiers.neutron_gateway.aggregate_results")
-def test_verify_reboot_shutdown(mock_aggregate_results,
-                                mock_warn_router_ha,
+def test_verify_reboot_shutdown(mock_warn_router_ha,
                                 mock_warn_lbaas_preent,
                                 mock_check_non_redundant_resource,
                                 mock_version_check):
@@ -279,20 +277,16 @@ def test_verify_reboot_shutdown(mock_aggregate_results,
     mock_version_check.assert_called_once()
     mock_warn_router_ha.assert_called_once()
     mock_warn_lbaas_preent.assert_called_once()
-    mock_aggregate_results.assert_called_once()
 
     mock_check_non_redundant_resource.reset_mock()
     mock_version_check.reset_mock()
     mock_warn_router_ha.reset_mock()
-    mock_aggregate_results.reset_mock()
     mock_warn_lbaas_preent.reset_mock()
 
     ngw_verifier.verify_shutdown()
     mock_version_check.assert_called_once()
     mock_warn_router_ha.assert_called_once()
-    mock_aggregate_results.assert_called_once()
     assert mock_check_non_redundant_resource.call_count == 2
-    mock_aggregate_results.assert_called_once()
 
 
 @mock.patch("juju_verify.verifiers.neutron_gateway.run_action_on_unit")
