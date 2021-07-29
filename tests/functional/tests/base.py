@@ -8,7 +8,6 @@ import zaza.model
 
 from juju_verify import juju_verify
 from juju_verify.utils.action import cache
-from juju_verify.utils.cache import action_cache
 
 logger = logging.getLogger(__file__)
 
@@ -28,7 +27,6 @@ class BaseTestCase(unittest.TestCase):
         cls.log_level = 'info'
         juju_verify.config_logger(cls.log_level)
         cls.model = loop.run(juju_verify.connect_model(zaza.model.CURRENT_MODEL))
-        action_cache.disable()  # disable cache for all run action
 
     @classmethod
     def tearDownClass(cls):
