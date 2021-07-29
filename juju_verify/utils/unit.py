@@ -26,24 +26,18 @@ from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError, CharmException
 from juju_verify.utils.action import cache
+from juju_verify.utils.cache import get_cache_key, action_cache
 
 CHARM_URL_PATTERN = re.compile(r'^(.*):(.*/)?(?P<charm>.*)(-\d+)$')
 
 
-def get_cache_key(unit: Unit, action: str, **params: Any) -> int:
-    """Create hash key from unit, action and params."""
-    return hash(
-        hash(unit.entity_id) + hash(action) + hash(tuple(sorted(params.items())))
-    )
-
-
-async def run_action(unit: Unit, action: str, use_cache: bool = True,
+async def run_action(unit: Unit, action: str,
                      params: Optional[Dict[str, Any]] = None) -> Action:
     """Run Juju action and wait for results."""
     params = params or {}
     key = get_cache_key(unit, action, **params)
 
-    if key not in cache or not use_cache:
+    if key not in cache or not action_cache.enabled:
         _action = await unit.run_action(action, **params)
         result = await _action.wait()  # wait for result
         cache[key] = result  # save result to cache
@@ -52,7 +46,8 @@ async def run_action(unit: Unit, action: str, use_cache: bool = True,
     return cache[key]
 
 
-def run_action_on_units(units: List[Unit], action: str, use_cache: bool = True,
+def run_action_on_units(units: List[Unit], action: str,
+                        use_cache: Optional[bool] = None,
                         params: Optional[Dict[str, Any]] = None) -> Dict[str, Action]:
     """Run Juju action on specified units.
 
@@ -64,8 +59,9 @@ def run_action_on_units(units: List[Unit], action: str, use_cache: bool = True,
              provided in 'units' and actions are their matching,
              juju.Action objects that have been executed and awaited.
     """
-    task_map = {unit.entity_id: run_action(unit, action, use_cache, params)
-                for unit in units}
+    with action_cache(use_cache):
+        task_map = {unit.entity_id: run_action(unit, action, params) for unit in units}
+
     loop = asyncio.get_event_loop()
     tasks = asyncio.gather(*task_map.values())
     results: List[Action] = loop.run_until_complete(tasks)

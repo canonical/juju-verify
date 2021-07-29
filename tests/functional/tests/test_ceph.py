@@ -34,7 +34,8 @@ class CephOsdTests(BaseTestCase):
         _ = zaza.model.run_action("ceph-mon/0", "delete-pool",
                                   action_params={"name": self.test_pool})
 
-    @tenacity.retry(wait=tenacity.wait_exponential(max=60))
+    @tenacity.retry(wait=tenacity.wait_exponential(max=60),
+                    stop=tenacity.stop_after_attempt(8))
     def _wait_to_healthy_ceph_cluster(self):
         """Wait to Ceph cluster be healthy again."""
         logger.info("waiting to Ceph cluster be healthy")
