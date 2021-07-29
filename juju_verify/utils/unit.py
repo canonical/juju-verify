@@ -26,9 +26,15 @@ from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError, CharmException
 from juju_verify.utils.action import cache, cache_manager
-from juju_verify.utils.cache import get_cache_key
 
 CHARM_URL_PATTERN = re.compile(r'^(.*):(.*/)?(?P<charm>.*)(-\d+)$')
+
+
+def get_cache_key(unit: Unit, action: str, **params: Any) -> int:
+    """Create hash key from unit, action and params."""
+    return hash(
+        hash(unit.entity_id) + hash(action) + hash(tuple(sorted(params.items())))
+    )
 
 
 async def run_action(unit: Unit, action: str,

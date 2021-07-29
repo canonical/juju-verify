@@ -19,18 +19,23 @@ from collections import OrderedDict
 from contextlib import contextmanager, _GeneratorContextManager
 from typing import Any, List, Optional, Generator
 
-from juju.unit import Unit
-
-
-def get_cache_key(unit: Unit, action: str, **params: Any) -> int:
-    """Create hash key from unit, action and params."""
-    return hash(
-        hash(unit.entity_id) + hash(action) + hash(tuple(sorted(params.items())))
-    )
-
 
 class Cache:
-    """Cache class for action outputs."""
+    """Cache for storing outputs using specific keys.
+
+    Usage example:
+    cache = Cache()
+
+    def run_action(name: str) -> Any:
+        if name in cache:
+            return cache[name]
+
+        return _run_action(name)
+
+    run_action('test')  # action 'test' is executed
+    run_action('test')  # action 'test' is not executed
+    run_action('test')  # action 'test' is not executed
+    """
 
     def __init__(self, maxsize: int):
         """Initialize cache object."""
@@ -69,7 +74,25 @@ class Cache:
 
 
 class CacheManager:
-    """The Cache manager."""
+    """A cache manager that determines when to use this cache.
+
+    Usage example:
+    cache_manager = CacheManager(enabled=True)
+    cache = Cache()
+
+    def run_action(name: str) -> Any:
+        if cache_manager.enabled and name in cache:
+            return cache[name]
+
+        return _run_action(name)
+
+    run_action('test')  # action 'test' is executed
+    run_action('test')  # action 'test' is not executed
+    with cache_manager(use_cache=False):
+        run_action('test')  # action 'test' is executed
+
+    run_action('test')  # action 'test' is not executed
+    """
 
     def __init__(self, enabled: bool = True):
         """Init the Cache class with default state."""
@@ -77,12 +100,12 @@ class CacheManager:
         self._enabled: bool = enabled
 
     def __call__(self, use_cache: Optional[bool] = None) -> _GeneratorContextManager:
-        """Return cache contextmanager if class is called."""
+        """Return cache contextmanager if instance is called."""
         return self.cache_contextmanager(use_cache)
 
     @property
     def enabled(self) -> bool:
-        """Return if the cache are enabled."""
+        """Return True if cache is enabled."""
         return self._enabled
 
     @property
