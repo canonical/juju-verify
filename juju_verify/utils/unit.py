@@ -25,8 +25,8 @@ from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError, CharmException
-from juju_verify.utils.action import cache
-from juju_verify.utils.cache import get_cache_key, action_cache
+from juju_verify.utils.action import cache, cache_manager
+from juju_verify.utils.cache import get_cache_key
 
 CHARM_URL_PATTERN = re.compile(r'^(.*):(.*/)?(?P<charm>.*)(-\d+)$')
 
@@ -37,7 +37,7 @@ async def run_action(unit: Unit, action: str,
     params = params or {}
     key = get_cache_key(unit, action, **params)
 
-    if key not in cache or not action_cache.enabled:
+    if key not in cache or not cache_manager.enabled:
         _action = await unit.run_action(action, **params)
         result = await _action.wait()  # wait for result
         cache[key] = result  # save result to cache
@@ -59,7 +59,7 @@ def run_action_on_units(units: List[Unit], action: str,
              provided in 'units' and actions are their matching,
              juju.Action objects that have been executed and awaited.
     """
-    with action_cache(use_cache):
+    with cache_manager(use_cache):
         task_map = {unit.entity_id: run_action(unit, action, params) for unit in units}
 
     loop = asyncio.get_event_loop()

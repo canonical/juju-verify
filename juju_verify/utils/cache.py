@@ -15,8 +15,9 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """Helper function to manage cache."""
+from collections import OrderedDict
 from contextlib import contextmanager, _GeneratorContextManager
-from typing import Any, Optional, Generator
+from typing import Any, List, Optional, Generator
 
 from juju.unit import Unit
 
@@ -29,7 +30,46 @@ def get_cache_key(unit: Unit, action: str, **params: Any) -> int:
 
 
 class Cache:
-    """The Cache class."""
+    """Cache class for action outputs."""
+
+    def __init__(self, maxsize: int):
+        """Initialize cache object."""
+        self._cache: OrderedDict = OrderedDict()
+        self.maxsize: int = maxsize
+
+    def __getitem__(self, key: int) -> Any:
+        """Get cached value."""
+        if key in self._cache:
+            self._cache.move_to_end(key)  # reorder cache
+
+        return self._cache[key]
+
+    def __setitem__(self, key: int, value: Any) -> None:
+        """Cache the value using the key."""
+        self._cache[key] = value
+
+        # remove the oldest key
+        if len(self._cache) > self.maxsize:
+            oldest_key = next(iter(self._cache))
+            del self._cache[oldest_key]
+
+    def __iter__(self) -> Generator:
+        """Iterate over cache keys."""
+        for key in self._cache:
+            yield key
+
+    def clear(self) -> None:
+        """Clear cached data."""
+        self._cache.clear()
+
+    @property
+    def keys(self) -> List[Any]:
+        """Return cached keys."""
+        return list(self._cache.keys())
+
+
+class CacheManager:
+    """The Cache manager."""
 
     def __init__(self, enabled: bool = True):
         """Init the Cache class with default state."""
@@ -78,6 +118,3 @@ class Cache:
             yield
         finally:
             self.set_state(self.previous_state)
-
-
-action_cache = Cache(enabled=True)
