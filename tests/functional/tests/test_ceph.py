@@ -37,6 +37,7 @@ class CephOsdTests(BaseTestCase):
     @tenacity.retry(wait=tenacity.wait_exponential(max=60))
     def _wait_to_healthy_ceph_cluster(self):
         """Wait to Ceph cluster be healthy again."""
+        logger.info("waiting to Ceph cluster be healthy")
         unit_objects = loop.run(juju_verify.find_units(self.model, ["ceph-mon/0"]))
         result = CephCommon.check_cluster_health(*unit_objects)
         assert result.success
