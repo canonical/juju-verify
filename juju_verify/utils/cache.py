@@ -88,6 +88,7 @@ class CacheManager:
 
     run_action('test')  # action 'test' is executed
     run_action('test')  # action 'test' is not executed
+
     with cache_manager(use_cache=False):
         run_action('test')  # action 'test' is executed
 
