@@ -24,11 +24,6 @@ Juju-verify requires Juju 2.8.10 or higher.
 
 ## Contribution and lifecycle
 
-The basic idea of the life cycle of contributing and Pull Request is shown in 
-the following diagram. 
-
-![Pull Request workflow diagram](img/pr-workflow.svg)
-
 For more information on how to contribute and the lifecycle of ``juju-verify`` tools,
 visit [CONTRIBUTING] page.
 

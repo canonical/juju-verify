@@ -29,7 +29,7 @@ jobs:
             const runs = await github.actions.listWorkflowRuns({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: 'full_tests.yml',
+              workflow_id: 'tests_full.yml',
               per_page: 2
             })
             return runs.data.workflow_runs[1]
