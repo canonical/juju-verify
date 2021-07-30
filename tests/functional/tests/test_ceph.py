@@ -8,7 +8,7 @@ from juju import loop
 from tests.base import BaseTestCase
 
 from juju_verify import juju_verify
-from juju_verify.utils.action import cache, cache_manager
+from juju_verify.utils.action import cache_manager
 from juju_verify.verifiers import get_verifier
 from juju_verify.verifiers.ceph import CephCommon
 from juju_verify.verifiers.result import Result
@@ -23,6 +23,10 @@ class CephOsdTests(BaseTestCase):
 
     # TODO: add test to check_availability_zone after new approach
 
+    def setUp(self):
+        """Disable cache for all ceph-osd tests."""
+        cache_manager.disable()  # disable cache for all run action
+
     def _add_test_pool(self, percent_data: int = 10):
         """Add a test pool."""
         _ = zaza.model.run_action("ceph-mon/0", "create-pool",
@@ -36,14 +40,12 @@ class CephOsdTests(BaseTestCase):
 
     @tenacity.retry(wait=tenacity.wait_exponential(max=60),
                     stop=tenacity.stop_after_attempt(8))
-    def _wait_to_healthy_ceph_cluster(self):
+    def _wait_to_ceph_cluster(self, healthy: bool = True):
         """Wait to Ceph cluster be healthy again."""
-        logger.info("waiting to Ceph cluster be healthy")
+        logger.info(f"waiting to Ceph cluster be {'' if healthy else 'un'}healthy")
         unit_objects = loop.run(juju_verify.find_units(self.model, ["ceph-mon/0"]))
-        with cache_manager(use_cache=False):  # disable cache for all run action
-            result = CephCommon.check_cluster_health(*unit_objects)
-
-        assert result.success
+        result = CephCommon.check_cluster_health(*unit_objects)
+        assert result.success == healthy
 
     def assert_message_in_result(self, exp_message: str, result: Result):
         """Assert that message is in partials results."""
@@ -57,6 +59,7 @@ class CephOsdTests(BaseTestCase):
         units = ['ceph-osd/0']
         check = 'shutdown'
         unit_objects = loop.run(juju_verify.find_units(self.model, units))
+        self._wait_to_ceph_cluster()
         verifier = get_verifier(unit_objects)
         result = verifier.verify(check)
         logger.info("result: %s", result)
@@ -73,6 +76,7 @@ class CephOsdTests(BaseTestCase):
         units = ["ceph-osd/0", "ceph-osd/1"]
         check = "shutdown"
         unit_objects = loop.run(juju_verify.find_units(self.model, units))
+        self._wait_to_ceph_cluster()
         verifier = get_verifier(unit_objects)
         result = verifier.verify(check)
         logger.info("result: %s", result)
@@ -92,7 +96,7 @@ class CephOsdTests(BaseTestCase):
         unit_objects = loop.run(juju_verify.find_units(self.model, units))
 
         self._add_test_pool(percent_data=80)
-        self._wait_to_healthy_ceph_cluster()
+        self._wait_to_ceph_cluster()
         # check that Ceph cluster is healthy
         verifier = get_verifier(unit_objects)
         result = verifier.verify(check)
@@ -111,6 +115,7 @@ class CephOsdTests(BaseTestCase):
         unit_objects = loop.run(juju_verify.find_units(self.model, units))
 
         self._add_test_pool()
+        self._wait_to_ceph_cluster(healthy=False)
         # check that Ceph cluster is unhealthy
         verifier = get_verifier(unit_objects)
         result = verifier.verify(check)
@@ -127,8 +132,8 @@ class CephOsdTests(BaseTestCase):
         units = ["ceph-osd/0", "ceph-osd/1"]
         check = "shutdown"
         unit_objects = loop.run(juju_verify.find_units(self.model, units))
-
-        self._add_test_pool()
+        self._add_test_pool(percent_data=80)
+        self._wait_to_ceph_cluster()
         # check that check_replication_number failed, due default min_size=2
         verifier = get_verifier(unit_objects)
         result = verifier.verify(check)
@@ -145,8 +150,6 @@ class CephOsdTests(BaseTestCase):
             "ceph-mon/0", "pool-set",
             action_params={"name": "test", "key": "min_size", "value": "1"}
         )
-        # clear cache
-        cache.clear()
         # check that check_replication_number passed
         verifier = get_verifier(unit_objects)
         result = verifier.verify(check)

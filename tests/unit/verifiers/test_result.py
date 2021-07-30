@@ -17,6 +17,7 @@
 """Result class and related function test suite."""
 from copy import deepcopy
 import os
+from unittest import mock
 
 import pytest
 
@@ -264,7 +265,8 @@ def test_result_empty(result, expected_emptiness):
     assert result.empty == expected_emptiness
 
 
-def test_checks_executor():
+@mock.patch("juju_verify.verifiers.result.stop_on_failure", return_value=False)
+def test_checks_executor(_):
     """Test executing and aggregation result of multiple checks."""
 
     def mock_failing_check():
@@ -298,7 +300,27 @@ def test_checks_executor():
         lambda: Result(partial_4.severity, partial_4.message),
         mock_failing_check,
         mock_check_with_argument,
-        (mock_check_with_argument, dict(test="argument"), ),
+        (mock_check_with_argument, dict(test="argument")),
+    )
+
+    assert final_result == expected_result
+
+
+@mock.patch("juju_verify.verifiers.result.stop_on_failure", return_value=True)
+def test_checks_executor_with_stop_on_failure(_):
+    """Test executing and aggregation result of multiple checks with stop-on-failure."""
+    partial_1 = Partial(Severity.OK, "1")
+    partial_2 = Partial(Severity.FAIL, "2")
+    partial_3 = Partial(Severity.OK, "3")
+
+    expected_result = Result()
+    for partial in [partial_1, partial_2]:
+        expected_result.add_partial_result(partial.severity, partial.message)
+
+    final_result = checks_executor(
+        lambda: Result(partial_1.severity, partial_1.message),
+        lambda: Result(partial_2.severity, partial_2.message),
+        lambda: Result(partial_3.severity, partial_3.message),
     )
 
     assert final_result == expected_result

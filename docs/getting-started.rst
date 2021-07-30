@@ -63,10 +63,8 @@ Description of CLI
 After successfully installing ``juju-verify``, help instructions can be
 displayed using this command::
 
-  $ juju-verify --help
-  usage: juju-verify [-h] [--model MODEL] [-l {trace,debug,info}]
-                   (--units UNITS [UNITS ...] | --machines MACHINES [MACHINES ...])
-                   {shutdown,reboot}
+  juju-verify --help
+  usage: juju-verify [-h] [--model MODEL] [-l {trace,debug,info}] [-s] (--units UNITS [UNITS ...] | --machines MACHINES [MACHINES ...]) {shutdown,reboot}
 
   Verify that it's safe to perform selected action on specified units
 
@@ -79,10 +77,13 @@ displayed using this command::
                           Connect to specific model.
     -l {trace,debug,info}, --log-level {trace,debug,info}
                           Set amount of displayed information
+    -s, --stop-on-failure
+                          Stop running checks after a failed one.
     --units UNITS [UNITS ...], -u UNITS [UNITS ...]
                           Units to check.
     --machines MACHINES [MACHINES ...], -M MACHINES [MACHINES ...]
                           Check all units on the machine.
+
 
 checks
 """"""
@@ -120,6 +121,34 @@ There are two ways of using them:
   juju-verify reboot --units ceph-osd/0 ceph-osd/1
   # or
   juju-verify reboot --units ceph-osd/0 --units ceph-osd/1
+
+Stop on failure
+"""""""""""""""
+
+There is an option to stop running checks after a first failed one.
+
+Find below the difference in behavior when the flag is used.
+
+Without ``--stop-on-failure``
+::
+
+  $ juju-verify reboot -u ceph-osd/0 ceph-osd/1
+  Checks:
+  [OK] ceph-mon/2: Ceph cluster is healthy
+  [FAIL] The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to restart/shutdown 2 units. 0 units are not active.
+  [FAIL] It's not safe to removed units {'ceph-osd/1', 'ceph-osd/0'} in the availability zone 'root=default'. [free_units=1, inactive_units=0]
+
+  Overall result: Failed
+
+With ``--stop-on-failure``
+::
+
+  $ juju-verify reboot --stop-on-failure -u ceph-osd/0 ceph-osd/1
+  Checks:
+  [OK] ceph-mon/2: Ceph cluster is healthy
+  [FAIL] The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to restart/shutdown 2 units. 0 units are not active.
+
+  Overall result: Failed
 
 Usage examples
 ^^^^^^^^^^^^^^
