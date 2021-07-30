@@ -95,7 +95,7 @@ in `juju verify/juju verify.py`. We use the `argparse` library to parse CLI argu
 and to provide help information, which can be accessed using `juju-verify --help`
 command.
 
-Despite the main purpose, it is possible to use `juju-verify` as python pacakge. It
+Despite the main purpose, it is possible to use `juju-verify` as python package. It
 can be installed directly from [pypi.org].
 
 ### Verifiers

@@ -20,10 +20,11 @@ from unittest import mock
 from unittest.mock import MagicMock, PropertyMock
 
 import pytest
+from juju.errors import JujuError
 from juju.model import Model
 from juju.unit import Unit
 
-from juju_verify.exceptions import CharmException
+from juju_verify.exceptions import CharmException, JujuActionFailed
 from juju_verify.verifiers.ceph import AvailabilityZone, CephCommon, CephOsd, CephMon
 from juju_verify.verifiers.result import Result, Severity
 
@@ -119,8 +120,9 @@ def test_check_cluster_health_unknown_state(mock_run_action_on_units, model):
 
 def test_check_cluster_health_error(model):
     """Test check Ceph cluster health raise CharmException."""
-    with pytest.raises(CharmException):
-        CephCommon.check_cluster_health(model.units["ceph-osd/0"])
+    model.units["ceph-mon/0"].run_action.side_effect = JujuError("action not exists")
+    with pytest.raises(JujuActionFailed):
+        CephCommon.check_cluster_health(model.units["ceph-mon/0"])
 
 
 @mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
@@ -415,7 +417,7 @@ def test_ceph_mon_version_check(juju_version, expected_severity, mocker):
         expected_result = Result(Severity.OK, 'Minimum juju version check passed.')
     else:
         fail_msg = (f'Juju agent on unit {unit_name} has lower than '
-                    f'minumum required version. {juju_version} < 2.8.10')
+                    f'minimum required version. {juju_version} < 2.8.10')
         expected_result = Result(Severity.FAIL, fail_msg)
 
     verifier = CephMon([Unit(unit_name, Model())])
@@ -433,11 +435,9 @@ def test_ceph_mon_fail_version_parsing(mocker):
                         new_callable=PropertyMock(return_value=mock_unit_data))
 
     verifier = CephMon([Unit(unit_name, Model())])
-
     with pytest.raises(CharmException) as exc:
-        _ = verifier.check_version()
-
-    assert str(exc.value) == f'Failed to parse juju version from unit {unit_name}.'
+        verifier.check_version()
+        assert str(exc.value) == f'Failed to parse juju version from unit {unit_name}.'
 
 
 def test_verify_ceph_mon_shutdown(mocker):

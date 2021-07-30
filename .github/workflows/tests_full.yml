@@ -1,0 +1,123 @@
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Full test suite
+
+on:
+  pull_request_review:
+    types: [ submitted ]
+
+jobs:
+  change-info:
+    name: Check previous checks
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.review.state == 'approved'
+      || github.event.review.body == 'recheck-snap'
+      || github.event.review.body == 'recheck-full'
+    outputs:
+      code-changed: ${{ steps.code-changed.outputs.changed }}
+      skip: ${{ steps.skip-tests.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - name: Get latest workflow run status
+        uses: actions/github-script@v4
+        id: latest-workflow
+        with:
+          script: |
+            const runs = await github.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'tests_full.yml',
+              per_page: 2
+            })
+            return runs.data.workflow_runs[1]
+      - name: Check to see if there is any new confirmation
+        id: new-commit
+        env:
+          LATEST_HEAD_SHA: ${{ fromJson(steps.latest-workflow.outputs.result).head_sha }}
+        run: |
+          result=0
+          git log | head -n 2 | grep -qE $LATEST_HEAD_SHA || result=1
+          echo "::set-output name=new::$result"
+      - name: Track changed files in the PR
+        id: code-changed
+        run: |
+          git remote add upstream https://github.com/canonical/juju-verify
+          git fetch upstream master
+          failed=1
+          git diff --name-only upstream/master | grep -qE '^(./juju_verify|./tests)' || failed=0
+          echo "::set-output name=changed::$failed"
+      - name: Skip tests
+        id: skip-tests
+        if: >-
+          fromJson(steps.latest-workflow.outputs.result).conclusion == 'success'
+          && steps.new-commit-changed.outputs.new == 0
+        run: echo "::set-output name=skip::1"
+
+  lint-unittests-docs-build:
+    name: Lint, Unit tests, Docs and Build
+    runs-on: ubuntu-latest
+    needs: change-info
+    if: >-
+      needs.change-info.outputs.skip != 1
+      || github.event.review.body == 'recheck-snap'
+      || github.event.review.body == 'recheck-full'
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install tox
+      - name: Run lint checkers
+        run: tox -e lint
+      - name: Run unit tests
+        run: tox -e unit
+      - name: Build docs
+        run: tox -e docs
+      - name: Build package
+        run: tox -e build
+      - name: Verify package
+        run: tox -e build-verify
+
+  build-snap:
+    name: Build snap
+    runs-on: ubuntu-latest
+    needs: lint-unittests-docs-build
+    steps:
+    - uses: actions/checkout@v2
+    - uses: snapcore/action-build@v1
+      id: snapcraft
+    - name: Install snap
+      run: sudo snap install --dangerous ${{ steps.snapcraft.outputs.snap }}
+
+  func-tests:
+    name: Integration tests
+    runs-on: self-hosted
+    needs: build-snap
+    if: >-
+      needs.change-info.outputs.code-changed == 1
+      || github.event.review.body == 'recheck-full'
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install tox
+      - name: Run func tests
+        run: |
+          source ~/novarc
+          tox -e func

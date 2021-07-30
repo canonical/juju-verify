@@ -72,6 +72,13 @@ The workflow for contributing code is as follows:
    the edge channel in **snapcraft**.
 6. Stable release is performed after tagging the master branch and merging it into
    the stable branch.
+
+### Pull Request workflow
+
+The basic idea of the life cycle of contributing and Pull Request is shown in 
+the following diagram. 
+
+![Pull Request workflow diagram](img/pr-workflow.svg)
    
 ### Checks and checks_executor
 

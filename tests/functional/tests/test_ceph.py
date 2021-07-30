@@ -8,7 +8,7 @@ from juju import loop
 from tests.base import BaseTestCase
 
 from juju_verify import juju_verify
-from juju_verify.utils.action import cache
+from juju_verify.utils.action import cache, cache_manager
 from juju_verify.verifiers import get_verifier
 from juju_verify.verifiers.ceph import CephCommon
 from juju_verify.verifiers.result import Result
@@ -34,11 +34,15 @@ class CephOsdTests(BaseTestCase):
         _ = zaza.model.run_action("ceph-mon/0", "delete-pool",
                                   action_params={"name": self.test_pool})
 
-    @tenacity.retry(wait=tenacity.wait_exponential(max=60))
+    @tenacity.retry(wait=tenacity.wait_exponential(max=60),
+                    stop=tenacity.stop_after_attempt(8))
     def _wait_to_healthy_ceph_cluster(self):
         """Wait to Ceph cluster be healthy again."""
+        logger.info("waiting to Ceph cluster be healthy")
         unit_objects = loop.run(juju_verify.find_units(self.model, ["ceph-mon/0"]))
-        result = CephCommon.check_cluster_health(*unit_objects)
+        with cache_manager(use_cache=False):  # disable cache for all run action
+            result = CephCommon.check_cluster_health(*unit_objects)
+
         assert result.success
 
     def assert_message_in_result(self, exp_message: str, result: Result):
