@@ -26,6 +26,10 @@ jobs:
         id: latest-workflow
         with:
           script: |
+            function sleep(seconds) {
+              return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+            }
+
             async function get_last_run() {
               const runs = await github.actions.listWorkflowRuns({
                 owner: context.repo.owner,
@@ -33,10 +37,12 @@ jobs:
                 workflow_id: 'tests_full.yml',
                 per_page: 2
               })
+
               if (runs.data.workflow_runs[1].status == 'completed') {
                 return runs.data.workflow_runs[1];
               } else {
-                await sleep(10000); // Sleep 10 seconds
+                console.log('Waiting for workflow ' + runs.data.workflow_runs[1].id);
+                await sleep(10); // Sleep 10 seconds
                 return await get_last_run();
               }
             }
