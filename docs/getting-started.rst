@@ -127,7 +127,7 @@ Stop on failure
 
 There is an option to stop running checks after a first failed one.
 
-Below you can see an example of use without and with a flag ``--stop-on-failure``.
+Find below the difference in behavior when the flag is used.
 
 Without ``--stop-on-failure``
 ::
