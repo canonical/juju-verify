@@ -122,9 +122,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-l', '--log-level', type=str.lower,
                         help='Set amount of displayed information',
                         default='info', choices=['trace', 'debug', 'info'])
-    parser.add_argument("--stop-on-failure", action="store_true",
-                        help="Prevent all checks from running and stop at the first"
-                             "failed check.")
+    parser.add_argument("-s", "--stop-on-failure", action="store_true",
+                        help="Stop running checks after a failed one.")
 
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument('--units', '-u', action="extend", nargs='+', type=str,
