@@ -15,10 +15,9 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """Helper function to manage Juju action."""
-from collections import OrderedDict
-from typing import Any, Generator, List
-
 from juju.action import Action
+
+from juju_verify.utils.cache import Cache, CacheManager
 
 
 def data_from_action(action: Action, key: str, default: str = "") -> str:
@@ -32,43 +31,5 @@ def data_from_action(action: Action, key: str, default: str = "") -> str:
     return action.data.get("results", {}).get(key, default)
 
 
-class _Cache:
-    """Cache class for action outputs."""
-
-    def __init__(self, maxsize: int):
-        """Initialize cache object."""
-        self._cache: OrderedDict = OrderedDict()
-        self.maxsize: int = maxsize
-
-    def __getitem__(self, key: int) -> Any:
-        """Get cached value."""
-        if key in self._cache:
-            self._cache.move_to_end(key)  # reorder cache
-
-        return self._cache[key]
-
-    def __setitem__(self, key: int, value: Any) -> None:
-        """Cache the value using the key."""
-        self._cache[key] = value
-
-        # remove the oldest key
-        if len(self._cache) > self.maxsize:
-            oldest_key = next(iter(self._cache))
-            del self._cache[oldest_key]
-
-    def __iter__(self) -> Generator:
-        """Iterate over cache keys."""
-        for key in self._cache:
-            yield key
-
-    def clear(self) -> None:
-        """Clear cached data."""
-        self._cache.clear()
-
-    @property
-    def keys(self) -> List[Any]:
-        """Return cached keys."""
-        return list(self._cache.keys())
-
-
-cache = _Cache(128)
+cache_manager = CacheManager(enabled=True)
+cache = Cache(128)

@@ -172,23 +172,48 @@ def test_unsupported_log_levels(fail, log_level):
     [
         (
             ["reboot", "--units", "ceph-osd/0", "ceph-osd/1"],
-            dict(check="reboot", machines=None, units=["ceph-osd/0", "ceph-osd/1"]),
+            dict(
+                check="reboot",
+                machines=None,
+                units=["ceph-osd/0", "ceph-osd/1"],
+                stop_on_failure=False,
+            ),
         ),
         (
             ["reboot", "--machines", "0", "1"],
-            dict(check="reboot", units=None, machines=["0", "1"]),
+            dict(
+                check="reboot", units=None, machines=["0", "1"], stop_on_failure=False
+            ),
         ),
         (
             ["reboot", "--machines", "0", "--machines", "1"],
-            dict(check="reboot", units=None, machines=["0", "1"]),
+            dict(
+                check="reboot", units=None, machines=["0", "1"], stop_on_failure=False
+            ),
         ),
         (
             ["reboot", "--machine", "0", "--machine", "1"],
-            dict(check="reboot", units=None, machines=["0", "1"]),
+            dict(
+                check="reboot", units=None, machines=["0", "1"], stop_on_failure=False
+            ),
         ),
         (
             ["reboot", "--machine", "0", "--machine", "1", "2"],
-            dict(check="reboot", units=None, machines=["0", "1", "2"]),
+            dict(
+                check="reboot",
+                units=None,
+                machines=["0", "1", "2"],
+                stop_on_failure=False,
+            ),
+        ),
+        (
+            ["reboot", "--machine", "0", "--stop-on-failure", "--machine", "1", "2"],
+            dict(
+                check="reboot",
+                units=None,
+                machines=["0", "1", "2"],
+                stop_on_failure=True,
+            ),
         ),
     ],
 )

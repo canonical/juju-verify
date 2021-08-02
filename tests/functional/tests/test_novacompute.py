@@ -78,7 +78,7 @@ class NovaCompute(OpenstackBaseTestCase):
                 compute_with_vm = nova_unit_name
                 break
         else:
-            self.fail("Failed to find launched VM on any of the nova-compute" " units")
+            self.fail("Failed to find launched VM on any of the nova-compute units")
 
         expected_partial = Partial(
             Severity.FAIL, f"Unit {compute_with_vm} is running 1 VMs."

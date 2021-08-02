@@ -114,7 +114,7 @@ def test_get_verifier_mixed_charms(mocker, model):
 
 def test_get_verifier_empty_list():
     """Fail if list of units is empty."""
-    expected_msg = "List of units can not be empty when creating" " verifier"
+    expected_msg = "List of units can not be empty when creating verifier"
 
     with pytest.raises(CharmException) as exc:
         get_verifier([])

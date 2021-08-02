@@ -18,6 +18,7 @@
 import asyncio
 import logging
 from collections import defaultdict, namedtuple
+from functools import wraps
 from typing import Any, Callable, Dict, List, Optional
 
 from juju.action import Action
@@ -27,7 +28,7 @@ from packaging.version import InvalidVersion, Version
 
 from juju_verify.exceptions import CharmException, VerificationError
 from juju_verify.utils.unit import run_action_on_units
-from juju_verify.verifiers.result import Result, Severity, aggregate_results
+from juju_verify.verifiers.result import Result, Severity, checks_executor
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,22 @@ class BaseVerifier:
             "shutdown": cls.verify_shutdown,
             "reboot": cls.verify_reboot,
         }
+
+    def get_verify_action(self, check: str) -> Callable:
+        """Return verification check as callable function without any arguments."""
+        if check not in self.supported_checks():
+            raise NotImplementedError(
+                f"Unsupported verification check '{check}' for charm {self.NAME}"
+            )
+
+        _verify_action = self._action_map()[check]
+
+        @wraps(_verify_action)
+        def wrapper() -> Result:
+            """Wrap the classmethod so that it is callable without any arguments."""
+            return _verify_action(self)
+
+        return wrapper
 
     def unit_from_id(self, unit_id: str) -> Unit:
         """Search self.units for unit that matches 'unit_id'.
@@ -213,26 +230,18 @@ class BaseVerifier:
         :raises VerificationError: If check fails in unexpected manner or if
                                    list of self.units is empty
         """
-        preflight_results = aggregate_results(
-            self.check_affected_machines(), self.check_has_sub_machines()
-        )
-        verify_action = self._action_map().get(check)
-        if verify_action is None:
-            raise NotImplementedError(
-                f"Unsupported verification check '{check}' for" f" charm {self.NAME}"
-            )
+        verify_action = self.get_verify_action(check)
+        preflight_checks = (self.check_affected_machines, self.check_has_sub_machines)
 
         try:
             logger.debug(
                 "Running check %s on units: %s", check, ",".join(self.unit_ids)
             )
-            main_results = verify_action(self)
-            return aggregate_results(preflight_results, main_results)
+            return checks_executor(*preflight_checks, verify_action)
         except NotImplementedError as exc:
             raise exc
         except Exception as exc:
-            err = VerificationError(f"Verification failed: {exc}")
-            raise err from exc
+            raise VerificationError(f"Verification failed: {exc}") from exc
 
     def run_action_on_all(
         self,
@@ -258,7 +267,7 @@ class BaseVerifier:
     def verify_reboot(self) -> Result:
         """Child classes must override this method with custom implementation.
 
-        'reboot' check needds to be implemented on child classes.
+        'reboot' check needs to be implemented on child classes.
         """
         raise NotImplementedError(
             f"Requested check 'reboot' is not implemented for '{self.NAME}' charm."

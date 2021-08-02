@@ -16,6 +16,11 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 
 """Collection of juju verification exceptions."""
+import os
+from typing import Any, Dict, Optional
+
+from juju.errors import JujuError
+from juju.unit import Unit
 
 
 class VerificationError(Exception):
@@ -24,3 +29,24 @@ class VerificationError(Exception):
 
 class CharmException(Exception):
     """Exception related to the charm or the unit that runs it."""
+
+
+class JujuActionFailed(Exception):
+    """Exception related to failing action run on the unit."""
+
+    def __init__(
+        self,
+        error: JujuError,
+        unit: Unit,
+        action: str,
+        params: Optional[Dict[str, Any]] = None,
+    ):
+        """Initialize JujuActionFailed error message."""
+        params = params or {}
+        params_str = " ".join(f"{name}={value}" for name, value in params.items())
+        juju_error_message = os.linesep.join(f"  {err}" for err in error.errors)
+        self.message = (
+            f"{unit.entity_id}: action `{action} {params_str}` failed "
+            f"with errors:{os.linesep}{juju_error_message}"
+        )
+        super().__init__(self.message)

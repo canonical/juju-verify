@@ -20,10 +20,11 @@ from unittest import mock
 from unittest.mock import MagicMock, PropertyMock
 
 import pytest
+from juju.errors import JujuError
 from juju.model import Model
 from juju.unit import Unit
 
-from juju_verify.exceptions import CharmException
+from juju_verify.exceptions import CharmException, JujuActionFailed
 from juju_verify.verifiers.ceph import AvailabilityZone, CephCommon, CephMon, CephOsd
 from juju_verify.verifiers.result import Result, Severity
 
@@ -144,8 +145,9 @@ def test_check_cluster_health_unknown_state(mock_run_action_on_units, model):
 
 def test_check_cluster_health_error(model):
     """Test check Ceph cluster health raise CharmException."""
-    with pytest.raises(CharmException):
-        CephCommon.check_cluster_health(model.units["ceph-osd/0"])
+    model.units["ceph-mon/0"].run_action.side_effect = JujuError("action not exists")
+    with pytest.raises(JujuActionFailed):
+        CephCommon.check_cluster_health(model.units["ceph-mon/0"])
 
 
 @mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
@@ -508,11 +510,9 @@ def test_ceph_mon_fail_version_parsing(mocker):
     )
 
     verifier = CephMon([Unit(unit_name, Model())])
-
     with pytest.raises(CharmException) as exc:
-        _ = verifier.check_version()
-
-    assert str(exc.value) == f"Failed to parse juju version from unit {unit_name}."
+        verifier.check_version()
+        assert str(exc.value) == f"Failed to parse juju version from unit {unit_name}."
 
 
 def test_verify_ceph_mon_shutdown(mocker):

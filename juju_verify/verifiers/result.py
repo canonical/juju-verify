@@ -19,9 +19,25 @@ import logging
 import os
 from enum import Enum
 from functools import total_ordering
-from typing import List
+from json import JSONDecodeError
+from typing import Any, Callable, Dict, List, Tuple, Union
+
+from juju_verify.exceptions import CharmException, JujuActionFailed
 
 logger = logging.getLogger(__name__)
+STOP_ON_FAILURE: bool = False
+
+
+def stop_on_failure() -> bool:
+    """Get the configuration to stop on failure."""
+    global STOP_ON_FAILURE  # pylint: disable=W0603
+    return STOP_ON_FAILURE
+
+
+def set_stop_on_failure(stop: bool = False) -> None:
+    """Set stop on failure."""
+    global STOP_ON_FAILURE  # pylint: disable=W0603
+    STOP_ON_FAILURE = stop
 
 
 @total_ordering
@@ -177,12 +193,80 @@ class Result:
         self.partials.append(Partial(severity, message))
 
 
-def aggregate_results(*results: Result) -> Result:
-    """Return aggregate value of multiple results."""
-    result_list = list(results)
-    final_result = result_list.pop(0)
+def checks_executor(
+    *checks: Union[Callable, Tuple[Callable, Dict[str, Any]]]
+) -> Result:
+    """Executor that aggregates checks and captures errors.
 
-    for result in result_list:
-        final_result += result
+    This executor will accept checks as a callable function or as a tuple with first
+    object callable (check) and second as a dictionary containing parameters for
+    performing the check. The executor's output aggregates all check results into one
+    result, while the order is preserved. If the check does not return any input, then
+    the default value is used in the form:
+    `Result(OK, "<check .__ name __> check successful").
+    At the same time, if the check fails on one of the following errors
+    (JujuActionFailed, CharmException, KeyError, JSONDecodeError), it will be marked
+    as failed with the result in the form:
+    `Result(FAIL, f"{check.__name__} check failed with error: {error}"`.
 
-    return final_result
+    Examples of use:
+
+    def check_without_parameter_1():
+        return Result(Severity.OK, "check 1 passed")
+
+    def check_without_parameter_2():
+        return Result(Severity.OK, "check 2 passed")
+
+    def check_with_parameter(resources=None):
+        if resources is None:
+            return Result(Severity.FAIL, "check 3 failed")
+
+        return Result(Severity.OK, f"check 3 passed ({resources})")
+
+    result_1 = checks_executor(check_without_parameter_1,
+                               check_without_parameter_2,
+                               (check_with_parameter, dict(resources="DHCP")))
+
+    print(result_1)
+    Checks:
+    [OK] check 1 passed
+    [OK] check 2 passed
+    [OK] check 3 passed (DHCP)
+
+    Overall result: OK (All checks passed)
+
+    result_2 = checks_executor(check_without_parameter_1,
+                               check_without_parameter_2,
+                               check_with_parameter)
+
+    print(result_2)
+    Checks:
+    [OK] check 1 passed
+    [OK] check 2 passed
+    [FAIL] check 3 failed
+
+    Overall result: Failed
+    """
+    aggregate_result = Result()
+    for check_definition in checks:
+        # split check definition into check and parameters
+        if callable(check_definition):
+            check: Callable = check_definition
+            check_kwargs: Dict = {}
+        else:
+            check, check_kwargs = check_definition
+
+        try:
+            aggregate_result += check(**check_kwargs) or Result(
+                Severity.OK, f"{check.__name__} check passed"
+            )
+        except (JujuActionFailed, CharmException, KeyError, JSONDecodeError) as error:
+            aggregate_result += Result(
+                Severity.FAIL, f"{check.__name__} check failed with error: {error}"
+            )
+
+        if not aggregate_result.success and stop_on_failure():
+            # break if verify was called with the `--stop-on-failure` flag
+            break
+
+    return aggregate_result

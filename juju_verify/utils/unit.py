@@ -21,11 +21,12 @@ import re
 from typing import Any, Dict, List, Optional
 
 from juju.action import Action
+from juju.errors import JujuError
 from juju.model import Model
 from juju.unit import Unit
 
-from juju_verify.exceptions import CharmException, VerificationError
-from juju_verify.utils.action import cache
+from juju_verify.exceptions import CharmException, JujuActionFailed, VerificationError
+from juju_verify.utils.action import cache, cache_manager
 
 CHARM_URL_PATTERN = re.compile(r"^(.*):(.*/)?(?P<charm>.*)(-\d+)$")
 
@@ -38,18 +39,19 @@ def get_cache_key(unit: Unit, action: str, **params: Any) -> int:
 
 
 async def run_action(
-    unit: Unit,
-    action: str,
-    use_cache: bool = True,
-    params: Optional[Dict[str, Any]] = None,
+    unit: Unit, action: str, params: Optional[Dict[str, Any]] = None
 ) -> Action:
     """Run Juju action and wait for results."""
     params = params or {}
     key = get_cache_key(unit, action, **params)
 
-    if key not in cache or not use_cache:
-        _action = await unit.run_action(action, **params)
-        result = await _action.wait()  # wait for result
+    if key not in cache or not cache_manager.enabled:
+        try:
+            _action = await unit.run_action(action, **params)
+            result = await _action.wait()  # wait for result
+        except JujuError as error:
+            raise JujuActionFailed(error, unit, action, params) from error
+
         cache[key] = result  # save result to cache
         return result
 
@@ -59,7 +61,7 @@ async def run_action(
 def run_action_on_units(
     units: List[Unit],
     action: str,
-    use_cache: bool = True,
+    use_cache: Optional[bool] = None,
     params: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Action]:
     """Run Juju action on specified units.
@@ -72,9 +74,9 @@ def run_action_on_units(
              provided in 'units' and actions are their matching,
              juju.Action objects that have been executed and awaited.
     """
-    task_map = {
-        unit.entity_id: run_action(unit, action, use_cache, params) for unit in units
-    }
+    with cache_manager(use_cache):
+        task_map = {unit.entity_id: run_action(unit, action, params) for unit in units}
+
     loop = asyncio.get_event_loop()
     tasks = asyncio.gather(*task_map.values())
     results: List[Action] = loop.run_until_complete(tasks)

@@ -19,7 +19,7 @@ are part of are healthy (Note: if more than one Ceph cluster exists, verified
 ``ceph-osd`` units may be part of more than one cluster). A cluster is
 considered healthy if the action's output contains HEALTH_OK.
 
-.. image:: check_ceph_cluster_health.svg
+.. image:: ../img/check_ceph_cluster_health.svg
   :alt: Ceph cluster health check
 
 
@@ -40,7 +40,7 @@ removed/shutdown, plus the number of units are in an inactive workload status.
 Such a number is compared to the minimum replication number, and if it's
 greater, the check fails.
 
-.. image:: check_replication_number.svg
+.. image:: ../img/check_replication_number.svg
   :alt: Ceph replication number check
 
 
@@ -70,7 +70,7 @@ the minimum number of free units for each application in the availability
 zones, as there can be several applications in one availability zone, and if
 it is greater than the check failed.
 
-.. image:: check_availability_zone.svg
+.. image:: ../img/check_availability_zone.svg
   :alt: Availability zone check
 
 .. _LP#1921121: https://bugs.launchpad.net/juju-verify/+bug/1921121

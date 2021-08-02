@@ -25,6 +25,7 @@ from juju.unit import Unit
 from pytest import raises
 
 from juju_verify.exceptions import CharmException, VerificationError
+from juju_verify.utils.action import cache_manager
 from juju_verify.utils.unit import (
     get_applications_names,
     get_cache_key,
@@ -71,19 +72,20 @@ async def test_run_action():
     unit_2 = MagicMock()
     unit_1.entity_id.return_value = 1
     unit_2.entity_id.return_value = 2
+    cache_manager.disable()  # disable run action cache usage
     unit_1.run_action.side_effect = unit_2.run_action.side_effect = mock_unit_run_action
 
     # test run_action once
-    await run_action(unit_1, "action", use_cache=False, params=dict(format="json"))
+    await run_action(unit_1, "action", params=dict(format="json"))
 
     unit_1.run_action.assert_called_once_with("action", format="json")
     unit_1.run_action.reset_mock()
 
     # test run_action multiple times without cache
-    await run_action(unit_1, "action-1", use_cache=False, params=dict(format="json"))
-    await run_action(unit_1, "action-2", use_cache=False)
-    await run_action(unit_1, "action-1", use_cache=False, params=dict(format="json"))
-    await run_action(unit_2, "action-1", use_cache=False)
+    await run_action(unit_1, "action-1", params=dict(format="json"))
+    await run_action(unit_1, "action-2")
+    await run_action(unit_1, "action-1", params=dict(format="json"))
+    await run_action(unit_2, "action-1")
 
     assert unit_1.run_action.call_count == 3
     unit_1.run_action.assert_has_calls(
@@ -98,6 +100,7 @@ async def test_run_action():
     unit_2.run_action.reset_mock()
 
     # test run_action multiple times with cache
+    cache_manager.enable()  # disable run action cache usage
     await run_action(unit_1, "action-1", params=dict(format="json"))  # uses the cache
     await run_action(unit_1, "action-2")  # uses the cache
     await run_action(unit_1, "action-3")
@@ -141,7 +144,7 @@ def test_run_action_on_units(mock_run_action, model):
     )
 
     mock_run_action.assert_has_calls(
-        [call(unit, action, False, action_params) for unit in run_on_units]
+        [call(unit, action, action_params) for unit in run_on_units]
     )
 
     assert len(results) == len(run_on_unit_ids)

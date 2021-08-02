@@ -21,7 +21,7 @@ import logging
 from juju_verify.utils.action import data_from_action
 from juju_verify.utils.unit import run_action_on_unit
 from juju_verify.verifiers.base import BaseVerifier
-from juju_verify.verifiers.result import Result, Severity, aggregate_results
+from juju_verify.verifiers.result import Result, Severity, checks_executor
 
 logger = logging.getLogger()
 
@@ -87,7 +87,7 @@ class NovaCompute(BaseVerifier):
 
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected nova-compute units."""
-        return aggregate_results(self.check_no_running_vms(), self.check_no_empty_az())
+        return checks_executor(self.check_no_running_vms, self.check_no_empty_az)
 
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected nova-compute units."""

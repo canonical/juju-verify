@@ -20,4 +20,4 @@
 The tool allows users to check whether it's safe to execute operations like
 'shutdown' or 'reboot' on juju units without affecting availability and integrity.
 """
-from .juju_verify import main
+from juju_verify.juju_verify import main
