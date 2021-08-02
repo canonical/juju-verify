@@ -26,13 +26,28 @@ jobs:
         id: latest-workflow
         with:
           script: |
-            const runs = await github.actions.listWorkflowRuns({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'tests_full.yml',
-              per_page: 2
-            })
-            return runs.data.workflow_runs[1]
+            function sleep(seconds) {
+              return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+            }
+
+            async function get_last_run() {
+              const runs = await github.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'tests_full.yml',
+                per_page: 2
+              })
+
+              if (runs.data.workflow_runs[1].status == 'completed') {
+                return runs.data.workflow_runs[1];
+              } else {
+                console.log('Waiting for workflow ' + runs.data.workflow_runs[1].id);
+                await sleep(10); // Sleep 10 seconds
+                return await get_last_run();
+              }
+            }
+
+            return await get_last_run();
       - name: Check to see if there is any new confirmation
         id: new-commit
         env:
@@ -52,7 +67,8 @@ jobs:
       - name: Skip tests
         id: skip-tests
         if: >-
-          fromJson(steps.latest-workflow.outputs.result).conclusion == 'success'
+          fromJson(steps.latest-workflow.outputs.result).status == 'completed'
+          && fromJson(steps.latest-workflow.outputs.result).conclusion == 'success'
           && steps.new-commit-changed.outputs.new == 0
         run: echo "::set-output name=skip::1"
 
