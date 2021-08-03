@@ -239,7 +239,7 @@ def test_base_verifier_check_has_sub_machines(mocker):
 
     expected_partial_result = Partial(
         Severity.WARN,
-        f"{main_unit} has units running on child " f"machines: {child_unit}*",
+        f"{main_unit} has units running on child machines: {child_unit}*",
     )
 
     # Run verifier against the first unit in the list

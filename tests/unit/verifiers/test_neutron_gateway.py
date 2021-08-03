@@ -100,7 +100,7 @@ def set_router_status(routerid, status):
 
 @mock.patch(
     "juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list"
-)  # noqa: E501 pylint: disable=C0301
+)
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
 def test_get_resource_list(mock_get_all_ngw_units, mock_get_unit_resource_list):
     """Test list of resources returned by get_resource_list."""
@@ -118,7 +118,7 @@ def test_get_resource_list(mock_get_all_ngw_units, mock_get_unit_resource_list):
 
 @mock.patch(
     "juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list"
-)  # noqa: E501 pylint: disable=C0301
+)
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
 def test_get_shutdown_resource_list(
     mock_get_all_ngw_units, mock_get_unit_resource_list
@@ -152,7 +152,7 @@ def test_get_shutdown_resource_list(
 
 @mock.patch(
     "juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list"
-)  # noqa: E501 pylint: disable=C0301
+)
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
 def test_get_online_resource_list(mock_get_all_ngw_units, mock_get_unit_resource_list):
     """Test validity of resources that will remain online."""
@@ -184,7 +184,7 @@ def test_get_online_resource_list(mock_get_all_ngw_units, mock_get_unit_resource
 
 @mock.patch(
     "juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list"
-)  # noqa: E501 pylint: disable=C0301
+)
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
 def test_check_non_redundant_resource(
     mock_get_all_ngw_units, mock_get_unit_resource_list
@@ -235,7 +235,7 @@ def test_check_non_redundant_resource(
 
 @mock.patch(
     "juju_verify.verifiers.neutron_gateway.NeutronGateway.get_unit_resource_list"
-)  # noqa: E501 pylint: disable=C0301
+)
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.get_all_ngw_units")
 def test_warn_router_ha(mock_get_all_ngw_units, mock_get_unit_resource_list):
     """Test existence of warning messages to manually failover HA routers when found."""
@@ -280,7 +280,7 @@ def test_warn_router_ha(mock_get_all_ngw_units, mock_get_unit_resource_list):
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.version_check")
 @mock.patch(
     "juju_verify.verifiers.neutron_gateway.NeutronGateway.check_non_redundant_resource"
-)  # noqa: E501 pylint: disable=C0301
+)
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.warn_lbaas_present")
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.warn_router_ha")
 def test_verify_reboot_shutdown(
@@ -382,7 +382,7 @@ def test_warn_lbaas_present_pass(mocker, model, units_with_lbaas, checked_units)
 )
 @mock.patch(
     "juju_verify.verifiers.neutron_gateway.NeutronGateway.check_non_redundant_resource"
-)  # noqa: E501 pylint: disable=C0301
+)
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.warn_lbaas_present")
 @mock.patch("juju_verify.verifiers.neutron_gateway.NeutronGateway.warn_router_ha")
 def test_too_old_juju_version(

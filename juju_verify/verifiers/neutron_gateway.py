@@ -37,8 +37,8 @@ class NeutronGateway(BaseVerifier):
         "get-status-lb": "load-balancers",
     }
     action_name_failure_string_map = {
-        "get-status-routers": ("The following routers are non-redundant: {}"),
-        "get-status-dhcp": ("The following DHCP networks are non-redundant: {}"),
+        "get-status-routers": "The following routers are non-redundant: {}",
+        "get-status-dhcp": "The following DHCP networks are non-redundant: {}",
         "get-status-lb": (
             "The following LBaasV2 LBs were found: {}. LBaasV2 does not offer HA."
         ),

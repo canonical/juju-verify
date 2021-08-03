@@ -288,10 +288,8 @@ def test_check_replication_number(
     ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"], model.units["ceph-osd/1"]])
     expected_fail_result = Result(
         Severity.FAIL,
-        "The minimum number of replicas in "
-        "'ceph-osd' is 1 and it's not safe to"
-        " restart/shutdown 2 units. 0 units "
-        "are not active.",
+        "The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to "
+        "restart/shutdown 2 units. 0 units are not active.",
     )
     assert ceph_osd_verifier.check_replication_number() == expected_fail_result
 
@@ -301,10 +299,8 @@ def test_check_replication_number(
     ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"]])
     expected_fail_result = Result(
         Severity.FAIL,
-        "The minimum number of replicas in "
-        "'ceph-osd' is 1 and it's not safe to "
-        "restart/shutdown 1 units. 1 units "
-        "are not active.",
+        "The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to "
+        "restart/shutdown 1 units. 1 units are not active.",
     )
     assert ceph_osd_verifier.check_replication_number() == expected_fail_result
 

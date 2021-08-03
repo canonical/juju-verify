@@ -146,7 +146,7 @@ class BaseVerifier:
                     result.add_partial_result(Severity.FAIL, fail_msg)
             except InvalidVersion as exc:
                 raise CharmException(
-                    f"Failed to parse juju version from " f"unit {unit.entity_id}."
+                    f"Failed to parse juju version from unit {unit.entity_id}."
                 ) from exc
 
         return result or Result(Severity.OK, "Minimum juju version check passed.")

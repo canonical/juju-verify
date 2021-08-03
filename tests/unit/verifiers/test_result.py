@@ -76,7 +76,7 @@ def test_partial_formatting(severity):
 
 
 def test_partial_equal():
-    """Test 'equal" operation between Partial instances."""
+    """Test 'equal' operation between Partial instances."""
     # comparing with other types returns False
     assert Partial(Severity.OK, "foo") != "foo"
 

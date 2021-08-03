@@ -41,11 +41,11 @@ class NovaCompute(BaseVerifier):
             running_vms = int(data_from_action(action, "instance-count"))
             if running_vms != 0:
                 result.add_partial_result(
-                    Severity.FAIL, f"Unit {unit_id} is running " f"{running_vms} VMs."
+                    Severity.FAIL, f"Unit {unit_id} is running {running_vms} VMs."
                 )
             else:
                 result.add_partial_result(
-                    Severity.OK, f"Unit {unit_id} is running " f"{running_vms} VMs."
+                    Severity.OK, f"Unit {unit_id} is running {running_vms} VMs."
                 )
         return result
 
