@@ -27,61 +27,65 @@ from juju.unit import Unit
 from juju_verify import juju_verify
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def fail(session_mocker):
     """Mock fail function that otherwise causes process to exit."""
-    return session_mocker.patch.object(juju_verify, 'fail')
+    return session_mocker.patch.object(juju_verify, "fail")
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def model_units():
     """Definition of the units (with data) that are part of the 'model' fixture."""
+
     def unit_data(charm_name: str, application: str, workload_status: str):
         """Create unit data."""
         return {
-            "charm-url": f"cs:focal/{charm_name}-1", "application": application,
-            "workload-status": {"current": workload_status}
+            "charm-url": f"cs:focal/{charm_name}-1",
+            "application": application,
+            "workload-status": {"current": workload_status},
         }
+
     return {
-        'nova-compute/0': unit_data("nova-compute", "nova-compute", "active"),
-        'nova-compute/1': unit_data("nova-compute", "nova-compute", "active"),
-        'nova-compute/2': unit_data("nova-compute", "nova-compute", "active"),
-        'ceph-osd/0': unit_data("ceph-osd", "ceph-osd", "active"),
-        'ceph-osd/1': unit_data("ceph-osd", "ceph-osd", "active"),
-        'ceph-osd-hdd/0': unit_data("ceph-osd", "ceph-osd-hdd", "active"),
-        'ceph-osd-hdd/1': unit_data("ceph-osd", "ceph-osd-hdd", "active"),
-        'ceph-osd-ssd/0': unit_data("ceph-osd", "ceph-osd-ssd", "active"),
-        'ceph-osd-ssd/1': unit_data("ceph-osd", "ceph-osd-ssd", "active"),
-        'ceph-mon/0': unit_data("ceph-mon", "ceph-mon", "active"),
-        'ceph-mon/1': unit_data("ceph-mon", "ceph-mon", "active"),
-        'ceph-mon/2': unit_data("ceph-mon", "ceph-mon", "active"),
-        'neutron-gateway/0': unit_data("neutron-gateway", "neutron-gateway", "active"),
-        'neutron-gateway/1': unit_data("neutron-gateway", "neutron-gateway", "active"),
+        "nova-compute/0": unit_data("nova-compute", "nova-compute", "active"),
+        "nova-compute/1": unit_data("nova-compute", "nova-compute", "active"),
+        "nova-compute/2": unit_data("nova-compute", "nova-compute", "active"),
+        "ceph-osd/0": unit_data("ceph-osd", "ceph-osd", "active"),
+        "ceph-osd/1": unit_data("ceph-osd", "ceph-osd", "active"),
+        "ceph-osd-hdd/0": unit_data("ceph-osd", "ceph-osd-hdd", "active"),
+        "ceph-osd-hdd/1": unit_data("ceph-osd", "ceph-osd-hdd", "active"),
+        "ceph-osd-ssd/0": unit_data("ceph-osd", "ceph-osd-ssd", "active"),
+        "ceph-osd-ssd/1": unit_data("ceph-osd", "ceph-osd-ssd", "active"),
+        "ceph-mon/0": unit_data("ceph-mon", "ceph-mon", "active"),
+        "ceph-mon/1": unit_data("ceph-mon", "ceph-mon", "active"),
+        "ceph-mon/2": unit_data("ceph-mon", "ceph-mon", "active"),
+        "neutron-gateway/0": unit_data("neutron-gateway", "neutron-gateway", "active"),
+        "neutron-gateway/1": unit_data("neutron-gateway", "neutron-gateway", "active"),
     }
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def all_units(model_units):
     """List of units that are present in the 'model' fixture."""
     return list(model_units.keys())
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def model(session_mocker, model_units):
     """Fixture representing connected juju model."""
-    session_mocker.patch.object(Connector, 'is_connected').return_value = True
+    session_mocker.patch.object(Connector, "is_connected").return_value = True
     mock_model = Model()
-    session_mocker.patch.object(Model, 'connect_current')
-    session_mocker.patch.object(Model, 'connect_model')
-    session_mocker.patch.object(Unit, 'data')
-    session_mocker.patch.object(Unit, 'machine')
-    session_mocker.patch.object(Unit, 'run_action', new_callable=MagicMock)
-    session_mocker.patch.object(Action, 'wait', new_callable=MagicMock)
-    session_mocker.patch.object(Action, 'status').return_value = 'pending'
-    session_mocker.patch.object(Action, 'data')
-    units = session_mocker.patch('juju.model.Model.units', new_callable=PropertyMock)
-    applications = session_mocker.patch('juju.model.Model.applications',
-                                        new_callable=PropertyMock)
+    session_mocker.patch.object(Model, "connect_current")
+    session_mocker.patch.object(Model, "connect_model")
+    session_mocker.patch.object(Unit, "data")
+    session_mocker.patch.object(Unit, "machine")
+    session_mocker.patch.object(Unit, "run_action", new_callable=MagicMock)
+    session_mocker.patch.object(Action, "wait", new_callable=MagicMock)
+    session_mocker.patch.object(Action, "status").return_value = "pending"
+    session_mocker.patch.object(Action, "data")
+    units = session_mocker.patch("juju.model.Model.units", new_callable=PropertyMock)
+    applications = session_mocker.patch(
+        "juju.model.Model.applications", new_callable=PropertyMock
+    )
 
     unit_map, app_map = {}, {}
     for unit_id, unit_data in model_units.items():

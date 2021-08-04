@@ -25,19 +25,19 @@ from juju.unit import Unit
 from juju_verify.exceptions import CharmException
 from juju_verify.utils.unit import parse_charm_name
 from juju_verify.verifiers.base import BaseVerifier
-from juju_verify.verifiers.ceph import CephOsd, CephMon
+from juju_verify.verifiers.ceph import CephMon, CephOsd
+from juju_verify.verifiers.neutron_gateway import NeutronGateway
 from juju_verify.verifiers.nova_compute import NovaCompute
 from juju_verify.verifiers.result import Result, Severity
-from juju_verify.verifiers.neutron_gateway import NeutronGateway
 
 logger = logging.getLogger(__name__)
 
 
 SUPPORTED_CHARMS = {
-    'nova-compute': NovaCompute,
-    'ceph-osd': CephOsd,
-    'ceph-mon': CephMon,
-    'neutron-gateway': NeutronGateway,
+    "nova-compute": NovaCompute,
+    "ceph-osd": CephOsd,
+    "ceph-mon": CephMon,
+    "neutron-gateway": NeutronGateway,
 }
 
 
@@ -52,17 +52,16 @@ def get_verifier(units: List[Unit]) -> BaseVerifier:
     charm_types = set()
 
     if not units:
-        raise CharmException('List of units can not be empty when creating '
-                             'verifier')
+        raise CharmException("List of units can not be empty when creating verifier")
     for unit in units:
-        charm_type = parse_charm_name(unit.data.get('charm-url', ''))
-        logger.debug('Inferred charm for unit %s: %s', unit.entity_id,
-                     charm_type)
+        charm_type = parse_charm_name(unit.data.get("charm-url", ""))
+        logger.debug("Inferred charm for unit %s: %s", unit.entity_id, charm_type)
         charm_types.add(charm_type)
 
     if len(charm_types) > 1:
-        raise CharmException('Units are not running same charm. '
-                             'Detected types: {}'.format(charm_types))
+        raise CharmException(
+            f"Units are not running same charm. Detected types: {charm_types}"
+        )
 
     charm = charm_types.pop()
 
@@ -70,9 +69,10 @@ def get_verifier(units: List[Unit]) -> BaseVerifier:
 
     if verifier is None:
         supported_charms = os.linesep.join(SUPPORTED_CHARMS.keys())
-        raise CharmException('Charm "{}" is not supported by juju-verify. '
-                             'Supported charms:{}'
-                             '{}'.format(charm, os.linesep, supported_charms))
-    logger.debug('Initiating verifier instance of class: %s',
-                 verifier.__name__)
+        raise CharmException(
+            f"Charm '{charm}' is not supported by juju-verify. "
+            f"Supported charms:{os.linesep}"
+            f"{supported_charms}"
+        )
+    logger.debug("Initiating verifier instance of class: %s", verifier.__name__)
     return verifier(units=units)

@@ -17,10 +17,10 @@
 """Helper function to manage Juju action."""
 from juju.action import Action
 
-from juju_verify.utils.cache import CacheManager, Cache
+from juju_verify.utils.cache import Cache, CacheManager
 
 
-def data_from_action(action: Action, key: str, default: str = '') -> str:
+def data_from_action(action: Action, key: str, default: str = "") -> str:
     """Extract value from Action.data['results'] dictionary.
 
     :param action: juju.Action instance
@@ -28,7 +28,7 @@ def data_from_action(action: Action, key: str, default: str = '') -> str:
     :param default: default value to return if the 'key' is not found
     :return: value from the action's results identified by 'key' or default
     """
-    return action.data.get('results', {}).get(key, default)
+    return action.data.get("results", {}).get(key, default)
 
 
 cache_manager = CacheManager(enabled=True)

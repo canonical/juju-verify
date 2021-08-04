@@ -3,6 +3,7 @@ help:
 	@echo ""
 	@echo " make help - show this text"
 	@echo " make lint - run flake8 and mypy"
+	@echo " make format-code - run isort and black"
 	@echo " make test - run the lint and unittest targets"
 	@echo " make test-full - run the lint and unittest-full targets"
 	@echo " make unittest - run the tests defined in tests/unit/ subdirectory"
@@ -11,11 +12,16 @@ help:
 	@echo " make release - build juju-verify and give hints to release it"
 	@echo " make clean - remove unneeded files"
 	@echo " make snap - build juju-verify as a snap"
+	@echo " make documentation - build documentation"
 	@echo ""
 
 lint:
 	@echo "Running flake8 and mypy"
 	@tox -e lint
+
+format-code:
+	@echo "Running isort and black"
+	@tox -e format-code
 
 unittest:
 	@echo "Running unittest"
@@ -55,6 +61,10 @@ clean:
 functional: build
 	@echo "Executing functional tests"
 	@tox -e func
+
+docs:
+	@echo "Build documentation"
+	@tox -e docs
 
 # The targets below don't depend on a file
 .PHONY: lint test unittest release clean help build build-verify snap functional

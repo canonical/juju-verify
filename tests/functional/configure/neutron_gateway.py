@@ -22,36 +22,37 @@ from zaza.openstack.utilities import openstack
 
 def distribute_router(router_id: str, neutron: Client):
     """Make router redundant by spreading it to every available L3 agent."""
-    all_agents = neutron.list_agents(agent_type="L3 agent").get('agents', [])
-    hosting_agents = neutron.list_l3_agent_hosting_routers(router_id).get('agents', [])
+    all_agents = neutron.list_agents(agent_type="L3 agent").get("agents", [])
+    hosting_agents = neutron.list_l3_agent_hosting_routers(router_id).get("agents", [])
 
-    all_agent_ids = {agent['id'] for agent in all_agents}
-    hosting_agent_ids = {agent['id'] for agent in hosting_agents}
+    all_agent_ids = {agent["id"] for agent in all_agents}
+    hosting_agent_ids = {agent["id"] for agent in hosting_agents}
     missing_agents = all_agent_ids - hosting_agent_ids
 
     if missing_agents:
         # Ensure that router has 'ha' enabled
-        neutron.update_router(router_id, {'router': {'admin_state_up': False}})
-        neutron.update_router(router_id, {'router': {'ha': True}})
-        neutron.update_router(router_id, {'router': {'admin_state_up': True}})
+        neutron.update_router(router_id, {"router": {"admin_state_up": False}})
+        neutron.update_router(router_id, {"router": {"ha": True}})
+        neutron.update_router(router_id, {"router": {"admin_state_up": True}})
 
         # add router to every l3 agent that does not have it yet
         for agent in missing_agents:
-            neutron.add_router_to_l3_agent(agent, {'router_id': router_id})
+            neutron.add_router_to_l3_agent(agent, {"router_id": router_id})
 
 
 def distribute_network(network_id: str, neutron: Client):
     """Make network redundant by spreading it to every available DHCP agent."""
-    all_agents = neutron.list_agents(agent_type="DHCP agent").get('agents', [])
-    hosting_agents = neutron.list_dhcp_agent_hosting_networks(network_id).get('agents',
-                                                                              [])
+    all_agents = neutron.list_agents(agent_type="DHCP agent").get("agents", [])
+    hosting_agents = neutron.list_dhcp_agent_hosting_networks(network_id).get(
+        "agents", []
+    )
 
-    all_agent_ids = {agent['id'] for agent in all_agents}
-    hosting_agent_ids = {agent['id'] for agent in hosting_agents}
+    all_agent_ids = {agent["id"] for agent in all_agents}
+    hosting_agent_ids = {agent["id"] for agent in hosting_agents}
     agents_not_hosting = all_agent_ids - hosting_agent_ids
 
     for agent in agents_not_hosting:
-        neutron.add_network_to_dhcp_agent(agent, {'network_id': network_id})
+        neutron.add_network_to_dhcp_agent(agent, {"network_id": network_id})
 
 
 def setup_ha_routers():
@@ -59,9 +60,9 @@ def setup_ha_routers():
     keystone = openstack.get_overcloud_keystone_session()
     neutron_client: Client = openstack.get_neutron_session_client(keystone)
 
-    router_list = neutron_client.list_routers().get('routers', [])
+    router_list = neutron_client.list_routers().get("routers", [])
     for router in router_list:
-        distribute_router(router['id'], neutron_client)
+        distribute_router(router["id"], neutron_client)
 
 
 def setup_ha_networks():
@@ -69,7 +70,7 @@ def setup_ha_networks():
     keystone = openstack.get_overcloud_keystone_session()
     neutron_client: Client = openstack.get_neutron_session_client(keystone)
 
-    networks = neutron_client.list_networks().get('networks', [])
+    networks = neutron_client.list_networks().get("networks", [])
     for network in networks:
-        id_ = network['id']
+        id_ = network["id"]
         distribute_network(id_, neutron_client)

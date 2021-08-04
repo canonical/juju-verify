@@ -18,7 +18,7 @@
 from juju.action import Action
 from juju.model import Model
 
-from juju_verify.utils.cache import CacheManager, Cache
+from juju_verify.utils.cache import Cache, CacheManager
 
 
 def test_cache():

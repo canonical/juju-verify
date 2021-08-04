@@ -21,33 +21,37 @@ from typing import List
 from juju.unit import Unit
 from packaging.version import Version
 
-from juju_verify.verifiers.base import BaseVerifier, Result, Severity
 from juju_verify.utils.action import data_from_action
 from juju_verify.utils.unit import parse_charm_name, run_action_on_unit
+from juju_verify.verifiers.base import BaseVerifier, Result, Severity
 from juju_verify.verifiers.result import checks_executor
 
 
 class NeutronGateway(BaseVerifier):
     """Implementation of verification checks for the neutron-gateway charm."""
 
-    NAME = 'neutron-gateway'
-    action_name_result_map = {"get-status-routers": "router-list",
-                              "get-status-dhcp": "dhcp-networks",
-                              "get-status-lb": "load-balancers"}
-    action_name_failure_string_map = {"get-status-routers": ("The following routers are "
-                                                             "non-redundant: {}"),
-                                      "get-status-dhcp": ("The following DHCP networks "
-                                                          "are non-redundant: {}"),
-                                      "get-status-lb": ("The following LBaasV2 LBs were "
-                                                        "found: {}. LBaasV2 does not "
-                                                        "offer HA.")}
+    NAME = "neutron-gateway"
+    action_name_result_map = {
+        "get-status-routers": "router-list",
+        "get-status-dhcp": "dhcp-networks",
+        "get-status-lb": "load-balancers",
+    }
+    action_name_failure_string_map = {
+        "get-status-routers": "The following routers are non-redundant: {}",
+        "get-status-dhcp": "The following DHCP networks are non-redundant: {}",
+        "get-status-lb": (
+            "The following LBaasV2 LBs were found: {}. LBaasV2 does not offer HA."
+        ),
+    }
 
     @classmethod
-    def get_unit_resource_list(cls, unit: Unit,
-                               get_resource_action_name: str) -> List[dict]:
+    def get_unit_resource_list(
+        cls, unit: Unit, get_resource_action_name: str
+    ) -> List[dict]:
         """Given a get resource action, return the relevant resources on the unit."""
-        get_resource_action = run_action_on_unit(unit, get_resource_action_name,
-                                                 params={"format": "json"})
+        get_resource_action = run_action_on_unit(
+            unit, get_resource_action_name, params={"format": "json"}
+        )
         action_name_res = cls.action_name_result_map[get_resource_action_name]
         resource_list_json = data_from_action(get_resource_action, action_name_res)
         resource_list = json.loads(resource_list_json)
@@ -55,8 +59,11 @@ class NeutronGateway(BaseVerifier):
 
     def get_all_ngw_units(self) -> List[Unit]:
         """Get all neutron-gateway units, including those not being shutdown."""
-        return [unit for unit in self.model.units.values()
-                if parse_charm_name(unit.data.get('charm-url', '')) == self.NAME]
+        return [
+            unit
+            for unit in self.model.units.values()
+            if parse_charm_name(unit.data.get("charm-url", "")) == self.NAME
+        ]
 
     def get_resource_list(self, get_resource_action_name: str) -> List[dict]:
         """Given a get resource action, return matching resources from all units."""
@@ -65,8 +72,9 @@ class NeutronGateway(BaseVerifier):
 
         for unit in self.get_all_ngw_units():
             hostname = unit.machine.hostname
-            host_resource_list = self.get_unit_resource_list(unit,
-                                                             get_resource_action_name)
+            host_resource_list = self.get_unit_resource_list(
+                unit, get_resource_action_name
+            )
 
             # add host metadata to resource
             for resource in host_resource_list:
@@ -80,14 +88,20 @@ class NeutronGateway(BaseVerifier):
     def get_shutdown_resource_list(self, get_resource_action_name: str) -> List[dict]:
         """Return a list of resources matching action that are going to be shutdown."""
         res_list = self.get_resource_list(get_resource_action_name)
-        return [resource for resource in res_list if
-                resource["shutdown"] and resource["status"] == "ACTIVE"]
+        return [
+            resource
+            for resource in res_list
+            if resource["shutdown"] and resource["status"] == "ACTIVE"
+        ]
 
     def get_online_resource_list(self, get_resource_action_name: str) -> List[dict]:
         """Return a list of resources matching action, that will remain online."""
         res_list = self.get_resource_list(get_resource_action_name)
-        return [resource for resource in res_list if
-                not resource["shutdown"] and resource["status"] == "ACTIVE"]
+        return [
+            resource
+            for resource in res_list
+            if not resource["shutdown"] and resource["status"] == "ACTIVE"
+        ]
 
     def check_non_redundant_resource(self, action_name: str) -> Result:
         """Check that there are no non-redundant resources matching the resource type."""
@@ -103,7 +117,7 @@ class NeutronGateway(BaseVerifier):
             result = Result(Severity.FAIL, reason)
         else:
             resource = self.action_name_result_map[action_name]
-            reason = "Redundancy check passed for: {}".format(resource)
+            reason = f"Redundancy check passed for: {resource}"
             result = Result(Severity.OK, reason)
         return result
 
@@ -118,12 +132,14 @@ class NeutronGateway(BaseVerifier):
                 _id = router["id"]
                 entity_id = router["juju-entity-id"]
                 host = router["host"]
-                error_string = "{} (on {}, hostname: {})".format(_id, entity_id, host)
+                error_string = f"{_id} (on {entity_id}, hostname: {host})"
                 router_failover_err_list.append(error_string)
 
         if router_failover_err_list:
-            error_string = ("It's recommended that you manually failover the following "
-                            "routers: {}")
+            error_string = (
+                "It's recommended that you manually failover the following "
+                "routers: {}"
+            )
             reason = error_string.format(", ".join(router_failover_err_list))
             result = Result(Severity.WARN, reason)
 
@@ -137,8 +153,10 @@ class NeutronGateway(BaseVerifier):
         affected_lbaas_units = set(self.unit_ids) & units_with_lbaas
 
         if affected_lbaas_units:
-            message = ('Following units have neutron LBaasV2 load-balancers that will be'
-                       ' lost on unit shutdown: {}')
+            message = (
+                "Following units have neutron LBaasV2 load-balancers that will be"
+                " lost on unit shutdown: {}"
+            )
             reason = message.format(", ".join(affected_lbaas_units))
             result = Result(Severity.WARN, reason)
 
@@ -166,4 +184,5 @@ class NeutronGateway(BaseVerifier):
             self.warn_router_ha,
             self.warn_lbaas_present,
             (self.check_non_redundant_resource, {"action_name": "get-status-routers"}),
-            (self.check_non_redundant_resource, {"action_name": "get-status-dhcp"}))
+            (self.check_non_redundant_resource, {"action_name": "get-status-dhcp"}),
+        )

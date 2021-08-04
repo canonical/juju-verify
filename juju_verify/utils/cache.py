@@ -16,8 +16,8 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """Helper function to manage cache."""
 from collections import OrderedDict
-from contextlib import contextmanager, _GeneratorContextManager
-from typing import Any, List, Optional, Generator
+from contextlib import _GeneratorContextManager, contextmanager
+from typing import Any, Generator, List, Optional
 
 
 class Cache:

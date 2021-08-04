@@ -57,7 +57,7 @@ async def find_units(model: Model, units: List[str]) -> List[Unit]:
     for unit_name in units:
         unit = model.units.get(unit_name)
         if unit is None:
-            fail('Unit "{}" not found in the model.'.format(unit_name))
+            fail(f"Unit '{unit_name}' not found in the model.")
         selected_units.append(unit)
     return selected_units
 
@@ -69,9 +69,11 @@ async def find_units_on_machine(model: Model, machines: List[str]) -> List[Unit]
     :param machines: names of Juju machines on which to search units
     :return: List of juju.Unit objects that match units running on the machines
     """
-    return [unit for _, unit in model.units.items()
-            if unit.machine.entity_id in machines
-            and not unit.data.get("subordinate")]
+    return [
+        unit
+        for _, unit in model.units.items()
+        if unit.machine.entity_id in machines and not unit.data.get("subordinate")
+    ]
 
 
 async def connect_model(model_name: Union[str, None]) -> Model:
@@ -83,13 +85,13 @@ async def connect_model(model_name: Union[str, None]) -> Model:
     model = Model()
     try:
         if model_name:
-            logger.debug('Connecting to model "%s".', model_name)
+            logger.debug("Connecting to model '%s'.", model_name)
             await model.connect_model(model_name)
         else:
-            logger.debug('Connecting to currently active model.')
+            logger.debug("Connecting to currently active model.")
             await model.connect_current()
     except errors.JujuError as exc:
-        fail("Failed to connect to the model.{}{}".format(os.linesep, exc))
+        fail(f"Failed to connect to the model.{os.linesep}{exc}")
     return model
 
 
@@ -110,26 +112,46 @@ class ExtendAction(argparse.Action):  # pylint: disable=too-few-public-methods
 
 def parse_args() -> argparse.Namespace:
     """Parse cli arguments."""
-    description = "Verify that it's safe to perform selected action on " \
-                  "specified units"
+    description = "Verify that it's safe to perform selected action on specified units"
     parser = argparse.ArgumentParser(description=description)
     parser.register("action", "extend", ExtendAction)
 
-    parser.add_argument('--model', '-m', required=False,
-                        help='Connect to specific model.')
-    parser.add_argument('check', choices=BaseVerifier.supported_checks(),
-                        type=str.lower, help='Check to verify.')
-    parser.add_argument('-l', '--log-level', type=str.lower,
-                        help='Set amount of displayed information',
-                        default='info', choices=['trace', 'debug', 'info'])
-    parser.add_argument("-s", "--stop-on-failure", action="store_true",
-                        help="Stop running checks after a failed one.")
+    parser.add_argument(
+        "--model", "-m", required=False, help="Connect to specific model."
+    )
+    parser.add_argument(
+        "check",
+        choices=BaseVerifier.supported_checks(),
+        type=str.lower,
+        help="Check to verify.",
+    )
+    parser.add_argument(
+        "-l",
+        "--log-level",
+        type=str.lower,
+        help="Set amount of displayed information",
+        default="info",
+        choices=["trace", "debug", "info"],
+    )
+    parser.add_argument(
+        "-s",
+        "--stop-on-failure",
+        action="store_true",
+        help="Stop running checks after a failed one.",
+    )
 
     target = parser.add_mutually_exclusive_group(required=True)
-    target.add_argument('--units', '-u', action="extend", nargs='+', type=str,
-                        help='Units to check.')
-    target.add_argument('--machines', '-M', action="extend", nargs='+', type=str,
-                        help='Check all units on the machine.')
+    target.add_argument(
+        "--units", "-u", action="extend", nargs="+", type=str, help="Units to check."
+    )
+    target.add_argument(
+        "--machines",
+        "-M",
+        action="extend",
+        nargs="+",
+        type=str,
+        help="Check all units on the machine.",
+    )
     return parser.parse_args()
 
 
@@ -137,18 +159,18 @@ def config_logger(log_level: str) -> None:
     """Configure logging options."""
     log_level = log_level.lower()
 
-    if log_level == 'trace':
+    if log_level == "trace":
         # 'trace' level enables debugging in juju lib and other dependencies
-        logging.basicConfig(format='%(message)s', level=logging.DEBUG)
+        logging.basicConfig(format="%(message)s", level=logging.DEBUG)
     else:
         # other levels apply only to juju-verify logging
-        logging.basicConfig(format='%(message)s')
-        if log_level == 'debug':
+        logging.basicConfig(format="%(message)s")
+        if log_level == "debug":
             logger.setLevel(logging.DEBUG)
-        elif log_level == 'info':
+        elif log_level == "info":
             logger.setLevel(logging.INFO)
         else:
-            fail('Unsupported log level requested: "{}"'.format(log_level))
+            fail(f"Unsupported log level requested: '{log_level}'")
 
 
 def main() -> None:
@@ -164,7 +186,7 @@ def main() -> None:
     elif args.machines:
         units = loop.run(find_units_on_machine(model, args.machines))
     else:
-        fail('juju-verify must target either juju units or juju machines')
+        fail("juju-verify must target either juju units or juju machines")
 
     try:
         verifier = get_verifier(units)
@@ -174,5 +196,5 @@ def main() -> None:
         fail(str(exc))
 
 
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     main()
