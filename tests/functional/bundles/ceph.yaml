@@ -8,7 +8,7 @@ machines:
     series: bionic
 applications:
   ceph-mon:
-    charm: cs:~rgildein/ceph-mon-3
+    charm: cs:~openstack-charmers-next/ceph-mon
     num_units: 3
     options:
       expected-osd-count: 3
@@ -18,7 +18,7 @@ applications:
     - lxd:1
     - lxd:2
   ceph-osd:
-    charm: cs:~rgildein/ceph-osd-0
+    charm: cs:~cs:~openstack-charmers-next/ceph-osd
     num_units: 3
     options:
       osd-devices: /srv/osd

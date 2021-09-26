@@ -176,7 +176,9 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
         #                  after merging the changes.
         #                  https://review.opendev.org/c/openstack/charm-ceph-osd/+/778159
         verify_charm_unit("ceph-osd", *units)
-        action_map = run_action_on_units(list(units), "get-availability-zone")
+        action_map = run_action_on_units(
+            list(units), "get-availability-zone", params={"format": "json"}
+        )
 
         availability_zone = {}
         for unit, action in action_map.items():
