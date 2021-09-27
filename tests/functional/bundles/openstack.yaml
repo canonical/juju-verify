@@ -61,7 +61,7 @@ applications:
   neutron-openvswitch:
     charm: cs:~openstack-charmers-next/neutron-openvswitch
   neutron-gateway:
-    charm: cs:~martin-kalcok/neutron-gateway-2
+    charm: cs:~openstack-charmers-next/neutron-gateway
     num_units: 2
     options:
       bridge-mappings: physnet1:br-ex

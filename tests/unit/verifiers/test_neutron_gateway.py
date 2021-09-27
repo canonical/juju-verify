@@ -40,25 +40,27 @@ mock_data = [
         "host": "host0",
         "shutdown": True,
         "unit": all_ngw_units[0],
-        "routers": [
-            {"id": "router0", "ha": False, "status": "ACTIVE"},
-            {"id": "router1", "ha": False, "status": "ACTIVE"},
-        ],
+        "routers": {
+            "router0": {"ha": False, "status": "ACTIVE"},
+            "router1": {"ha": False, "status": "ACTIVE"},
+        },
     },
     {
         "host": "host1",
         "shutdown": False,
         "unit": all_ngw_units[1],
-        "routers": [{"id": "router2", "ha": False, "status": "ACTIVE"}],
+        "routers": {
+            "router2": {"ha": False, "status": "ACTIVE"},
+        },
     },
     {
         "host": "host2",
         "shutdown": False,
         "unit": all_ngw_units[2],
-        "routers": [
-            {"id": "router3", "ha": False, "status": "ACTIVE"},
-            {"id": "router4", "ha": False, "status": "ACTIVE"},
-        ],
+        "routers": {
+            "router3": {"ha": False, "status": "ACTIVE"},
+            "router4": {"ha": False, "status": "ACTIVE"},
+        },
     },
 ]
 
@@ -90,12 +92,11 @@ def get_shutdown_host_name_list():
     return [host["host"] for host in mock_data if host["shutdown"]]
 
 
-def set_router_status(routerid, status):
+def set_router_status(router_id, status):
     """Set status of given router id in mock data."""
     for host in mock_data:
-        for router in host["routers"]:
-            if router["id"] == routerid:
-                router["status"] = status
+        if router_id in host["routers"]:
+            host["routers"][router_id].update({"status": status})
 
 
 @mock.patch(
@@ -108,7 +109,7 @@ def test_get_resource_list(mock_get_all_ngw_units, mock_get_unit_resource_list):
     mock_get_unit_resource_list.side_effect = get_resource_lists()
 
     ngw_verifier = get_ngw_verifier()
-    router_list = ngw_verifier.get_resource_list("get-status-routers")
+    router_list = ngw_verifier.get_resource_list("show-routers")
 
     router_count = 0
     for host in mock_data:
@@ -134,7 +135,7 @@ def test_get_shutdown_resource_list(
         if host["shutdown"]:
             router_shutdown_count += len(host["routers"])
 
-    shutdown_routers = ngw_verifier.get_shutdown_resource_list("get-status-routers")
+    shutdown_routers = ngw_verifier.get_shutdown_resource_list("show-routers")
     assert len(shutdown_routers) == router_shutdown_count
 
     # test that inactive resources are not being listed as being shutdown
@@ -143,7 +144,7 @@ def test_get_shutdown_resource_list(
     mock_get_all_ngw_units.return_value = all_ngw_units
     mock_get_unit_resource_list.side_effect = get_resource_lists()
 
-    shutdown_routers = ngw_verifier.get_shutdown_resource_list("get-status-routers")
+    shutdown_routers = ngw_verifier.get_shutdown_resource_list("show-routers")
     assert len(shutdown_routers) == router_shutdown_count - 1
 
     # set router0 back to active
@@ -166,7 +167,7 @@ def test_get_online_resource_list(mock_get_all_ngw_units, mock_get_unit_resource
         if not host["shutdown"]:
             router_online_count += len(host["routers"])
 
-    online_routers = ngw_verifier.get_online_resource_list("get-status-routers")
+    online_routers = ngw_verifier.get_online_resource_list("show-routers")
     assert len(online_routers) == router_online_count
 
     # test that NOT ACTIVE resources are not being listed as online/available
@@ -175,7 +176,7 @@ def test_get_online_resource_list(mock_get_all_ngw_units, mock_get_unit_resource
     mock_get_all_ngw_units.return_value = all_ngw_units
     mock_get_unit_resource_list.side_effect = get_resource_lists()
 
-    online_routers = ngw_verifier.get_online_resource_list("get-status-routers")
+    online_routers = ngw_verifier.get_online_resource_list("show-routers")
     assert len(online_routers) == router_online_count - 1
 
     # set router2 back to active
@@ -196,7 +197,7 @@ def test_check_non_redundant_resource(
     ngw_verifier = get_ngw_verifier()
 
     # host0 being shutdown, with no redundancy for its routers (router0, router1)
-    result = ngw_verifier.check_non_redundant_resource("get-status-routers")
+    result = ngw_verifier.check_non_redundant_resource("show-routers")
     assert result.success is False
 
     mock_get_all_ngw_units.return_value = all_ngw_units
@@ -208,16 +209,16 @@ def test_check_non_redundant_resource(
     global mock_data
     original_mock = deepcopy(mock_data)
     # add redundancy (but not HA) for router0, router1 onto non-shutdown hosts
-    mock_data[1]["routers"].append({"id": "router0", "ha": False, "status": "ACTIVE"})
-    mock_data[2]["routers"].append({"id": "router1", "ha": False, "status": "ACTIVE"})
+    mock_data[1]["routers"]["router0"] = {"ha": False, "status": "ACTIVE"}
+    mock_data[2]["routers"]["router1"] = {"ha": False, "status": "ACTIVE"}
     mock_get_unit_resource_list.side_effect = cycle(get_resource_lists())
-    result = ngw_verifier.check_non_redundant_resource("get-status-routers")
+    result = ngw_verifier.check_non_redundant_resource("show-routers")
     assert result.success
 
     # test setting redundant redundant router0 to NOTACTIVE will result in failure
-    mock_data[1]["routers"][-1]["status"] = "NOTACTIVE"
+    mock_data[1]["routers"]["router0"].update({"status": "NOTACTIVE"})
     mock_get_unit_resource_list.side_effect = cycle(get_resource_lists())
-    result = ngw_verifier.check_non_redundant_resource("get-status-routers")
+    result = ngw_verifier.check_non_redundant_resource("show-routers")
     assert result.success is False
 
     # test shutdown host1, which will take down the redundant router0
@@ -226,7 +227,7 @@ def test_check_non_redundant_resource(
     mock_get_unit_resource_list.side_effect = cycle(get_resource_lists())
 
     ngw_verifier = get_ngw_verifier()
-    result = ngw_verifier.check_non_redundant_resource("get-status-routers")
+    result = ngw_verifier.check_non_redundant_resource("show-routers")
     assert result.success is False
 
     # restore mock_data
@@ -253,12 +254,11 @@ def test_warn_router_ha(mock_get_all_ngw_units, mock_get_unit_resource_list):
     expected_unit = None
     expected_host = None
     for host in mock_data:
-        for router in host["routers"]:
-            if router["id"] == "router0":
-                router["ha"] = True
-                expected_router = router["id"]
-                expected_unit = host["unit"].entity_id
-                expected_host = host["host"]
+        if "router0" in host["routers"]:
+            host["routers"]["router0"].update({"ha": True})
+            expected_router = "router0"
+            expected_unit = host["unit"].entity_id
+            expected_host = host["host"]
 
     mock_get_all_ngw_units.return_value = all_ngw_units
     mock_get_unit_resource_list.side_effect = get_resource_lists()
@@ -315,7 +315,7 @@ def test_get_unit_resource_list(mock_data_from_action, mock_run_action_on_unit):
     resource = {"routers": [{"id": "r1"}]}
     mock_data_from_action.return_value = json.dumps(resource)
     resource_list = NeutronGateway.get_unit_resource_list(
-        all_ngw_units[0], "get-status-routers"
+        all_ngw_units[0], "show-routers"
     )
     mock_run_action_on_unit.assert_called_once()
     assert resource == resource_list

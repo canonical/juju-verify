@@ -15,9 +15,10 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """neutron-gateway verification."""
-import json
-from typing import List
 
+from typing import List, Dict, Any
+
+import yaml
 from juju.unit import Unit
 from packaging.version import Version
 
@@ -32,14 +33,14 @@ class NeutronGateway(BaseVerifier):
 
     NAME = "neutron-gateway"
     action_name_result_map = {
-        "get-status-routers": "router-list",
-        "get-status-dhcp": "dhcp-networks",
-        "get-status-lb": "load-balancers",
+        "show-routers": "router-list",
+        "show-dhcp-networks": "dhcp-networks",
+        "show-loadbalancers": "load-balancers",
     }
     action_name_failure_string_map = {
-        "get-status-routers": "The following routers are non-redundant: {}",
-        "get-status-dhcp": "The following DHCP networks are non-redundant: {}",
-        "get-status-lb": (
+        "show-routers": "The following routers are non-redundant: {}",
+        "show-dhcp-networks": "The following DHCP networks are non-redundant: {}",
+        "show-loadbalancers": (
             "The following LBaasV2 LBs were found: {}. LBaasV2 does not offer HA."
         ),
     }
@@ -47,15 +48,13 @@ class NeutronGateway(BaseVerifier):
     @classmethod
     def get_unit_resource_list(
         cls, unit: Unit, get_resource_action_name: str
-    ) -> List[dict]:
+    ) -> Dict[str, Dict[str, Any]]:
         """Given a get resource action, return the relevant resources on the unit."""
-        get_resource_action = run_action_on_unit(
-            unit, get_resource_action_name, params={"format": "json"}
-        )
+        get_resource_action = run_action_on_unit(unit, get_resource_action_name)
         action_name_res = cls.action_name_result_map[get_resource_action_name]
-        resource_list_json = data_from_action(get_resource_action, action_name_res)
-        resource_list = json.loads(resource_list_json)
-        return resource_list
+        resource_dict_json = data_from_action(get_resource_action, action_name_res)
+        resource_dict = yaml.safe_load(resource_dict_json)
+        return resource_dict
 
     def get_all_ngw_units(self) -> List[Unit]:
         """Get all neutron-gateway units, including those not being shutdown."""
@@ -72,16 +71,19 @@ class NeutronGateway(BaseVerifier):
 
         for unit in self.get_all_ngw_units():
             hostname = unit.machine.hostname
-            host_resource_list = self.get_unit_resource_list(
+            host_resource_dict = self.get_unit_resource_list(
                 unit, get_resource_action_name
             )
 
             # add host metadata to resource
-            for resource in host_resource_list:
-                resource["host"] = hostname
-                resource["juju-entity-id"] = unit.entity_id
-                resource["shutdown"] = hostname in shutdown_hostname_list
-                resource_list.append(resource)
+            for resource_id, info in host_resource_dict.items():
+                resource_list.append({
+                    "id": resource_id,
+                    "host": hostname,
+                    "juju-entity-id": unit.entity_id,
+                    "shutdown": hostname in shutdown_hostname_list,
+                    **info
+                })
 
         return resource_list
 
@@ -124,7 +126,7 @@ class NeutronGateway(BaseVerifier):
     def warn_router_ha(self) -> Result:
         """Warn that HA routers should be manually failed over."""
         result = Result()
-        shutdown_resource_list = self.get_shutdown_resource_list("get-status-routers")
+        shutdown_resource_list = self.get_shutdown_resource_list("show-routers")
 
         router_failover_err_list = []
         for router in shutdown_resource_list:
@@ -148,7 +150,7 @@ class NeutronGateway(BaseVerifier):
     def warn_lbaas_present(self) -> Result:
         """Warn that LBaasV2 loadbalancers are present on the verified units."""
         result = Result()
-        shutdown_lbaas_list = self.get_resource_list("get-status-lb")
+        shutdown_lbaas_list = self.get_resource_list("show-loadbalancers")
         units_with_lbaas = {unit["juju-entity-id"] for unit in shutdown_lbaas_list}
         affected_lbaas_units = set(self.unit_ids) & units_with_lbaas
 
@@ -183,6 +185,6 @@ class NeutronGateway(BaseVerifier):
         return version_check + checks_executor(
             self.warn_router_ha,
             self.warn_lbaas_present,
-            (self.check_non_redundant_resource, {"action_name": "get-status-routers"}),
-            (self.check_non_redundant_resource, {"action_name": "get-status-dhcp"}),
+            (self.check_non_redundant_resource, {"action_name": "show-routers"}),
+            (self.check_non_redundant_resource, {"action_name": "show-dhcp-networks"}),
         )
