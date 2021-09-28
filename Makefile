@@ -58,7 +58,7 @@ clean:
 	@echo "Cleaning files"
 	@git clean -fxd -e '!.idea' -e '!.vscode'
 
-functional: build
+functional:
 	@echo "Executing functional tests"
 	@tox -e func
 
