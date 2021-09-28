@@ -16,7 +16,7 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """neutron-gateway verification."""
 
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 import yaml
 from juju.unit import Unit
@@ -77,13 +77,15 @@ class NeutronGateway(BaseVerifier):
 
             # add host metadata to resource
             for resource_id, info in host_resource_dict.items():
-                resource_list.append({
-                    "id": resource_id,
-                    "host": hostname,
-                    "juju-entity-id": unit.entity_id,
-                    "shutdown": hostname in shutdown_hostname_list,
-                    **info
-                })
+                resource_list.append(
+                    {
+                        "id": resource_id,
+                        "host": hostname,
+                        "juju-entity-id": unit.entity_id,
+                        "shutdown": hostname in shutdown_hostname_list,
+                        **info,
+                    }
+                )
 
         return resource_list
 
