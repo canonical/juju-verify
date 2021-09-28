@@ -30,7 +30,6 @@ STOP_ON_FAILURE: bool = False
 
 def stop_on_failure() -> bool:
     """Get the configuration to stop on failure."""
-    global STOP_ON_FAILURE  # pylint: disable=W0603
     return STOP_ON_FAILURE
 
 

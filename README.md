@@ -79,14 +79,52 @@ more details) and implement the necessary logic.
 Then, the charm name needs to be added to `SUPPORTED_CHARMS` dictionary in
 `juju_verify/verifiers/__init__.py` *et voilà*, the charm is now supported.
 
-Don't forget to add unit and functional tests, and run:
+### Testing
+
+Don't forget to add unit and functional tests.
+
+#### Unittests
+
+Unit tests can be executed in these ways:
 
 ```bash
-make test
+make unittest
+# or
+tox -e unit
+```
+However, it is recommended to run unit tests at the same time as lint tests as follows:
+
+```bash
+make tests
+# or
+tox
+```
+
+#### Functional tests
+
+Functional tests can be run using:
+
+```bash
+make functional
+# or
+tox -e func
 ```
 
 Functional tests require some applications to use a VIP. Please ensure the `OS_VIP00`
 environment variable is set to a suitable VIP address before running functional tests.
+
+During development, different variations of all the functional tests may be run.
+Find some examples below:
+
+1. `tox -e func` runs all bundles and does not keep any Juju model
+2. `tox -e func -- --keep-faulty-model` runs all bundles and keeps the Juju models that
+                                        failed
+3. `tox -e func -- --keep-all-models --log DEBUG` runs all bundles w/ logging in debug 
+                                                  mode and keeping all the Juju models
+4. `tox -e func-target -- ceph` runs only the Ceph bundle and not keep the Juju model
+5. `tox -e func-target -- ceph --keep-model --log DEBUG` runs only the Ceph bundle w/
+                                                         logging in debug mode and keep
+                                                         the Juju model 
 
 ## Code decisions
 
