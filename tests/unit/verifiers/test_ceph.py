@@ -440,15 +440,24 @@ def test_verify_shutdown(
     mock_check_availability_zone.assert_called_once_with()
 
 
-@pytest.mark.parametrize("action_output, exp_output", [
-    ('{"quorum_names": ["host0"], "monmap": {"mons": []}}', (0, {"host0"})),
-    ('{"quorum_names": ["host0", "host1", "host2"], '
-     '"monmap": {"mons": [{"name": "host0"}, {"name": "host1"}, {"name": "host2"}]}}',
-     (3, {"host0", "host1", "host2"})),
-    ('{"quorum_names": ["host0", "host1", "host1"], '
-     '"monmap": {"mons": [{"name": "host0"}, {"name": "host1"}, {"name": "host2"}]}}',
-     (3, {"host0", "host1"}))
-])
+@pytest.mark.parametrize(
+    "action_output, exp_output",
+    [
+        ('{"quorum_names": ["host0"], "monmap": {"mons": []}}', (0, {"host0"})),
+        (
+            '{"quorum_names": ["host0", "host1", "host2"], '
+            '"monmap": {"mons": [{"name": "host0"}, {"name": "host1"}, '
+            '{"name": "host2"}]}}',
+            (3, {"host0", "host1", "host2"}),
+        ),
+        (
+            '{"quorum_names": ["host0", "host1", "host1"], '
+            '"monmap": {"mons": [{"name": "host0"}, {"name": "host1"}, '
+            '{"name": "host2"}]}}',
+            (3, {"host0", "host1"}),
+        ),
+    ],
+)
 def test_parse_quorum_status(action_output, exp_output):
     """Test function to parse `get-quorum-status` action output."""
     mock_action = MagicMock()
@@ -474,8 +483,13 @@ def test_check_ceph_mon_quorum(mocker, mon_count, online_mons, severity, msg, ho
     unit_to_remove = "ceph-mon/0"
     unit = Unit(unit_to_remove, Model())
     verifier = CephMon([unit])
-    mocker.patch.object(verifier, "run_action_on_all").return_value = {unit_to_remove: None}
-    mocker.patch.object(verifier, "_parse_quorum_status").return_value = (mon_count, online_mons)
+    mocker.patch.object(verifier, "run_action_on_all").return_value = {
+        unit_to_remove: None
+    }
+    mocker.patch.object(verifier, "_parse_quorum_status").return_value = (
+        mon_count,
+        online_mons,
+    )
     unit.machine = mock.PropertyMock(hostname=hostname)
 
     expected_msg = msg if severity == Severity.OK else msg.format(unit_to_remove)
@@ -491,11 +505,17 @@ def test_check_ceph_mon_quorum_failed_to_parse_action(mocker):
     verifier = CephMon([unit])
     mock_action = MagicMock()
     mock_action.entity_id = 12
-    mocker.patch.object(verifier, "run_action_on_all").return_value = {unit_to_remove: mock_action}
-    mocker.patch.object(verifier, "_parse_quorum_status").side_effect = KeyError("monmap")
+    mocker.patch.object(verifier, "run_action_on_all").return_value = {
+        unit_to_remove: mock_action
+    }
+    mocker.patch.object(verifier, "_parse_quorum_status").side_effect = KeyError(
+        "monmap"
+    )
 
     result = verifier.check_quorum()
-    assert result == Result(Severity.FAIL, f"Failed to parse quorum status from action 12.")
+    assert result == Result(
+        Severity.FAIL, "Failed to parse quorum status from action 12."
+    )
 
 
 @pytest.mark.parametrize(
