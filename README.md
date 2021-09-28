@@ -11,8 +11,8 @@ Juju-verify requires Juju 2.8.10 or higher.
 ## Supported charms
 
 * nova-compute (Usable with the next stable release of the charm. Currently available as a [nova-compute-rc])
-* ceph-osd (Usable with the custom release of the charm in rgildein namespace. [cs:~openstack-charmers-next/ceph-osd] and [cs:~openstack-charmers-next/ceph-mon])
-* ceph-mon (Usable with the custom release of the charm in rgildein namespace. [cs:~openstack-charmers-next/ceph-mon])
+* ceph-osd (Usable with the next stable of the charm. [cs:~openstack-charmers-next/ceph-osd] and [cs:~openstack-charmers-next/ceph-mon])
+* ceph-mon (Usable with the next stable of the charm. [cs:~openstack-charmers-next/ceph-mon])
 * neutron-gateway (Usable with the custom release of the charm in martin-kalcok namespace. [cs:~/martin-kalcok/neutron-gateway-2])
 
 ## Supported checks
@@ -215,6 +215,6 @@ If you prefer, file a bug or feature request at:
 [juju-verify-verifiers]: https://juju-verify.readthedocs.io/en/latest/verifiers.html
 [CONTRIBUTING]: https://juju-verify.readthedocs.io/en/latest/contributing.html
 [nova-compute-rc]: https://jaas.ai/u/openstack-charmers-next/nova-compute/562
-[cs:~openstack-charmers-next/ceph-osd]: https://jaas.ai/u/openstack-charmers-next/ceph-mon
+[cs:~openstack-charmers-next/ceph-osd]: https://jaas.ai/u/openstack-charmers-next/ceph-osd
 [cs:~openstack-charmers-next/ceph-mon]: https://jaas.ai/u/openstack-charmers-next/ceph-mon
 [cs:~/martin-kalcok/neutron-gateway-2]: https://jaas.ai/u/martin-kalcok/neutron-gateway/2

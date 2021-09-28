@@ -18,8 +18,9 @@
 import json
 import logging
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 
+from juju.action import Action
 from juju.unit import Unit
 from packaging.version import Version
 
@@ -358,6 +359,65 @@ class CephMon(CephCommon):
 
     NAME = "ceph-mon"
 
+    @staticmethod
+    def _parse_quorum_status(action: Action) -> Tuple[int, Set[str]]:
+        """Parse information from `get-quorum-status` action.
+
+        This function will gain *mon_count* and *online_mons* from the action output.
+        """
+        quorum_status = json.loads(data_from_action(action, "message"))
+        know_mons = set(mon["name"] for mon in quorum_status["monmap"]["mons"])
+        online_mons = set(quorum_status["quorum_names"])
+        return len(know_mons), online_mons
+
+    def check_ceph_cluster_health(self) -> Result:
+        """Check Ceph cluster health for unique ceph-mon application."""
+        # Get one ceph-mon unit per each application
+        app_map = {unit.application: unit for unit in self.units}
+        unique_app_units = app_map.values()
+        return self.check_cluster_health(*unique_app_units)
+
+    def check_quorum(self) -> Result:
+        """Check that the shutdown does not result in <50% mons alive."""
+        result = Result()
+
+        action_results = self.run_action_on_all(
+            "get-quorum-status", params={"format": "json"}
+        )
+        affected_hosts = {unit.machine.hostname for unit in self.units}
+
+        for unit_id, action in action_results.items():
+            # run this per unit because we might have multiple clusters
+            try:
+                mon_count, online_mons = self._parse_quorum_status(action)
+                mons_after_change = len(online_mons - affected_hosts)
+                if mons_after_change <= mon_count // 2:
+                    result.add_partial_result(
+                        Severity.FAIL,
+                        f"Removing unit {unit_id} will lose Ceph mon quorum",
+                    )
+
+            except (json.decoder.JSONDecodeError, KeyError) as error:
+                logger.error(
+                    "Failed to parse quorum status from Action %s. error: %s",
+                    action.entity_id,
+                    error,
+                )
+                result.add_partial_result(
+                    Severity.FAIL,
+                    f"Failed to parse quorum status from action {action.entity_id}.",
+                )
+
+        return result or Result(Severity.OK, "Ceph-mon quorum check passed.")
+
+    def check_version(self) -> Result:
+        """Check minimum required version of Juju agent.
+
+        Ceph-mon verifier requires that all the units run juju agent >=2.8.10 due to
+        reliance on juju.Machine.hostname feature.
+        """
+        return self.check_minimum_version(Version("2.8.10"), self.units)
+
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected ceph-mon units."""
         ceph_version = checks_executor(self.check_version)
@@ -372,43 +432,3 @@ class CephMon(CephCommon):
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shutdown selected units."""
         return self.verify_reboot()
-
-    def check_ceph_cluster_health(self) -> Result:
-        """Check Ceph cluster health for unique ceph-mon application."""
-        # Get one ceph-mon unit per each application
-        app_map = {unit.application: unit for unit in self.units}
-        unique_app_units = app_map.values()
-        return self.check_cluster_health(*unique_app_units)
-
-    def check_quorum(self) -> Result:
-        """Check that the shutdown does not result in <50% mons alive."""
-        result = Result()
-
-        action_name = "get-quorum-status"
-        action_results = self.run_action_on_all(action_name)
-
-        affected_hosts = {unit.machine.hostname for unit in self.units}
-
-        for unit_id, action in action_results.items():
-            # run this per unit because we might have multiple clusters
-            known_mons = set(json.loads(data_from_action(action, "known-mons")))
-            online_mons = set(json.loads(data_from_action(action, "online-mons")))
-
-            mon_count = len(known_mons)
-            mons_after_change = len(online_mons - affected_hosts)
-
-            if mons_after_change <= mon_count // 2:
-                result.add_partial_result(
-                    Severity.FAIL,
-                    f"Removing unit {unit_id} will lose Ceph mon quorum",
-                )
-
-        return result or Result(Severity.OK, "Ceph-mon quorum check passed.")
-
-    def check_version(self) -> Result:
-        """Check minimum required version of Juju agent.
-
-        Ceph-mon verifier requires that all the units run juju agent >=2.8.10 due to
-        reliance on juju.Machine.hostname feature.
-        """
-        return self.check_minimum_version(Version("2.8.10"), self.units)
