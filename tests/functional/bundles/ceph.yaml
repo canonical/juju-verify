@@ -2,13 +2,16 @@ series: bionic
 machines:
   '0':
     series: bionic
+    constraints: cores=1 mem=2G root-disk=20G
   '1':
     series: bionic
+    constraints: cores=1 mem=2G root-disk=20G
   '2':
     series: bionic
+    constraints: cores=1 mem=2G root-disk=20G
 applications:
   ceph-mon:
-    charm: cs:~rgildein/ceph-mon-3
+    charm: cs:~openstack-charmers-next/ceph-mon
     num_units: 3
     options:
       expected-osd-count: 3
