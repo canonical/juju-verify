@@ -17,7 +17,7 @@ The ``juju-verify`` tool works with this charm revisions:
 * to verify ceph-osd units: **cs:~openstack-charmers-next/ceph-osd** and **cs:~openstack-charmers-next/ceph-mon**
 * to verify ceph-mon units: **cs:~openstack-charmers-next/ceph-mon**
 * to verify nova-compute units: **cs:~openstack-charmers-next/nova-compute-562**
-* to verify neutron-gateway units: **cs:~/martin-kalcok/neutron-gateway-2**
+* to verify neutron-gateway units: **cs:~openstack-charmers-next/neutron-gateway**
 
 
 Installing
