@@ -13,7 +13,7 @@ Juju-verify requires Juju 2.8.10 or higher.
 * nova-compute (Usable with the next stable release of the charm. Currently available as a [nova-compute-rc])
 * ceph-osd (Usable with the next stable release of the charm. [cs:~openstack-charmers-next/ceph-osd] and [cs:~openstack-charmers-next/ceph-mon])
 * ceph-mon (Usable with the next stable release of the charm. [cs:~openstack-charmers-next/ceph-mon])
-* neutron-gateway (Usable with the custom release of the charm in martin-kalcok namespace. [cs:~openstack-charmers-next/neutron-gateway])
+* neutron-gateway (Usable with the next stable release of the charm. [cs:~openstack-charmers-next/neutron-gateway])
 
 ## Supported checks
 
