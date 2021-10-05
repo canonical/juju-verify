@@ -25,7 +25,7 @@ from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import CharmException, JujuActionFailed
-from juju_verify.verifiers.ceph import AvailabilityZone, CephCommon, CephMon, CephOsd
+from juju_verify.verifiers.ceph import CephCommon, CephMon, CephOsd
 from juju_verify.verifiers.result import Result, Severity
 
 CEPH_MON_QUORUM_OK = "Ceph-mon quorum check passed."
@@ -34,46 +34,6 @@ JUJU_VERSION_ERR = (
     "The machine for unit {} does not have a hostname attribute, "
     "please ensure that Juju controller is 2.8.10 or higher."
 )
-
-
-@pytest.mark.parametrize(
-    "az_info, ex_az",
-    [
-        ({"root": "default", "host": "test"}, "root=default,host=test"),
-        (
-            {"root": "default", "rack": "nova", "row": "row1", "host": "test"},
-            "root=default,row=row1,rack=nova,host=test",
-        ),
-        ({"root": "default", "skip_argument": "test"}, "root=default"),
-    ],
-)
-def test_az(az_info, ex_az):
-    """Test availability zone object."""
-    availability_zone = AvailabilityZone(**az_info)
-    assert str(availability_zone) == ex_az
-    assert hash(availability_zone) == hash(ex_az)
-
-
-def test_az_getattr():
-    """Test get attribute from AZ."""
-    availability_zone = AvailabilityZone(root="default", host="juju-1", test="test")
-    assert availability_zone.root == "default"
-    assert availability_zone.host == "juju-1"
-    with pytest.raises(AttributeError):
-        assert availability_zone.test == "test"
-
-
-def test_az_eq():
-    """Test AZ.__eq__."""
-    assert AvailabilityZone(root="default", host="juju-1") == AvailabilityZone(
-        root="default", host="juju-1"
-    )
-    assert AvailabilityZone(root="default", host="juju-1") != AvailabilityZone(
-        root="default", host="juju-2"
-    )
-    assert AvailabilityZone(root="default", host="juju-1") is not None
-    assert AvailabilityZone(root="default", host="juju-1") != 1
-    assert AvailabilityZone(root="default", host="juju-1") != "root=default,host=juju-1"
 
 
 @mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
@@ -179,33 +139,6 @@ def test_get_replication_number_error(model):
     """Test get minimum replication number from ceph-mon unit raise CharmException."""
     with pytest.raises(CharmException):
         CephCommon.get_replication_number(model.units["ceph-osd/0"])
-
-
-def test_get_number_of_free_units(model):
-    """Test get number of free units from ceph df."""
-    assert CephCommon.get_number_of_free_units(model.units["ceph-mon/0"])
-
-    with pytest.raises(CharmException):
-        CephCommon.get_number_of_free_units(model.units["ceph-osd/0"])
-
-
-@mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
-def test_get_availability_zones(mock_run_action_on_units, model):
-    """Test get information about availability zones for ceph-osd units."""
-    mock_action = MagicMock()
-    mock_action.data.get.side_effect = {
-        "results": {
-            "availability-zone": json.dumps(
-                {"unit": {"root": "default", "rack": "nova", "host": "test"}}
-            )
-        }
-    }.get
-    mock_run_action_on_units.return_value = {"ceph-osd/0": mock_action}
-
-    availability_zone = CephCommon.get_availability_zones(model.units["ceph-osd/0"])
-    assert availability_zone["ceph-osd/0"] == AvailabilityZone(
-        root="default", rack="nova"
-    )
 
 
 def test_get_ceph_mon_unit(model):
@@ -314,66 +247,6 @@ def test_check_replication_number(
     # [min_replication_number=2] verified two ceph-osd unit
     ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"], model.units["ceph-osd/1"]])
     assert ceph_osd_verifier.check_replication_number() == check_passed_result
-
-
-@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_unit")
-@mock.patch("juju_verify.verifiers.ceph.CephOsd.get_number_of_free_units")
-def test_get_free_app_units(
-    mock_get_number_of_free_units, mock_get_ceph_mon_unit, model
-):
-    """Test get number of free units for each application."""
-    mock_get_ceph_mon_unit.return_value = model.units["ceph-mon/0"]
-    mock_get_number_of_free_units.return_value = 1
-
-    free_units = CephOsd([model.units["ceph-osd/0"]]).get_free_app_units(["ceph-osd"])
-    assert free_units == {"ceph-osd": 1}
-    mock_get_number_of_free_units.assert_called_once_with(model.units["ceph-mon/0"])
-
-
-@mock.patch("juju_verify.verifiers.ceph.CephCommon.get_availability_zones")
-def test_get_apps_availability_zones(mock_get_availability_zones, model):
-    """Test get information about availability zone for each unit in application."""
-    exp_az = AvailabilityZone(root="default", rack="nova")
-    mock_get_availability_zones.return_value = {
-        "ceph-osd/0": exp_az,
-        "ceph-osd/1": exp_az,
-    }
-    azs = CephOsd([model.units["ceph-osd/0"]]).get_apps_availability_zones(["ceph-osd"])
-    assert azs == {exp_az: [model.units["ceph-osd/0"], model.units["ceph-osd/1"]]}
-    mock_get_availability_zones.assert_called_once_with(
-        model.units["ceph-osd/0"], model.units["ceph-osd/1"]
-    )
-
-
-@mock.patch("juju_verify.verifiers.ceph.CephOsd.get_free_app_units")
-@mock.patch("juju_verify.verifiers.ceph.CephOsd.get_apps_availability_zones")
-def test_check_availability_zone(
-    mock_get_apps_availability_zones, mock_get_free_app_units, model
-):
-    """Test check availability zone resources."""
-    mock_get_free_app_units.return_value = {"ceph-osd": 1}
-    mock_get_apps_availability_zones.return_value = {
-        AvailabilityZone(root="default"): [
-            model.units["ceph-osd/0"],
-            model.units["ceph-osd/1"],
-        ]
-    }
-
-    # verified one ceph-osd unit
-    result_success = CephOsd([model.units["ceph-osd/0"]]).check_availability_zone()
-    assert result_success == Result(Severity.OK, "Availability zone check passed.")
-
-    # verified two ceph-osd unit
-    result_fail = CephOsd(
-        [model.units["ceph-osd/0"], model.units["ceph-osd/1"]]
-    ).check_availability_zone()
-    expected_msg = "availability zone 'root=default'. [free_units=1, inactive_units=0]"
-
-    assert result_fail.success is False
-    assert any(
-        (partial.severity == Severity.FAIL and expected_msg in partial.message)
-        for partial in result_fail.partials
-    )
 
 
 @mock.patch(
