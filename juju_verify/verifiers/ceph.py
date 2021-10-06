@@ -17,7 +17,7 @@
 """ceph-osd verification."""
 import json
 import logging
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple
 
 from juju.action import Action
 from juju.unit import Unit
@@ -33,6 +33,111 @@ from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.result import Result, Severity, checks_executor
 
 logger = logging.getLogger()
+
+CRUSH_MAP_HIERARCHY = {
+    "root": 10,
+    "region": 9,
+    "datacenter": 8,
+    "room": 7,
+    "pod": 6,
+    "pdu": 5,
+    "row": 4,
+    "rack": 3,
+    "chassis": 2,
+    "host": 1,
+    "osd": 0,
+}
+
+
+class NodeInfo(NamedTuple):
+    """Information about Note obtains from `df osd tree`."""
+
+    id: int
+    name: str
+    type_id: int
+    type: str
+    kb: int
+    kb_used: int
+    kb_avail: int
+    children: Optional[List[int]] = None
+
+    def __str__(self) -> str:
+        """Return string representation of Node."""
+        return f"{self.name}({self.id})"
+
+    def __hash__(self) -> int:
+        """Return hash representation of Node."""
+        return hash(self.__str__())
+
+
+class AvailabilityZone:
+    """Availability zone."""
+
+    def __init__(self, nodes: List[NodeInfo]):
+        """Availability zone initialization."""
+        self._nodes = {node.name: node for node in nodes}
+
+    def __eq__(self, other: object) -> bool:
+        """Compare two Result instances."""
+        if not isinstance(other, AvailabilityZone):
+            return NotImplemented
+
+        return self._nodes.keys() == other._nodes.keys()
+
+    def __str__(self) -> str:
+        """Return string representation of AZ objects."""
+        return ",".join(
+            str(node)
+            for node in sorted(
+                self._nodes.values(), key=lambda node: node.type_id, reverse=True
+            )
+        )
+
+    def __hash__(self) -> int:
+        """Return hash representation of AZ objects."""
+        return hash(self.__str__())
+
+    def find_parent(self, node_id: int) -> Optional[NodeInfo]:
+        """Find the node that has the id in the children list."""
+        for node in self._nodes.values():
+            if node.children is not None and node_id in node.children:
+                return node
+
+        return None
+
+    def get_node(self, name: str) -> NodeInfo:
+        """Get child from children list."""
+        try:
+            return self._nodes[name]
+        except KeyError as error:
+            raise KeyError(f"Node {name} was not found.") from error
+
+    def can_be_removed(self, *names: str) -> bool:
+        """Check if child could be removed."""
+        # Finds matching parents for children.
+        parents_children_map: Dict[NodeInfo, List[NodeInfo]] = {}
+        for name in names:
+            child = self.get_node(name)
+            parent = self.find_parent(child.id)
+            if not parent:
+                logger.warning("A parent for the node %s could not be found.", child)
+                return False
+
+            if parent not in parents_children_map:
+                parents_children_map[parent] = []
+
+            parents_children_map[parent].append(child)
+
+        # Check if all children could be removed from parent.ww
+        for parent, children in parents_children_map.items():
+            if parent.kb_avail <= sum(child.kb_used for child in children):
+                logger.debug(
+                    "Lack of space. Children %s cannot be removed.",
+                    ",".join(str(child) for child in children),
+                )
+                return False
+
+        return True
 
 
 class CephCommon(BaseVerifier):  # pylint: disable=W0223
@@ -97,6 +202,32 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
             return min(pool["size"] - pool["min_size"] for pool in pools)
 
         return None
+
+    @classmethod
+    def get_disk_utilization(cls, unit: Unit) -> List[NodeInfo]:
+        """Get disk utilization as osd tree output."""
+        verify_charm_unit("ceph-mon", unit)
+        action_map = run_action_on_units(
+            [unit], "show-disk-free", params={"format": "json"}
+        )
+        action_output = data_from_action(
+            action_map.get(unit.entity_id), "message", "{}"
+        )
+        logger.debug("parse information about disk utilization: %s", action_output)
+        osd_tree: Dict[str, Any] = json.loads(action_output)
+        return [
+            NodeInfo(
+                id=node["id"],
+                name=node["name"],
+                type=node["type"],
+                type_id=node["type_id"],
+                kb=node["kb"],
+                kb_used=node["kb_used"],
+                kb_avail=node["kb_avail"],
+                children=node.get("children"),
+            )
+            for node in osd_tree["nodes"]
+        ]
 
 
 class CephOsd(CephCommon):
@@ -191,7 +322,21 @@ class CephOsd(CephCommon):
         interrupting operation in the availability zone.
         """
         result = Result()
-        # TODO: add new implementation from JV001
+        for ceph_osd_app, ceph_mon_unit in self.ceph_mon_app_map.items():
+            availability_zone = AvailabilityZone(
+                nodes=self.get_disk_utilization(ceph_mon_unit)
+            )
+            units = [unit for unit in self.units if unit.application == ceph_osd_app]
+            affected_hosts = {unit.machine.hostname for unit in units}
+
+            if not availability_zone.can_be_removed(*affected_hosts):
+                units_to_remove = ", ".join(unit.entity_id for unit in units)
+                result += Result(
+                    Severity.FAIL,
+                    f"It's not safe to removed units {units_to_remove} in the "
+                    f"availability zone '{availability_zone}'.",
+                )
+
         return result or Result(Severity.OK, "Availability zone check passed.")
 
     def verify_reboot(self) -> Result:
