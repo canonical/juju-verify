@@ -165,13 +165,14 @@ def test_availability_zone(exp_child, exp_parent, can_be_removed):
         )
     ]
     az = AvailabilityZone(nodes=nodes)
+    child = az.get_nodes(exp_child)[0]
 
-    assert exp_child == az.get_node(exp_child).name
-    assert exp_parent == az.find_parent(az.get_node(exp_child).id).name
+    assert exp_child == child.name
+    assert exp_parent == az.find_parent(child.id).name
     assert can_be_removed == az.can_be_removed(exp_child)
 
     with pytest.raises(KeyError):
-        az.get_node("not-valid-child-name")
+        az.get_nodes("not-valid-child-name")
 
     with pytest.raises(KeyError):
         az.can_be_removed("not-valid-child-name")

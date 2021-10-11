@@ -17,6 +17,7 @@
 """ceph-osd verification."""
 import json
 import logging
+from collections import defaultdict
 from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple
 
 from juju.action import Action
@@ -34,23 +35,30 @@ from juju_verify.verifiers.result import Result, Severity, checks_executor
 
 logger = logging.getLogger()
 
-CRUSH_MAP_HIERARCHY = {
-    "root": 10,
-    "region": 9,
-    "datacenter": 8,
-    "room": 7,
-    "pod": 6,
-    "pdu": 5,
-    "row": 4,
-    "rack": 3,
-    "chassis": 2,
-    "host": 1,
-    "osd": 0,
-}
-
 
 class NodeInfo(NamedTuple):
-    """Information about Note obtains from `df osd tree`."""
+    """Information about Node obtains from `ceph df osd tree`.
+
+    The `ceph df` [1] comes from ceph-mon unit and it's run with additional option
+    `tree` to show output in Crush Map hierarchy format.
+    The Crush Map hierarchy [2] contains the following types along with their IDs.
+
+    List of types and their id:
+    root: 10
+    region: 9
+    datacenter: 8
+    room: 7
+    pod: 6
+    pdu: 5
+    row: 4
+    rack: 3
+    chassis: 2
+    host: 1
+    osd: 0
+
+    [1]: https://docs.ceph.com/en/latest/api/mon_command_api/#df
+    [2]: https://docs.ceph.com/en/latest/rados/operations/crush-map/#types-and-buckets
+    """
 
     id: int
     name: str
@@ -74,23 +82,25 @@ class AvailabilityZone:
     """Availability zone."""
 
     def __init__(self, nodes: List[NodeInfo]):
-        """Availability zone initialization."""
-        self._nodes = {node.name: node for node in nodes}
+        """Availability zone initialization.
+
+        The nodes argument come from the output of the `ceph df osd tree` command,
+        while the type `host` has the name corresponding to the hostname of the machine.
+        """
+        self._nodes = nodes
 
     def __eq__(self, other: object) -> bool:
         """Compare two Result instances."""
         if not isinstance(other, AvailabilityZone):
             return NotImplemented
 
-        return self._nodes.keys() == other._nodes.keys()
+        return self._nodes == other._nodes
 
     def __str__(self) -> str:
         """Return string representation of AZ objects."""
         return ",".join(
             str(node)
-            for node in sorted(
-                self._nodes.values(), key=lambda node: node.type_id, reverse=True
-            )
+            for node in sorted(self._nodes, key=lambda node: node.type_id, reverse=True)
         )
 
     def __hash__(self) -> int:
@@ -99,37 +109,46 @@ class AvailabilityZone:
 
     def find_parent(self, node_id: int) -> Optional[NodeInfo]:
         """Find the node that has the id in the children list."""
-        for node in self._nodes.values():
-            if node.children is not None and node_id in node.children:
+        for node in self._nodes:
+            if node.children and node_id in node.children:
                 return node
 
         return None
 
-    def get_node(self, name: str) -> NodeInfo:
-        """Get child from children list."""
-        try:
-            return self._nodes[name]
-        except KeyError as error:
-            raise KeyError(f"Node {name} was not found.") from error
+    def get_nodes(self, name: str) -> List[NodeInfo]:
+        """Get nodes by their name."""
+        nodes = [node for node in self._nodes if node.name == name]
+        if not nodes:
+            raise KeyError(f"Node {name} was not found.")
+
+        return nodes
 
     def can_be_removed(self, *names: str) -> bool:
         """Check if child could be removed."""
         # Finds matching parents for children.
-        parents_children_map: Dict[NodeInfo, List[NodeInfo]] = {}
+        parents_children_map = defaultdict(list)
         for name in names:
-            child = self.get_node(name)
-            parent = self.find_parent(child.id)
-            if not parent:
-                logger.warning("A parent for the node %s could not be found.", child)
-                return False
+            # NOTE (rgildein): `Self.get_node` could raise an error here, but the
+            #                  check runner catches all exceptions.
+            children = self.get_nodes(name)
+            for child in children:
+                parent = self.find_parent(child.id)
+                if not parent:
+                    logger.warning(
+                        "A parent for the node %s could not be found.", child
+                    )
+                    return False
 
-            if parent not in parents_children_map:
-                parents_children_map[parent] = []
+                parents_children_map[parent].append(child)
 
-            parents_children_map[parent].append(child)
-
-        # Check if all children could be removed from parent.ww
+        # Check if all children could be removed from parent.
         for parent, children in parents_children_map.items():
+            # NOTE (rgildein): This will check that the parent will have enough space
+            #                  even if the children are removed.
+            #                  example with attempt to remove 3 children:
+            #                    parent has 1 000 KB (1MB) free space
+            #                    space that children use is 200 KB each (600 KB total)
+            #                    data from deleted children will fit on the parent
             if parent.kb_avail <= sum(child.kb_used for child in children):
                 logger.debug(
                     "Lack of space. Children %s cannot be removed.",
@@ -207,6 +226,9 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
     def get_disk_utilization(cls, unit: Unit) -> List[NodeInfo]:
         """Get disk utilization as osd tree output."""
         verify_charm_unit("ceph-mon", unit)
+        # NOTE (rgildein): The `show-disk-free` action will provide output w/ 3 keys,
+        #                  while this function uses only one, namely `nodes`.
+        #                  https://github.com/openstack/charm-ceph-mon#actions
         action_map = run_action_on_units(
             [unit], "show-disk-free", params={"format": "json"}
         )
