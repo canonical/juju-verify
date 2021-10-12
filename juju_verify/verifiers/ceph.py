@@ -70,8 +70,11 @@ class NodeInfo(NamedTuple):
     children: Optional[List[int]] = None
 
     def __str__(self) -> str:
-        """Return string representation of Node."""
-        return f"{self.name}({self.id})"
+        """Return representation of the Node as a string.
+
+        The string format is <type_id>-<name>(<id>).
+        """
+        return f"{self.type_id}-{self.name}({self.id})"
 
     def __hash__(self) -> int:
         """Return hash representation of Node."""
@@ -84,7 +87,7 @@ class AvailabilityZone:
     def __init__(self, nodes: List[NodeInfo]):
         """Availability zone initialization.
 
-        The nodes argument come from the output of the `ceph df osd tree` command,
+        The nodes argument comes from the output of the `ceph df osd tree` command,
         while the type `host` has the name corresponding to the hostname of the machine.
         """
         self._nodes = nodes
@@ -129,7 +132,7 @@ class AvailabilityZone:
         parents_children_map = defaultdict(list)
         for name in names:
             # NOTE (rgildein): `Self.get_node` could raise an error here, but the
-            #                  check runner catches all exceptions.
+            # check runner catches all exceptions.
             children = self.get_nodes(name)
             for child in children:
                 parent = self.find_parent(child.id)
@@ -144,11 +147,11 @@ class AvailabilityZone:
         # Check if all children could be removed from parent.
         for parent, children in parents_children_map.items():
             # NOTE (rgildein): This will check that the parent will have enough space
-            #                  even if the children are removed.
-            #                  example with attempt to remove 3 children:
-            #                    parent has 1 000 KB (1MB) free space
-            #                    space that children use is 200 KB each (600 KB total)
-            #                    data from deleted children will fit on the parent
+            # even if the children are removed. example with attempt to remove 3
+            # children:
+            #   parent has 1 000 KB (1MB) free space
+            #   space that children use is 200 KB each (600 KB total)
+            #   data from deleted children will fit on the parent
             if parent.kb_avail <= sum(child.kb_used for child in children):
                 logger.debug(
                     "Lack of space. Children %s cannot be removed.",
@@ -227,8 +230,8 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
         """Get disk utilization as osd tree output."""
         verify_charm_unit("ceph-mon", unit)
         # NOTE (rgildein): The `show-disk-free` action will provide output w/ 3 keys,
-        #                  while this function uses only one, namely `nodes`.
-        #                  https://github.com/openstack/charm-ceph-mon#actions
+        # while this function uses only one, namely `nodes`.
+        # https://github.com/openstack/charm-ceph-mon#actions
         action_map = run_action_on_units(
             [unit], "show-disk-free", params={"format": "json"}
         )

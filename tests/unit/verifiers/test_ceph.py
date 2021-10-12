@@ -113,7 +113,7 @@ TEST_NODES_OUTPUT = [
 def test_node_info():
     """Test initialization of NodeInfo and comparison."""
     node = {
-        "id": 0,
+        "id": 10,
         "name": "osd.0",
         "type": "osd",
         "type_id": 0,
@@ -123,10 +123,10 @@ def test_node_info():
     }
     node_info = NodeInfo(**node)
 
-    assert node_info.id == 0
+    assert node_info.id == 10
     assert node_info == NodeInfo(**node)
-    assert str(node_info) == "osd.0(0)"
-    assert hash(node_info) == hash("osd.0(0)")
+    assert str(node_info) == "0-osd.0(10)"
+    assert hash(node_info) == hash("0-osd.0(10)")
 
 
 def test_availability_zone_method():
@@ -533,7 +533,8 @@ def test_check_availability_zone(
     assert result == Result(
         Severity.FAIL,
         "It's not safe to removed units ceph-osd-hdd/0 in the availability zone "
-        "'default(-1),rack.1(-2),rack.2(-3),osd.0(0),osd.1(1),osd.2(2),osd.3(3)'.",
+        "'10-default(-1),3-rack.1(-2),3-rack.2(-3),"
+        "0-osd.0(0),0-osd.1(1),0-osd.2(2),0-osd.3(3)'.",
     )
 
     # test removing multiple units from same application and both could not be removed
@@ -546,7 +547,8 @@ def test_check_availability_zone(
     assert result == Result(
         Severity.FAIL,
         "It's not safe to removed units ceph-osd/0, ceph-osd/1 in the availability zone"
-        " 'default(-1),rack.1(-2),rack.2(-3),osd.0(0),osd.1(1),osd.2(2),osd.3(3)'.",
+        " '10-default(-1),3-rack.1(-2),3-rack.2(-3),"
+        "0-osd.0(0),0-osd.1(1),0-osd.2(2),0-osd.3(3)'.",
     )
 
 
