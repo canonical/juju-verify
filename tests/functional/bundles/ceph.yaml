@@ -24,7 +24,7 @@ applications:
       osd-devices: /dev/loop0
     storage:
       # NOTE (rgildein): The use of a 1.5G size storage device will ensure that it is
-      #                  not safe to remove two ceph-osd units.
+      # not safe to remove two ceph-osd units.
       osd-devices: loop,1.5G
     to:
       - 0

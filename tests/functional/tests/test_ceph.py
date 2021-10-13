@@ -95,8 +95,9 @@ class CephOsdTests(BaseTestCase):
         logger.info("result: %s", result)
         self.assertFalse(result.success)
         self.assert_message_in_result(
-            r"\[FAIL\] It's not safe to removed units ceph-osd\/\d, ceph-osd\/\d "
-            r"in the availability zone '{}'.".format(exp_availability_zone_regex),
+            r"\[FAIL\] It's not safe to restart\/shutdown unit\(s\) ceph-osd\/\d,"
+            r"ceph-osd\/\d in the availability zone "
+            r"'{}'.".format(exp_availability_zone_regex),
             result,
         )
 

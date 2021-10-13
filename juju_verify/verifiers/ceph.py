@@ -43,7 +43,7 @@ class NodeInfo(NamedTuple):
     `tree` to show output in Crush Map hierarchy format.
     The Crush Map hierarchy [2] contains the following types along with their IDs.
 
-    List of types and their id:
+    <type>: <type_id>
     root: 10
     region: 9
     datacenter: 8
@@ -70,10 +70,7 @@ class NodeInfo(NamedTuple):
     children: Optional[List[int]] = None
 
     def __str__(self) -> str:
-        """Return representation of the Node as a string.
-
-        The string format is <type_id>-<name>(<id>).
-        """
+        """Return representation of the Node as a string."""
         return f"{self.type_id}-{self.name}({self.id})"
 
     def __hash__(self) -> int:
@@ -358,8 +355,8 @@ class CephOsd(CephCommon):
                 units_to_remove = ", ".join(unit.entity_id for unit in units)
                 result += Result(
                     Severity.FAIL,
-                    f"It's not safe to removed units {units_to_remove} in the "
-                    f"availability zone '{availability_zone}'.",
+                    f"It's not safe to restart/shutdown unit(s) {units_to_remove} in "
+                    f"the availability zone '{availability_zone}'.",
                 )
 
         return result or Result(Severity.OK, "Availability zone check passed.")
