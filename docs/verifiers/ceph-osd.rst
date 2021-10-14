@@ -9,6 +9,8 @@ perform the same set of checks.
 * check availability zones resources
 
 
+.. _check Ceph cluster health:
+
 check Ceph clusters health
 --------------------------
 
