@@ -236,6 +236,7 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
         action_output = data_from_action(
             action_map.get(unit.entity_id), "message", "{}"
         )
+        # NOTE (rgildein): The returned output is supported since Ceph v10.2.11 onwards.
         logger.debug("parse information about disk utilization: %s", action_output)
         osd_tree: Dict[str, Any] = json.loads(action_output)
         return [
