@@ -149,14 +149,14 @@ def test_availability_zone_method():
 
 
 @pytest.mark.parametrize(
-    "exp_child, exp_parent, can_be_removed",
+    "exp_child, exp_parent, can_remove_node",
     [
         ("rack.1", "default", False),
         ("osd.0", "rack.1", False),
         ("osd.2", "rack.2", True),
     ],
 )
-def test_availability_zone(exp_child, exp_parent, can_be_removed):
+def test_availability_zone(exp_child, exp_parent, can_remove_node):
     """Test AvailabilityZone object."""
     nodes = [
         NodeInfo(**node)
@@ -169,18 +169,18 @@ def test_availability_zone(exp_child, exp_parent, can_be_removed):
 
     assert exp_child == child.name
     assert exp_parent == az.find_parent(child.id).name
-    assert can_be_removed == az.can_be_removed(exp_child)
+    assert can_remove_node == az.can_remove_node(exp_child)
 
     with pytest.raises(KeyError):
         az.get_nodes("not-valid-child-name")
 
     with pytest.raises(KeyError):
-        az.can_be_removed("not-valid-child-name")
+        az.can_remove_node("not-valid-child-name")
 
     # try to find parent for root
     assert az.find_parent(-1) is None
     # test if root could be removed
-    assert az.can_be_removed("default") is False
+    assert az.can_remove_node("default") is False
 
 
 @mock.patch("juju_verify.verifiers.ceph.run_action_on_units")

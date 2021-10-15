@@ -84,8 +84,9 @@ class AvailabilityZone:
     def __init__(self, nodes: List[NodeInfo]):
         """Availability zone initialization.
 
-        The nodes argument comes from the output of the `ceph df osd tree` command,
-        while the type `host` has the name corresponding to the hostname of the machine.
+        The nodes argument comes from the output of the `ceph df osd tree` command
+        and consists of NodeInfo.
+        All nodes of type `host` have `name` equivalent to machine hostname.
         """
         self._nodes = nodes
 
@@ -123,7 +124,7 @@ class AvailabilityZone:
 
         return nodes
 
-    def can_be_removed(self, *names: str) -> bool:
+    def can_remove_node(self, *names: str) -> bool:
         """Check if child could be removed."""
         # Finds matching parents for children.
         parents_children_map = defaultdict(list)
@@ -351,7 +352,7 @@ class CephOsd(CephCommon):
             units = [unit for unit in self.units if unit.application == ceph_osd_app]
             affected_hosts = {unit.machine.hostname for unit in units}
 
-            if not availability_zone.can_be_removed(*affected_hosts):
+            if not availability_zone.can_remove_node(*affected_hosts):
                 units_to_remove = ", ".join(unit.entity_id for unit in units)
                 result += Result(
                     Severity.FAIL,
