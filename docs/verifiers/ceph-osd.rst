@@ -120,14 +120,14 @@ as follows (only the parts used are described):
  - ``kb_avail`` - total available (free) space size
  - ``children`` - list of child node IDs
 
-To properly determine if the unit can be shutdown/restart it's a comparison of
+To properly determine if the unit can be shutdown/rebooted it's a comparison of
 free space on the parent node with the size of the used space on the node.
 Let's show this using the previous example of ``show-disk-free`` action output:
 
-  - verify that the ``juju-1234-ceph-0`` unit can be shutdown/restart
+  - verify that the ``juju-1234-ceph-0`` unit can be shutdown/rebooted
   - the unit uses a total of 1066880 kb space
-  - parent with ID -1, who has the unit among his children, has 1505664 kb free space
-  - it's safe to shutdown/restart the unit, because data from it could be transferred
+  - parent with ID -1, which has the unit among its children, has 1505664 kb free space
+  - it's safe to shutdown/rebooted the unit, because data from it could be transferred
     to another unit (1505664 > 1066880)
 
 .. image:: ../img/check_availability_zone.svg
