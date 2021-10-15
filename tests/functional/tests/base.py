@@ -9,7 +9,7 @@ from zaza.openstack.charm_tests.test_utils import OpenStackBaseTest
 from juju_verify import juju_verify
 from juju_verify.utils.action import cache
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 class BaseTestCase(unittest.TestCase):

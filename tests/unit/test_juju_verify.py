@@ -15,9 +15,10 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """Test suite for the entrypoint function and helpers."""
-
+import importlib
 import logging
 import os
+import pkgutil
 import sys
 from argparse import Namespace
 from asyncio import Future
@@ -31,6 +32,21 @@ from juju.unit import Unit
 from juju_verify import juju_verify
 from juju_verify.exceptions import CharmException, VerificationError
 from juju_verify.verifiers.base import Result, Severity
+
+
+def test_all_loggers():
+    """Test if all logger used in this project inherited from juju_verify.
+
+    All logger should be defined as follow:
+    logger = logging.getLogger(__name__)
+    """
+    for _, name, _ in pkgutil.walk_packages([__package__]):
+        if name != "setup":
+            juju_verify_module = importlib.import_module(name)
+            if hasattr(juju_verify_module, "logger"):
+                assert juju_verify_module.logger.name.startswith(
+                    "juju_verify"
+                ), "`{}.logger` does not inherit from juju_verify".format(name)
 
 
 def test_fail(mocker):
@@ -126,35 +142,27 @@ async def test_find_units_on_machine(model, all_units):
 
 
 @pytest.mark.parametrize(
-    "log_level, log_constant",
+    "log_level, global_level, local_level",
     [
-        ("debug", logging.DEBUG),
-        ("DEBUG", logging.DEBUG),
-        ("info", logging.INFO),
-        ("InFo", logging.INFO),
+        ("trace", logging.DEBUG, logging.DEBUG),
+        ("debug", logging.INFO, logging.DEBUG),
+        ("DEBUG", logging.INFO, logging.DEBUG),
+        ("info", logging.WARNING, logging.INFO),
+        ("InFo", logging.WARNING, logging.INFO),
     ],
 )
-def test_logger_setup_basic_levels(mocker, log_level, log_constant):
+def test_config_logger(mocker, log_level, global_level, local_level):
     """Test setting basic log levels (debug/info)."""
-    logger = mocker.patch.object(juju_verify, "logger")
-    basic_config = mocker.patch.object(logging, "basicConfig")
-    log_format = "%(message)s"
+    mock_get_logger = mocker.patch.object(juju_verify.logging, "getLogger")
+    mock_root_logger = mock_get_logger.return_value = MagicMock()
+    mock_logger = mocker.patch.object(juju_verify, "logger")
+    mock_stream_handler = mocker.patch.object(juju_verify, "stream_handler")
 
     juju_verify.config_logger(log_level)
 
-    logger.setLevel.assert_called_once_with(log_constant)
-    basic_config.assert_called_once_with(format=log_format)
-
-
-@pytest.mark.parametrize("log_level", ["trace", "TRACE"])
-def test_logger_setup_deep_logging(mocker, log_level):
-    """Test setting up deep logging with 'trace' level."""
-    basic_config = mocker.patch.object(logging, "basicConfig")
-    log_format = "%(message)s"
-
-    juju_verify.config_logger(log_level)
-
-    basic_config.assert_called_once_with(format=log_format, level=logging.DEBUG)
+    mock_root_logger.setLevel.assert_called_once_with(global_level)
+    mock_logger.setLevel.assert_called_once_with(local_level)
+    mock_stream_handler.setFormatter.assert_called_once()
 
 
 @pytest.mark.parametrize("log_level", ["warning", "error", "critical", "foo"])

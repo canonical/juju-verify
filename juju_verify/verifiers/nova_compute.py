@@ -23,7 +23,7 @@ from juju_verify.utils.unit import run_action_on_unit
 from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.result import Result, Severity, checks_executor
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class NovaCompute(BaseVerifier):
