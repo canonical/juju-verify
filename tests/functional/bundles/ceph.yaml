@@ -1,13 +1,10 @@
 series: bionic
 machines:
   '0':
-    series: bionic
     constraints: cores=1 mem=2G root-disk=20G
   '1':
-    series: bionic
     constraints: cores=1 mem=2G root-disk=20G
   '2':
-    series: bionic
     constraints: cores=1 mem=2G root-disk=20G
 applications:
   ceph-mon:
@@ -24,7 +21,11 @@ applications:
     charm: cs:~openstack-charmers-next/ceph-osd
     num_units: 3
     options:
-      osd-devices: /srv/osd
+      osd-devices: /dev/loop0
+    storage:
+      # NOTE (rgildein): The use of a 1.5G size storage device will ensure that it is
+      # not safe to remove two ceph-osd units.
+      osd-devices: loop,1.5G
     to:
       - 0
       - 1
