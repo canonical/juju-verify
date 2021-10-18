@@ -13,7 +13,7 @@ from juju_verify.verifiers import get_verifier
 from juju_verify.verifiers.ceph import CephCommon
 from juju_verify.verifiers.result import Result
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class CephOsdTests(BaseTestCase):

@@ -29,11 +29,13 @@ from juju import errors, loop
 from juju.model import Model
 from juju.unit import Unit
 
+from juju_verify import logger as juju_verify_logger
+from juju_verify import stream_handler
 from juju_verify.exceptions import CharmException, VerificationError
 from juju_verify.verifiers import BaseVerifier, get_verifier
 from juju_verify.verifiers.result import set_stop_on_failure
 
-logger = logging.getLogger(__package__)
+logger = logging.getLogger(__name__)
 
 
 def fail(err_msg: str) -> None:
@@ -158,26 +160,34 @@ def parse_args() -> argparse.Namespace:
 def config_logger(log_level: str) -> None:
     """Configure logging options."""
     log_level = log_level.lower()
+    root_logger = logging.getLogger()
 
     if log_level == "trace":
         # 'trace' level enables debugging in juju lib and other dependencies
-        logging.basicConfig(format="%(message)s", level=logging.DEBUG)
+        stream_handler.setFormatter(
+            logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+        )
+        root_logger.setLevel(logging.DEBUG)
+        juju_verify_logger.setLevel(logging.DEBUG)
+    elif log_level == "debug":
+        stream_handler.setFormatter(logging.Formatter("| %(levelname)s | %(message)s"))
+        root_logger.setLevel(logging.INFO)
+        # set DEBUG level only for juju-verify logger
+        juju_verify_logger.setLevel(logging.DEBUG)
+    elif log_level == "info":
+        stream_handler.setFormatter(logging.Formatter("%(message)s"))
+        root_logger.setLevel(logging.WARNING)
+        # set INFO level only for juju-verify logger
+        juju_verify_logger.setLevel(logging.INFO)
     else:
-        # other levels apply only to juju-verify logging
-        logging.basicConfig(format="%(message)s")
-        if log_level == "debug":
-            logger.setLevel(logging.DEBUG)
-        elif log_level == "info":
-            logger.setLevel(logging.INFO)
-        else:
-            fail(f"Unsupported log level requested: '{log_level}'")
+        fail(f"Unsupported log level requested: '{log_level}'")
 
 
 def main() -> None:
     """Execute 'juju-verify' command."""
     args = parse_args()
     set_stop_on_failure(args.stop_on_failure)
-    config_logger(args.log_level)
+    config_logger(args.log_level)  # update logging option
     model = loop.run(connect_model(args.model))
     units: List[Unit] = []
 

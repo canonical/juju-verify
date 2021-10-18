@@ -27,7 +27,7 @@ from tests.base import OpenstackBaseTestCase
 from juju_verify import juju_verify
 from juju_verify.verifiers import get_verifier
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class NeutronTests(OpenstackBaseTestCase):
