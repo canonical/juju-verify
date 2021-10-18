@@ -28,7 +28,7 @@ from juju import errors
 from juju.model import Model
 from juju.unit import Unit
 
-from juju_verify import juju_verify
+from juju_verify import entrypoint
 from juju_verify.exceptions import CharmException, VerificationError
 from juju_verify.verifiers.base import Result, Severity
 
@@ -36,12 +36,12 @@ from juju_verify.verifiers.base import Result, Severity
 def test_fail(mocker):
     """Test that fail function logs message and exits program."""
     mock_exit = mocker.patch.object(sys, "exit")
-    mocker.patch.object(juju_verify, "logger")
+    mocker.patch.object(entrypoint, "logger")
     msg = "test_fail"
 
-    juju_verify.fail(msg)
+    entrypoint.fail(msg)
 
-    juju_verify.logger.error.assert_called_with(msg)
+    entrypoint.logger.error.assert_called_with(msg)
     mock_exit.assert_called_with(1)
 
 
@@ -57,11 +57,11 @@ async def test_connect_model(mocker, fail, model_name, func_name):
     either call 'juju.model.Model().connect_current` if model_name is None,
     or `juju.model.Model().connect_model(model_name)` if model_name is provided
     """
-    connection_method = mocker.patch.object(juju_verify.Model, func_name)
+    connection_method = mocker.patch.object(entrypoint.Model, func_name)
     connection_method.return_value = Future()
     connection_method.return_value.set_result(None)
 
-    model = await juju_verify.connect_model(model_name)
+    model = await entrypoint.connect_model(model_name)
 
     connection_method.assert_called_once()
     fail.assert_not_called()
@@ -73,7 +73,7 @@ async def test_connect_model(mocker, fail, model_name, func_name):
     connection_method.side_effect = errors.JujuError(err_msg)
     expected_msg = f"Failed to connect to the model.{os.linesep}{err_msg}"
 
-    await juju_verify.connect_model(model_name)
+    await entrypoint.connect_model(model_name)
 
     fail.assert_called_once_with(expected_msg)
 
@@ -81,7 +81,7 @@ async def test_connect_model(mocker, fail, model_name, func_name):
 @pytest.mark.asyncio
 async def test_find_units(model, all_units, fail):
     """Test that find_units returns correct list of Unit objects."""
-    unit_list = await juju_verify.find_units(model, all_units)
+    unit_list = await entrypoint.find_units(model, all_units)
 
     assert len(unit_list) == len(all_units)
 
@@ -95,7 +95,7 @@ async def test_find_units(model, all_units, fail):
     missing_unit = "foo/0"
     expected_message = f"Unit '{missing_unit}' not found in the model."
 
-    await juju_verify.find_units(model, [missing_unit])
+    await entrypoint.find_units(model, [missing_unit])
 
     fail.assert_called_once_with(expected_message)
 
@@ -120,7 +120,7 @@ async def test_find_units_on_machine(model, all_units):
         elif unit_name in machine_2_units:
             unit.machine = machine_2
 
-    found_units = await juju_verify.find_units_on_machine(model, [machine_1_name])
+    found_units = await entrypoint.find_units_on_machine(model, [machine_1_name])
 
     assert machine_1_units == [unit.entity_id for unit in found_units]
 
@@ -136,11 +136,11 @@ async def test_find_units_on_machine(model, all_units):
 )
 def test_logger_setup_basic_levels(mocker, log_level, log_constant):
     """Test setting basic log levels (debug/info)."""
-    logger = mocker.patch.object(juju_verify, "logger")
+    logger = mocker.patch.object(entrypoint, "logger")
     basic_config = mocker.patch.object(logging, "basicConfig")
     log_format = "%(message)s"
 
-    juju_verify.config_logger(log_level)
+    entrypoint.config_logger(log_level)
 
     logger.setLevel.assert_called_once_with(log_constant)
     basic_config.assert_called_once_with(format=log_format)
@@ -152,7 +152,7 @@ def test_logger_setup_deep_logging(mocker, log_level):
     basic_config = mocker.patch.object(logging, "basicConfig")
     log_format = "%(message)s"
 
-    juju_verify.config_logger(log_level)
+    entrypoint.config_logger(log_level)
 
     basic_config.assert_called_once_with(format=log_format, level=logging.DEBUG)
 
@@ -162,7 +162,7 @@ def test_unsupported_log_levels(fail, log_level):
     """juju-verify cli supports only info(default)/debug/trace log levels."""
     expected_msg = f"Unsupported log level requested: '{log_level}'"
 
-    juju_verify.config_logger(log_level)
+    entrypoint.config_logger(log_level)
 
     fail.assert_called_with(expected_msg)
 
@@ -222,7 +222,7 @@ def test_parse_args(args, exp_args, mocker):
     mocker.patch("sys.argv", ["juju-verify", *args])
     exp_result = Namespace(**exp_args, log_level="info", model=None)
 
-    result = juju_verify.parse_args()
+    result = entrypoint.parse_args()
     assert result == exp_result
 
 
@@ -239,7 +239,7 @@ def test_parse_args_error(args, mocker):
     mocker.patch("sys.argv", ["juju-verify", *args])
 
     with pytest.raises(SystemExit):
-        juju_verify.parse_args()
+        entrypoint.parse_args()
 
 
 def test_main_entrypoint_target_units(mocker):
@@ -255,17 +255,17 @@ def test_main_entrypoint_target_units(mocker):
     verifier = MagicMock()
     verifier.verify.return_value = result
 
-    mocker.patch.object(juju_verify, "parse_args").return_value = args
-    mocker.patch.object(juju_verify, "get_verifier").return_value = verifier
-    mocker.patch.object(juju_verify, "loop")
-    mocker.patch.object(juju_verify, "connect_model", new_callable=MagicMock())
-    mocker.patch.object(juju_verify, "find_units", new_callable=MagicMock())
-    logger = mocker.patch.object(juju_verify, "logger")
+    mocker.patch.object(entrypoint, "parse_args").return_value = args
+    mocker.patch.object(entrypoint, "get_verifier").return_value = verifier
+    mocker.patch.object(entrypoint, "loop")
+    mocker.patch.object(entrypoint, "connect_model", new_callable=MagicMock())
+    mocker.patch.object(entrypoint, "find_units", new_callable=MagicMock())
+    logger = mocker.patch.object(entrypoint, "logger")
 
-    juju_verify.main()
+    entrypoint.main()
 
-    juju_verify.connect_model.assert_called_with(args.model)
-    juju_verify.find_units.assert_called_with(ANY, args.units)
+    entrypoint.connect_model.assert_called_with(args.model)
+    entrypoint.find_units.assert_called_with(ANY, args.units)
     verifier.verify.asssert_called_with(args.check)
     logger.info.assert_called_with(str(result))
 
@@ -284,19 +284,19 @@ def test_main_entrypoint_target_machine(mocker):
     verifier = MagicMock()
     verifier.verify.return_value = result
 
-    mocker.patch.object(juju_verify, "parse_args").return_value = args
-    mocker.patch.object(juju_verify, "get_verifier").return_value = verifier
-    mocker.patch.object(juju_verify, "loop")
-    mocker.patch.object(juju_verify, "connect_model", new_callable=MagicMock())
+    mocker.patch.object(entrypoint, "parse_args").return_value = args
+    mocker.patch.object(entrypoint, "get_verifier").return_value = verifier
+    mocker.patch.object(entrypoint, "loop")
+    mocker.patch.object(entrypoint, "connect_model", new_callable=MagicMock())
     mocker.patch.object(
-        juju_verify, "find_units_on_machine", new_callable=MagicMock()
+        entrypoint, "find_units_on_machine", new_callable=MagicMock()
     ).return_value = expected_units
-    logger = mocker.patch.object(juju_verify, "logger")
+    logger = mocker.patch.object(entrypoint, "logger")
 
-    juju_verify.main()
+    entrypoint.main()
 
-    juju_verify.connect_model.assert_called_with(args.model)
-    juju_verify.find_units_on_machine.assert_called_with(ANY, args.machines)
+    entrypoint.connect_model.assert_called_with(args.model)
+    entrypoint.find_units_on_machine.assert_called_with(ANY, args.machines)
     verifier.verify.asssert_called_with(args.check)
     logger.info.assert_called_with(str(result))
 
@@ -312,11 +312,11 @@ def test_main_entrypoint_no_target_fail(mocker, fail):
 
     expected_msg = "juju-verify must target either juju units or juju machines"
 
-    mocker.patch.object(juju_verify, "parse_args").return_value = args
-    mocker.patch.object(juju_verify, "connect_model", new_callable=MagicMock())
-    mocker.patch.object(juju_verify, "loop")
+    mocker.patch.object(entrypoint, "parse_args").return_value = args
+    mocker.patch.object(entrypoint, "connect_model", new_callable=MagicMock())
+    mocker.patch.object(entrypoint, "loop")
 
-    juju_verify.main()
+    entrypoint.main()
 
     fail.assert_any_call(expected_msg)
 
@@ -331,13 +331,13 @@ def test_main_entrypoint_no_target_fail(mocker, fail):
 )
 def test_main_expected_failure(mocker, fail, error, error_msg):
     """Verify handling of expected exceptions."""
-    mocker.patch.object(juju_verify, "parse_args")
-    mocker.patch.object(juju_verify, "config_logger")
-    mocker.patch.object(juju_verify, "loop")
-    mocker.patch.object(juju_verify, "connect_model", new_callable=MagicMock())
-    mocker.patch.object(juju_verify, "find_units", new_callable=MagicMock())
-    mocker.patch.object(juju_verify, "get_verifier").side_effect = error(error_msg)
+    mocker.patch.object(entrypoint, "parse_args")
+    mocker.patch.object(entrypoint, "config_logger")
+    mocker.patch.object(entrypoint, "loop")
+    mocker.patch.object(entrypoint, "connect_model", new_callable=MagicMock())
+    mocker.patch.object(entrypoint, "find_units", new_callable=MagicMock())
+    mocker.patch.object(entrypoint, "get_verifier").side_effect = error(error_msg)
 
-    juju_verify.main()
+    entrypoint.main()
 
     fail.assert_called_once_with(error_msg)
