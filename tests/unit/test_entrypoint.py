@@ -155,7 +155,7 @@ def test_config_logger(mocker, log_level, global_level, local_level):
     """Test setting basic log levels (debug/info)."""
     mock_get_logger = mocker.patch.object(juju_verify.logging, "getLogger")
     mock_root_logger = mock_get_logger.return_value = MagicMock()
-    mock_logger = mocker.patch.object(juju_verify, "logger")
+    mock_logger = mocker.patch.object(juju_verify, "juju_verify_logger")
     mock_stream_handler = mocker.patch.object(juju_verify, "stream_handler")
 
     juju_verify.config_logger(log_level)
