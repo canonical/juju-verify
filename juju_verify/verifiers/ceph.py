@@ -150,9 +150,12 @@ class AvailabilityZone:
             #   parent has 1 000 KB (1MB) free space
             #   space that children use is 200 KB each (600 KB total)
             #   data from deleted children will fit on the parent
-            if parent.kb_avail <= sum(child.kb_used for child in children):
+            total_children_kb_used = sum(child.kb_used for child in children)
+            if parent.kb_avail <= total_children_kb_used:
                 logger.debug(
-                    "Lack of space. Children %s cannot be removed.",
+                    "Lack of space %d kB <= %d kB. Children %s cannot be removed.",
+                    parent.kb_avail,
+                    total_children_kb_used,
                     ",".join(str(child) for child in children),
                 )
                 return False

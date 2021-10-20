@@ -83,7 +83,7 @@ class NeutronTests(OpenstackBaseTestCase):
         self.assertFalse(result.success)
 
         # Check that result contains expected error about non-redundant routers.
-        # Router IDs in the error message can be in any oerder
+        # Router IDs in the error message can be in any order
         for partial in result.partials:
             if partial.message.startswith("The following routers are non-redundant:"):
                 self.assertTrue(
@@ -94,7 +94,7 @@ class NeutronTests(OpenstackBaseTestCase):
             self.fail("Non-redundant router error message not found in result.")
 
         # Check that result contains expected error about non-redundant networks.
-        # Netowrk IDs in the error message can be in any oerder
+        # Network IDs in the error message can be in any order
         for partial in result.partials:
             if partial.message.startswith(
                 "The following DHCP networks are non-redundant:"
