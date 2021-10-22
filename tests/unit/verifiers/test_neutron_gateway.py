@@ -362,7 +362,7 @@ def test_warn_lbaas_present_pass(mocker, model, units_with_lbaas, checked_units)
     if affected_units:
         message = (
             "Following units have neutron LBaasV2 load-balancers that will be "
-            "lost on unit shutdown/restart: {}"
+            "lost on unit reboot/shutdown: {}"
         )
         expected_results = []
         # Note (martin-kalcok): Since the order of the affected units in the resulting

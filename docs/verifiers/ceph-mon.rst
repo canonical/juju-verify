@@ -26,8 +26,8 @@ check Juju version
 
 Ceph-mon verification relies on Juju features introduced in 2.8.10. If this minimum
 version requirement is not met, the verification will stop and return ``Failed`` result
-immediately. So it works as if the juju-verify was run with the ``--stop-on-failure``
-flag.
+immediately. (same behavior as if juju-verify was run with the ``--stop-on-failure``
+flag)
 
 Example of response when check failed, due to Juju client version 2.7.5:
 
@@ -46,17 +46,17 @@ check Ceph Monitor quorum
 -------------------------
 
 This check verifies that intended action won't remove more than half of monitors in each
-affected Ceph cluster. Majority of Ceph monitors must be kept alive after the change to
-maintain quorum.
+affected Ceph cluster. The majority of Ceph monitors must be kept alive after the change
+to maintain quorum.
 
-If the restart/shutdown of the ceph-mon unit(s) from the Ceph cluster does not endanger
+If the reboot/shutdown of the ceph-mon unit(s) from the Ceph cluster does not endanger
 the monitoring quorum, the following message is displayed:
 
 ::
 
   [OK] Ceph-mon quorum check passed.
 
-and vice versa if restart/shutdown the unit(s) causes a loss of Ceph quorum:
+and vice versa if reboot/shutdown the unit(s) causes a loss of Ceph quorum:
 
 ::
 
@@ -87,7 +87,7 @@ The successful result message should look like this:
   [OK] ceph-mon/1: Ceph cluster is healthy
 
 
-On the other hand, the check fails if the output does not contain ``HEALTH_OK``. A CEPH
+On the other hand, the check fails if the output does not contain ``HEALTH_OK``. A Ceph
 cluster will be marked as unhealthy if the output contains ``HEALTH_WARN`` or
 ``HEALTH_ERR``, and in an unknown state if it does not contain any of the above
 expressions.
@@ -96,11 +96,11 @@ expressions.
 
   [FAIL] ceph-mon/1: Ceph cluster is unhealthy
 
-There are several possible reasons why the CEPH cluster is not healthy, but not all of
+There are several possible reasons why the Ceph cluster is not healthy, but not all of
 them can be listed here. For more info visit `ceph-monitoring`_.
 
 To see details run juju-verify in debug mode. Bellow is an example of a log message
-that provide more information about why CEPH cluster is unhealthy.
+that provide more information about why Ceph cluster is unhealthy.
 
 ::
 

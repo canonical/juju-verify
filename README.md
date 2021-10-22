@@ -51,9 +51,9 @@ $ juju-verify shutdown --units nova-compute/0 nova-compute/1
 
 2. If you run a check on a unit which contains a subordinate unit, you will only get
    a warning message about the existence of the subordinate unit. In order to check if
-   it is safe to remove this unit, juju-verify needs to be explictly run against this
-   subordinate unit, or the unit needs to be manually checked (if juju-verify does not
-   support this charm yet)
+   it is safe to reboot/shutdown this unit, juju-verify needs to be explicitly run 
+   against this subordinate unit, or the unit needs to be manually checked (if
+   juju-verify does not support this charm yet)
 
    Example:
    ```bash

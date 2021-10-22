@@ -22,23 +22,27 @@ perform the same set of checks.
 
 .. _check Ceph cluster health:
 
-check Ceph clusters health
---------------------------
+check Ceph cluster health
+-------------------------
 
 This check maps ``ceph-osd`` applications part of the ``--units`` argument and the
-first ``ceph-mon`` unit obtained from the relations. The ``get-health`` action is run
-on each of the ``ceph-mon`` units to determine if the cluster(s) the unit(s) are part
-of are healthy (Note: if more than one Ceph cluster exists, verified ``ceph-osd`` units
-may be part of more than one cluster). A cluster is considered healthy if the action's
-output contains ``HEALTH_OK``.
+first (it doesn't have to be a leader) ``ceph-mon`` unit obtained from the relations.
+The ``get-health`` action is run on top of obtained ``ceph-mon`` unit to determine if
+the cluster is healthy.
 
-The successful result message should look like this:
+Note: Units from multiple application can be provided (e.g. ``ceph-osd-slow/0``,
+``ceph-osd-fast/0``), and those could be related to different ceph-mon applications
+(e.g. ``ceph-mon-cluster1``, ``ceph-mon-cluster2``). In this case, the ``get-health``
+action is run on top of both ceph-mon units (on both clusters).
+
+A cluster is considered healthy if the action's output contains ``HEALTH_OK`` and the
+result message look like this:
 
 ::
 
   [OK] ceph-mon/1: Ceph cluster is healthy
 
-On the other hand, the check fails if the output does not contain ``HEALTH_OK``. A CEPH
+On the other hand, the check fails if the output does not contain ``HEALTH_OK``. A Ceph
 cluster will be marked as unhealthy if the output contains ``HEALTH_WARN`` or
 ``HEALTH_ERR``, and in an unknown state if it does not contain any of the above
 expressions.
@@ -47,11 +51,11 @@ expressions.
 
   [FAIL] ceph-mon/1: Ceph cluster is unhealthy
 
-There are several possible reasons why the CEPH cluster is not healthy, but not all of
+There are several possible reasons why the Ceph cluster is not healthy, but not all of
 them can be listed here. For more info visit `ceph-monitoring`_.
 
 To see details run juju-verify in debug mode. Bellow is an example of a log message
-that provide more information about why CEPH cluster is unhealthy.
+that provide more information about why Ceph cluster is unhealthy.
 
 ::
 
@@ -74,7 +78,7 @@ minimum pool size. If no group is available, the replication number is
 returned as None and the check for that application ends successfully.
 
 The next step is to calculate the number of units for each application to be
-removed/shutdown, plus the number of units are in an inactive workload status.
+reboot/shutdown, plus the number of units are in an inactive workload status.
 Such a number is compared to the minimum replication number, and if it's
 greater, the check fails.
 
@@ -86,18 +90,18 @@ The successful result message should look like this:
 
 An unsuccessful result can be caused by two reasons.
 
-1. Once the units are restarted/shutdown, the minimum cluster size will not be met.
+1. Once the units are reboot/shutdown, the minimum cluster size will not be met.
 
 ::
 
-  [FAIL] The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to restart/shutdown 2 units. 0 units are not active.
+  [FAIL] The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to reboot/shutdown 2 units. 0 units are not active.
 
 2. Currently, some units are in an error state and the minimum cluster size is not met
-   or will not be after restart/shutdown other units.
+   or will not be after reboot/shutdown other units.
 
 ::
 
-[FAIL] The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to restart/shutdown 1 units. 2 units are not active.
+[FAIL] The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to reboot/shutdown 1 units. 2 units are not active.
 
 
 .. image:: ../img/check_replication_number.svg
@@ -178,14 +182,14 @@ as follows (only the parts used are described):
  - ``kb_avail`` - total available (free) space size
  - ``children`` - list of child node IDs
 
-To properly determine if the unit can be shutdown/rebooted it's a comparison of
+To properly determine if the unit can be reboot/shutdowned it's a comparison of
 free space on the parent node with the size of the used space on the node.
 Let's show this using the previous example of ``show-disk-free`` action output:
 
-  - verify that the ``juju-1234-ceph-0`` unit can be shutdown/rebooted
+  - verify that the ``juju-1234-ceph-0`` unit can be reboot/shutdowned
   - the unit uses a total of 1066880 kb space
   - parent with ID -1, which has the unit among its children, has 1505664 kb free space
-  - it's safe to shutdown/rebooted the unit, because data from it could be transferred
+  - it's safe to reboot/shutdowned the unit, because data from it could be transferred
     to another unit (1505664 > 1066880)
 
 If the availability zone check is successful, the result report looks like this:
@@ -194,12 +198,12 @@ If the availability zone check is successful, the result report looks like this:
 
   [OK] Availability zone check passed.
 
-However, if there is not enough space in the availability zone after restart/shutdown
+However, if there is not enough space in the availability zone after reboot/shutdown
 the unit(s), the resulting message should look something like this.
 
 ::
 
-  [FAIL] It's not safe to restart/shutdown unit(s) ceph-osd/0 in the availability zone '10-default(-1),1-juju-0c0b8f-ceph-0(-5),1-juju-0c0b8f-ceph-1(-3),1-juju-0c0b8f-ceph-2(-7),0-osd.2(2),0-osd.1(1),0-osd.0(0)'.
+  [FAIL] It's not safe to reboot/shutdown unit(s) ceph-osd/0 in the availability zone '10-default(-1),1-juju-0c0b8f-ceph-0(-5),1-juju-0c0b8f-ceph-1(-3),1-juju-0c0b8f-ceph-2(-7),0-osd.2(2),0-osd.1(1),0-osd.0(0)'.
 
 To view the details, it is necessary to run juju-verify in debug mode, where it will be
 possible to see the following message.
@@ -210,7 +214,7 @@ possible to see the following message.
 
 Where the first number (358592 kB) represents the available space of the parent and the
 second number (1385344 kB) represents the used space of all children we check to see if
-it is safely to restart/shutdown. It is also possible to see the full output of
+it is safely to reboot/shutdown. It is also possible to see the full output of
 ``show-disk-free`` action.
 
 ::

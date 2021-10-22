@@ -7,8 +7,8 @@ perform the same set of checks.
 * check router HA
 * check LBaasV2 present
 * check minimum Juju version
-* check ceph-mon redundant routers
-* check ceph-mon redundant DHCP
+* check neutron-gateway redundant routers
+* check neutron-gateway redundant DHCP
 
 
 ::
@@ -51,12 +51,12 @@ check LBaasV2 present
 .. todo:: add description `LP#1946027`_
 
 
-If shutdown/restart the unit(s) causes the loss of the LBaasV2 loadbalancer, than the
+If reboot/shutdown the unit(s) causes the loss of the LBaasV2 loadbalancer, than the
 following warning message will be present.
 
 ::
 
-  [WARN] Following units have neutron LBaasV2 load-balancers that will be lost on unit shutdown/restart: neutron-gateway/0, neutron-gateway/1
+  [WARN] Following units have neutron LBaasV2 load-balancers that will be lost on unit reboot/shutdown: neutron-gateway/0, neutron-gateway/1
 
 Otherwise, only the successful result message.
 
@@ -68,10 +68,10 @@ Otherwise, only the successful result message.
 check minimum Juju version
 --------------------------
 
-Ceph-mon verification relies on Juju features introduced in 2.8.10. If this minimum
-version requirement is not met, the verification will stop and return ``Failed`` result
-immediately. So it works as if the juju-verify was run with the ``--stop-on-failure``
-flag.
+Neutron-gateway verification relies on Juju features introduced in 2.8.10. If this
+minimum version requirement is not met, the verification will stop and return ``Failed``
+result immediately. (same behavior as if juju-verify was run with the
+``--stop-on-failure`` flag)
 
 Example of response when check failed, due to Juju client version 2.7.5:
 
@@ -86,8 +86,8 @@ on the contrary, if the client is met the minimum version:
   [OK] Minimum juju version check passed.
 
 
-check ceph-mon redundant routers
---------------------------------
+check neutron-gateway redundant routers
+---------------------------------------
 
 .. todo:: add description `LP#1946027`_
 
@@ -105,8 +105,8 @@ as follows with routers IDs separated with comma.
   [FAIL] The following routers are non-redundant: 22567d98-828e-4e7f-bdb2-2f1ea16fc979
 
 
-check ceph-mon redundant DHCP
------------------------------
+check neutron-gateway redundant DHCP
+------------------------------------
 
 .. todo:: add description `LP#1946027`_
 

@@ -22,7 +22,7 @@ perform the same set of checks.
 check running VMs
 -----------------
 
-This simple check verifies that the unit(s) about to be shutdown/restart do not host
+This simple check verifies that the unit(s) about to be reboot/shutdown do not host
 any virtual machines. In this case, the following result message will be present.
 
 ::
@@ -31,7 +31,7 @@ any virtual machines. In this case, the following result message will be present
 
 If the VMs are present, the verifier will fail and user
 has to manually migrate those VMs away from the unit(s) intended for
-shutdown/restart. The failure result message is basically the same as in the previous
+reboot/shutdown. The failure result message is basically the same as in the previous
 case.
 
 ::
@@ -42,7 +42,7 @@ case.
 check availability zones
 ------------------------
 
-This check verifies that after shutdown/restart of selected nova-compute units,
+This check verifies that after reboot/shutdown of selected nova-compute units,
 availability zones to which these units belong wont be left empty. This is what the
 result message looks like after a successful check.
 
@@ -50,7 +50,7 @@ result message looks like after a successful check.
 
   [OK] Empty Availability Zone check passed.
 
-If availability zone remains empty after shutdown/restart unit(s), the result message
+If availability zone remains empty after reboot/shutdown unit(s), the result message
 will be as follows.
 
 ::
@@ -59,5 +59,5 @@ will be as follows.
 
 
 This check takes into consideration only availability zones that are affected by the
-unit shutdown/restart, there may be other empty availability zones within the
+unit reboot/shutdown, there may be other empty availability zones within the
 cluster.
