@@ -20,6 +20,8 @@ perform the same set of checks.
   Overall result: OK (All checks passed)
 
 
+.. _check Ceph cluster health:
+
 check Ceph clusters health
 --------------------------
 
@@ -105,28 +107,86 @@ An unsuccessful result can be caused by two reasons.
 check availability zones resources
 ----------------------------------
 
-The prerequisite for this check is to obtain all "ceph-osd" applications in
-the model, not just those that include verification units. For each
-application, it is necessary to obtain the number of free units based on the
-storage usage and information in which availability zone they are located.
+This check will obtain a ``ceph-mon`` unit in same way as the
+:ref:`check Ceph cluster health`. Subsequently, the action ``show-disk-free`` is run
+on this unit with expected output containing ``nodes``, ``stray`` and ``summary`` keys.
+The key ``nodes`` is used to provide information about each node space usage in
+the tree form.
+Example:
 
-* The number of free units is parsed from the "ceph df" output, which provides
-  storage usage information for each pool. The minimum value is selected from
-  all obtained numbers.
+::
 
-.. todo:: There is a bug `LP#1921121`_ that describes the "pool-statistics"
-   used to calculate storage usage information. This approach should be
-   properly verified.
+  {
+    "nodes": [
+        {
+            "id": -1,
+            "name": "default",
+            "type": "root",
+            "type_id": 10,
+            "kb": 4706304,
+            "kb_used": 3200640,
+            "kb_avail": 1505664,
+            ...,
+            "children": [
+                -7,
+                -3,
+                -5
+            ]
+        },
+        {
+          "id": -5,
+          "name": "juju-1234-ceph-0",
+          "type": "host",
+          "type_id": 1,
+          "kb": 1568768,
+          "kb_used": 1066880,
+          "kb_avail": 501888,
+          ...,
+          "children": [
+              2
+          ]
+      },
+      ...,
 
-* Availability zone information is obtained using the "get-availability-zone"
-  action, which is called for each unit belonging to any "ceph-osd"
-  application.
+    ],
+    "stray": [],
+    "summary": {
+        "total_kb": 4706304,
+        "total_kb_used": 3200640,
+        "total_kb_used_data": 54720,
+        "total_kb_used_omap": 154,
+        "total_kb_used_meta": 3145573,
+        "total_kb_avail": 1505664,
+        "average_utilization": 68.007507,
+        "min_var": 1.000000,
+        "max_var": 1.000000,
+        "dev": 0.000000
+    }
+  }
 
-For each availability zone, the number of inactive units plus the number of
-units to be removed/shutdown is then counted. Such a number is comparable to
-the minimum number of free units for each application in the availability
-zones, as there can be several applications in one availability zone, and if
-it is greater than the check failed.
+The availability zone is created based on these nodes, where each node can be described
+as follows (only the parts used are described):
+
+ - ``id`` - node ID
+ - ``name`` - node name
+ - ``type`` - Ceph `CRUSH Maps type`_
+   the machine hostname matches the names for the type=host
+ - ``type_id`` - Ceph `CRUSH Maps type`_ ID
+   used to arrange nodes in a string representation of an availability zone
+ - ``kb`` - total space size
+ - ``kb_used`` - total used space size
+ - ``kb_avail`` - total available (free) space size
+ - ``children`` - list of child node IDs
+
+To properly determine if the unit can be shutdown/rebooted it's a comparison of
+free space on the parent node with the size of the used space on the node.
+Let's show this using the previous example of ``show-disk-free`` action output:
+
+  - verify that the ``juju-1234-ceph-0`` unit can be shutdown/rebooted
+  - the unit uses a total of 1066880 kb space
+  - parent with ID -1, which has the unit among its children, has 1505664 kb free space
+  - it's safe to shutdown/rebooted the unit, because data from it could be transferred
+    to another unit (1505664 > 1066880)
 
 If the availability zone check is successful, the result report looks like this:
 
@@ -164,3 +224,4 @@ it is safely to restart/shutdown. It is also possible to see the full output of
 
 .. _LP#1921121: https://bugs.launchpad.net/juju-verify/+bug/1921121
 .. _ceph-monitoring: https://docs.ceph.com/en/pacific/rados/operations/monitoring/
+.. _CRUSH Maps type: https://docs.ceph.com/en/latest/rados/operations/crush-map/#types-and-buckets
