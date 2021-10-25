@@ -145,13 +145,18 @@ class AvailabilityZone:
         # Check if all children could be removed from parent.
         for parent, children in parents_children_map.items():
             # NOTE (rgildein): This will check that the parent will have enough space
-            # even if the children are removed. example with attempt to remove 3
+            # even if the children are removed. An example with attempt to remove 2
             # children:
-            #   parent has 1 000 KB (1MB) free space
-            #   space that children use is 200 KB each (600 KB total)
-            #   data from deleted children will fit on the parent
+            #   parent with 5 children has 1 000 kB free space
+            #   each child used the 400 kB space (2 000 kB total)
+            #   each child has 200 kB of free space (1 000 kB total)
+            #
+            #   total available space after removing 2 units: 1 000kB - 2x200kB
+            #   the total space that must moved to other units: 2x400kB
+            #   check failed, due 600kB <= 800kB
             total_children_kb_used = sum(child.kb_used for child in children)
-            if parent.kb_avail <= total_children_kb_used:
+            total_children_kb_avail = sum(child.kb_avail for child in children)
+            if (parent.kb_avail - total_children_kb_avail) <= total_children_kb_used:
                 logger.debug(
                     "Lack of space %d kB <= %d kB. Children %s cannot be removed.",
                     parent.kb_avail,

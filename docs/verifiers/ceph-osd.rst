@@ -182,15 +182,17 @@ as follows (only the parts used are described):
  - ``kb_avail`` - total available (free) space size
  - ``children`` - list of child node IDs
 
-To properly determine if the unit can be reboot/shutdowned it's a comparison of
-free space on the parent node with the size of the used space on the node.
-Let's show this using the previous example of ``show-disk-free`` action output:
+To properly determine if the unit can be reboot/shutdown it's a comparison of
+free space on the parent node minus available space on the child node with the size
+of the used space on the node. Let's show this using the previous example of
+``show-disk-free`` action output:
 
-  - verify that the ``juju-1234-ceph-0`` unit can be reboot/shutdowned
-  - the unit uses a total of 1066880 kb space
-  - parent with ID -1, which has the unit among its children, has 1505664 kb free space
-  - it's safe to reboot/shutdowned the unit, because data from it could be transferred
-    to another unit (1505664 > 1066880)
+  - verify that the ``juju-1234-ceph-0`` unit can be reboot/shutdown
+  - the unit uses a total of 1066880 kB space
+  - parent with ID -1, which has the unit among its children, has 1505664 kB free space
+    minus 501888 kB available space from child
+  - it's not safe to reboot/shutdown the unit, because data from it could not be
+    transferred to another unit (1505664 - 501888 < 1066880)
 
 If the availability zone check is successful, the result report looks like this:
 

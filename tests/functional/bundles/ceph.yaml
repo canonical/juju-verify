@@ -23,9 +23,9 @@ applications:
     options:
       osd-devices: /dev/loop0
     storage:
-      # NOTE (rgildein): The use of a 1.5G size storage device will ensure that it is
+      # NOTE (rgildein): The use of a 1.8G size storage device will ensure that it is
       # not safe to reboot/shutdown two ceph-osd units.
-      osd-devices: loop,1.5G
+      osd-devices: loop,1.8G
     to:
       - 0
       - 1
