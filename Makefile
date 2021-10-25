@@ -12,7 +12,7 @@ help:
 	@echo " make release - build juju-verify and give hints to release it"
 	@echo " make clean - remove unneeded files"
 	@echo " make snap - build juju-verify as a snap"
-	@echo " make documentation - build documentation"
+	@echo " make docs - build documentation"
 	@echo ""
 
 lint:
@@ -56,7 +56,7 @@ release: clean build build-verify
 
 clean:
 	@echo "Cleaning files"
-	@git clean -fxd -e '!.idea' -e '!.vscode'
+	@git clean -fxd -e '.idea/' -e '.vscode/'
 
 functional:
 	@echo "Executing functional tests"
@@ -67,4 +67,4 @@ docs:
 	@tox -e docs
 
 # The targets below don't depend on a file
-.PHONY: lint test unittest release clean help build build-verify snap functional
+.PHONY: docs lint test unittest release clean help build build-verify snap functional
