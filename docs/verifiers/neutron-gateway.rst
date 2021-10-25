@@ -4,9 +4,9 @@ Neutron-gateway verifier
 So far, the "reboot" and "shutdown" actions are supported and they both
 perform the same set of checks.
 
-* check router HA
-* check LBaasV2 present
 * check minimum Juju version
+* check active HA router
+* check LBaasV2 present
 * check neutron-gateway redundant routers
 * check neutron-gateway redundant DHCP
 
@@ -26,19 +26,46 @@ perform the same set of checks.
   Overall result: OK (All checks passed)
 
 
-check router HA
+check minimum Juju version
+--------------------------
+
+Neutron-gateway verification relies on Juju features introduced in 2.8.10. If this
+minimum version requirement is not met, the verification will stop and return ``Failed``
+result immediately. (same behavior as if juju-verify was run with the
+``--stop-on-failure`` flag)
+
+If the Juju version meets minimum expected version, this check will pass with:
+
+::
+
+  [OK] Minimum juju version check passed.
+
+If the minimum required version is not met and Juju is, for example, in version 2.7.5,
+this check will fail with following message:
+
+::
+
+  [FAIL] Juju agent on unit neutron-gateway/0 has lower than minimum required version. 2.7.5 < 2.8.10
+
+
+check active HA router
 ---------------
 
-.. todo:: add description `LP#1946027`_
+In the case that ``neutron-gateway`` unit, that is being verified, hosts
+neutron router in HA mode, such router should be manually failed over to the
+unit that is not going to be rebooted or shutdown. This is only a
+recommendation and as such, generates only warning.
 
-If there are no routers, the check will provide the following result message.
+If the affected units do not host any routers, check will pass with following
+message.
 
 ::
 
   [OK] warn_router_ha check passed
 
-Conversely, if a router is present that needs to be removed manually, the warning result
-message should be as follows.
+If there are routers that should be failed over to other active
+``neutron-gateway`` units, following warning is displayed, listing router IDs
+of affected neutron routers.
 
 ::
 
@@ -48,57 +75,40 @@ message should be as follows.
 check LBaasV2 present
 ---------------------
 
-.. todo:: add description `LP#1946027`_
-
-
-If reboot/shutdown the unit(s) causes the loss of the LBaasV2 loadbalancer, than the
-following warning message will be present.
+LBaasV2 loadbalancer is HA technology that stopped being supported in Openstack
+``Train`` and was replaced with project ``Octavia``. However since there are still
+supported Openstack releases that have this feature, Juju-verify will show
+warning if LBaasv2 is configured on the ``neutron-gateway`` unit that is being
+rebooted or shutdown.
 
 ::
 
   [WARN] Following units have neutron LBaasV2 load-balancers that will be lost on unit reboot/shutdown: neutron-gateway/0, neutron-gateway/1
 
-Otherwise, only the successful result message.
+If there are no LbaasV2 services configured on the unit, chek will pass with
+following message.
 
 ::
 
   [OK] warn_lbaas_present check passed
 
 
-check minimum Juju version
---------------------------
-
-Neutron-gateway verification relies on Juju features introduced in 2.8.10. If this
-minimum version requirement is not met, the verification will stop and return ``Failed``
-result immediately. (same behavior as if juju-verify was run with the
-``--stop-on-failure`` flag)
-
-Example of response when check failed, due to Juju client version 2.7.5:
-
-::
-
-  [FAIL] Juju agent on unit neutron-gateway/0 has lower than minimum required version. 2.7.5 < 2.8.10
-
-on the contrary, if the client is met the minimum version:
-
-::
-
-  [OK] Minimum juju version check passed.
-
-
 check neutron-gateway redundant routers
 ---------------------------------------
 
-.. todo:: add description `LP#1946027`_
+This check verifies that if there are routers present on ``neutron-gateway``
+unit, they are in HA mode, and can be offloaded to an unit that is not being
+rebooted or shutdown.
 
-The check successful passed with the following result message.
+If there are no non-redundant routers, this check will pass with following
+message:
 
 ::
 
   [OK] Redundancy check passed for: router-list
 
-Otherwise, if there is a non-redundant router(s), then the result message will be
-as follows with routers IDs separated with comma.
+Otherwise, if there are non-redundant routers, the result message will show
+following message with list of non-redundant routers IDs separated with comma.
 
 ::
 
@@ -108,20 +118,21 @@ as follows with routers IDs separated with comma.
 check neutron-gateway redundant DHCP
 ------------------------------------
 
-.. todo:: add description `LP#1946027`_
+This check verifies that if there are DHCP agents present on
+``neutron-gateway`` unit, they are in HA mode, and can be offloaded to an unit
+that is not being rebooted or shutdown.
 
-
-The check successful passed with similar result message as previous check.
+If there are no non-redundant DHCP agents, this check will pass with following
+message:
 
 ::
 
   [OK] Redundancy check passed for: dhcp-networks
 
-Also the failed result message looks similar to the previous check.
+Otherwise, if there are non-redundant DHCP agents, the result message will
+show following message with list of non-redundant agent IDs separated with
+comma.
 
 ::
 
   [FAIL] The following DHCP networks are non-redundant: 8b664fb1-df08-42ea-ba5d-63b513523628
-
-
-.. _LP#1946027: https://bugs.launchpad.net/juju-verify/+bug/1946027
