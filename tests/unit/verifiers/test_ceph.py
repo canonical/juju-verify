@@ -468,7 +468,7 @@ def test_check_replication_number(
     expected_fail_result = Result(
         Severity.FAIL,
         "The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to "
-        "restart/shutdown 2 units. 0 units are not active.",
+        "reboot/shutdown 2 units. 0 units are not active.",
     )
     assert ceph_osd_verifier.check_replication_number() == expected_fail_result
 
@@ -479,7 +479,7 @@ def test_check_replication_number(
     expected_fail_result = Result(
         Severity.FAIL,
         "The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to "
-        "restart/shutdown 1 units. 1 units are not active.",
+        "reboot/shutdown 1 units. 1 units are not active.",
     )
     assert ceph_osd_verifier.check_replication_number() == expected_fail_result
 
@@ -532,7 +532,7 @@ def test_check_availability_zone(
     result = CephOsd([unit_1, unit_2]).check_availability_zone()
     assert result == Result(
         Severity.FAIL,
-        "It's not safe to restart/shutdown unit(s) ceph-osd-hdd/0 in the availability "
+        "It's not safe to reboot/shutdown unit(s) ceph-osd-hdd/0 in the availability "
         "zone '10-default(-1),3-rack.1(-2),3-rack.2(-3),0-osd.0(0),0-osd.1(1),"
         "0-osd.2(2),0-osd.3(3)'.",
     )
@@ -546,7 +546,7 @@ def test_check_availability_zone(
     result = CephOsd([unit_1, unit_2]).check_availability_zone()
     assert result == Result(
         Severity.FAIL,
-        "It's not safe to restart/shutdown unit(s) ceph-osd/0, ceph-osd/1 in the "
+        "It's not safe to reboot/shutdown unit(s) ceph-osd/0, ceph-osd/1 in the "
         "availability zone '10-default(-1),3-rack.1(-2),3-rack.2(-3),"
         "0-osd.0(0),0-osd.1(1),0-osd.2(2),0-osd.3(3)'.",
     )

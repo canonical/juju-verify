@@ -135,8 +135,8 @@ Without ``--stop-on-failure``
   $ juju-verify reboot -u ceph-osd/0 ceph-osd/1
   Checks:
   [OK] ceph-mon/2: Ceph cluster is healthy
-  [FAIL] The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to restart/shutdown 2 units. 0 units are not active.
-  [FAIL] It's not safe to restart/reset units ceph-osd/0, ceph-osd/1 in the availability zone '10-default(-1),1-juju-1234-ceph-0(-2),1-juju-1234-ceph-1(-3),1-juju-1234-ceph-2(-3),0-osd.1(1),0-osd.0(2),0-osd.2(3)'.
+  [FAIL] The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to reboot/shutdown 2 units. 0 units are not active.
+  [FAIL] It's not safe to reboot/shutdown units ceph-osd/0, ceph-osd/1 in the availability zone '10-default(-1),1-juju-1234-ceph-0(-2),1-juju-1234-ceph-1(-3),1-juju-1234-ceph-2(-3),0-osd.1(1),0-osd.0(2),0-osd.2(3)'.
 
   Overall result: Failed
 
@@ -146,7 +146,7 @@ With ``--stop-on-failure``
   $ juju-verify reboot --stop-on-failure -u ceph-osd/0 ceph-osd/1
   Checks:
   [OK] ceph-mon/2: Ceph cluster is healthy
-  [FAIL] The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to restart/shutdown 2 units. 0 units are not active.
+  [FAIL] The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to reboot/shutdown 2 units. 0 units are not active.
 
   Overall result: Failed
 
@@ -183,8 +183,8 @@ two are needed.
   $ juju-verify reboot -u ceph-osd/0 ceph-osd/1
   Checks:
   [OK] ceph-mon/2: Ceph cluster is healthy
-  [FAIL] The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to restart/shutdown 2 units. 0 units are not active.
-  [FAIL] It's not safe to restart/reset units ceph-osd/0, ceph-osd/1 in the availability zone '10-default(-1),1-juju-1234-ceph-0(-2),1-juju-1234-ceph-1(-3),1-juju-1234-ceph-2(-3),0-osd.1(1),0-osd.0(2),0-osd.2(3)'.
+  [FAIL] The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to reboot/shutdown 2 units. 0 units are not active.
+  [FAIL] It's not safe to reboot/shutdown units ceph-osd/0, ceph-osd/1 in the availability zone '10-default(-1),1-juju-1234-ceph-0(-2),1-juju-1234-ceph-1(-3),1-juju-1234-ceph-2(-3),0-osd.1(1),0-osd.0(2),0-osd.2(3)'.
 
   Overall result: Failed
 

@@ -150,9 +150,12 @@ class AvailabilityZone:
             #   parent has 1 000 KB (1MB) free space
             #   space that children use is 200 KB each (600 KB total)
             #   data from deleted children will fit on the parent
-            if parent.kb_avail <= sum(child.kb_used for child in children):
+            total_children_kb_used = sum(child.kb_used for child in children)
+            if parent.kb_avail <= total_children_kb_used:
                 logger.debug(
-                    "Lack of space. Children %s cannot be removed.",
+                    "Lack of space %d kB <= %d kB. Children %s cannot be removed.",
+                    parent.kb_avail,
+                    total_children_kb_used,
                     ",".join(str(child) for child in children),
                 )
                 return False
@@ -332,7 +335,7 @@ class CephOsd(CephCommon):
                 result.add_partial_result(
                     Severity.FAIL,
                     f"The minimum number of replicas in '{app_name}' is "
-                    f"{min_replication_number:d} and it's not safe to restart/shutdown "
+                    f"{min_replication_number:d} and it's not safe to reboot/shutdown "
                     f"{len(units):d} units. {len(inactive_units):d} units are not "
                     f"active.",
                 )
@@ -342,7 +345,7 @@ class CephOsd(CephCommon):
     def check_availability_zone(self) -> Result:
         """Check availability zones resources.
 
-        This function checks whether the units can be shutdown/reboot without
+        This function checks whether the units can be reboot/shutdown without
         interrupting operation in the availability zone.
         """
         result = Result()
@@ -357,7 +360,7 @@ class CephOsd(CephCommon):
                 units_to_remove = ", ".join(unit.entity_id for unit in units)
                 result += Result(
                     Severity.FAIL,
-                    f"It's not safe to restart/shutdown unit(s) {units_to_remove} in "
+                    f"It's not safe to reboot/shutdown unit(s) {units_to_remove} in "
                     f"the availability zone '{availability_zone}'.",
                 )
 

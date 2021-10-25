@@ -158,8 +158,8 @@ class NeutronGateway(BaseVerifier):
 
         if affected_lbaas_units:
             message = (
-                "Following units have neutron LBaasV2 load-balancers that will be"
-                " lost on unit shutdown: {}"
+                "Following units have neutron LBaasV2 load-balancers that will be "
+                "lost on unit reboot/shutdown: {}"
             )
             reason = message.format(", ".join(affected_lbaas_units))
             result = Result(Severity.WARN, reason)

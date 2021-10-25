@@ -95,7 +95,7 @@ class CephOsdTests(BaseTestCase):
         logger.info("result: %s", result)
         self.assertFalse(result.success)
         self.assert_message_in_result(
-            r"\[FAIL\] It's not safe to restart\/shutdown unit\(s\) ceph-osd\/\d, "
+            r"\[FAIL\] It's not safe to reboot\/shutdown unit\(s\) ceph-osd\/\d, "
             r"ceph-osd\/\d in the availability zone "
             r"'{}'.".format(exp_availability_zone_regex),
             result,
@@ -156,7 +156,7 @@ class CephOsdTests(BaseTestCase):
         self.assertFalse(result.success)
         self.assert_message_in_result(
             r"\[FAIL\] The minimum number of replicas in 'ceph-osd' is 1 and "
-            r"it's not safe to restart\/shutdown 2 units. 0 units "
+            r"it's not safe to reboot\/shutdown 2 units. 0 units "
             r"are not active.",
             result,
         )
