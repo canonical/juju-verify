@@ -49,7 +49,7 @@ this check will fail with following message:
 
 
 check active HA router
----------------
+----------------------
 
 In the case that ``neutron-gateway`` unit, that is being verified, hosts
 neutron router in HA mode, such router should be manually failed over to the
