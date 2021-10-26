@@ -38,7 +38,7 @@ If the Juju version meets minimum expected version, this check will pass with:
 
 ::
 
-  [OK] Minimum juju version check passed.
+  [OK] Minimum juju version check passed
 
 If the minimum required version is not met and Juju is, for example, in version 2.7.5,
 this check will fail with following message:
@@ -51,12 +51,12 @@ this check will fail with following message:
 check active HA router
 ----------------------
 
-In the case that ``neutron-gateway`` unit, that is being verified, hosts
+In the case that ``neutron-gateway`` unit, that is being verified, hosts a
 neutron router in HA mode, such router should be manually failed over to the
 unit that is not going to be rebooted or shutdown. This is only a
 recommendation and as such, generates only warning.
 
-If the affected units do not host any routers, check will pass with following
+If the affected units do not host any routers, check will pass with the following
 message.
 
 ::
@@ -64,7 +64,7 @@ message.
   [OK] warn_router_ha check passed
 
 If there are routers that should be failed over to other active
-``neutron-gateway`` units, following warning is displayed, listing router IDs
+``neutron-gateway`` units, the following warning is displayed, listing router IDs
 of affected neutron routers.
 
 ::
@@ -85,8 +85,8 @@ rebooted or shutdown.
 
   [WARN] Following units have neutron LBaasV2 load-balancers that will be lost on unit reboot/shutdown: neutron-gateway/0, neutron-gateway/1
 
-If there are no LbaasV2 services configured on the unit, chek will pass with
-following message.
+If there are no LbaasV2 services configured on the unit, check will pass with
+the following message.
 
 ::
 
@@ -96,19 +96,18 @@ following message.
 check neutron-gateway redundant routers
 ---------------------------------------
 
-This check verifies that if there are routers present on ``neutron-gateway``
-unit, they are in HA mode, and can be offloaded to an unit that is not being
-rebooted or shutdown.
+This check verifies that routers present on ``neutron-gateway`` unit, are in
+HA mode and can be offloaded to a unit that is not being rebooted or shutdown.
 
-If there are no non-redundant routers, this check will pass with following
+If there above condition is true, the check will pass with the following
 message:
 
 ::
 
   [OK] Redundancy check passed for: router-list
 
-Otherwise, if there are non-redundant routers, the result message will show
-following message with list of non-redundant routers IDs separated with comma.
+Otherwise, if there are non-redundant routers, the result message will show the
+following message with the list of non-redundant routers IDs separated with comma.
 
 ::
 
@@ -118,11 +117,10 @@ following message with list of non-redundant routers IDs separated with comma.
 check neutron-gateway redundant DHCP
 ------------------------------------
 
-This check verifies that if there are DHCP agents present on
-``neutron-gateway`` unit, they are in HA mode, and can be offloaded to an unit
-that is not being rebooted or shutdown.
+This check verifies that DHCP agents present on ``neutron-gateway`` unit, are in
+HA mode and can be offloaded to a unit that is not being rebooted or shutdown.
 
-If there are no non-redundant DHCP agents, this check will pass with following
+If there above condition is true, the check will pass with the following
 message:
 
 ::
@@ -130,8 +128,8 @@ message:
   [OK] Redundancy check passed for: dhcp-networks
 
 Otherwise, if there are non-redundant DHCP agents, the result message will
-show following message with list of non-redundant agent IDs separated with
-comma.
+show the following message with the list of non-redundant agent IDs separated with
+commas.
 
 ::
 
