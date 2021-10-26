@@ -128,7 +128,7 @@ class NeutronTests(OpenstackBaseTestCase):
         )
         lbaas = lbaas_list[0]
 
-        # get nuetron-gateway unit hosting lbaas
+        # get neutron-gateway unit hosting lbaas
         lbaas_agent = self.NEUTRON.get_lbaas_agent_hosting_loadbalancer(lbaas["id"])
         lbaas_host = lbaas_agent["agent"]["host"]
         juju_machine_id = lbaas_host.split("-")[-1]
