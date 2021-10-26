@@ -99,7 +99,7 @@ check neutron-gateway redundant routers
 This check verifies that routers present on ``neutron-gateway`` unit, are in
 HA mode and can be offloaded to a unit that is not being rebooted or shutdown.
 
-If there above condition is true, the check will pass with the following
+If the above condition is true, the check will pass with the following
 message:
 
 ::
@@ -120,7 +120,7 @@ check neutron-gateway redundant DHCP
 This check verifies that DHCP agents present on ``neutron-gateway`` unit, are in
 HA mode and can be offloaded to a unit that is not being rebooted or shutdown.
 
-If there above condition is true, the check will pass with the following
+If the above condition is true, the check will pass with the following
 message:
 
 ::
