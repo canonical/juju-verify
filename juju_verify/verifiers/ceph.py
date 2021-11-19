@@ -18,7 +18,7 @@
 import json
 import logging
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple
 
 from juju.action import Action
 from juju.unit import Unit
@@ -26,7 +26,6 @@ from packaging.version import Version
 
 from juju_verify.utils.action import data_from_action
 from juju_verify.utils.unit import (
-    get_applications_names,
     get_first_active_unit,
     run_action_on_units,
     verify_charm_unit,
@@ -34,60 +33,139 @@ from juju_verify.utils.unit import (
 from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.result import Result, Severity, checks_executor
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
+
+
+class NodeInfo(NamedTuple):
+    """Information about Node obtains from `ceph df osd tree`.
+
+    The `ceph df` [1] comes from ceph-mon unit and it's run with additional option
+    `tree` to show output in Crush Map hierarchy format.
+    The Crush Map hierarchy [2] contains the following types along with their IDs.
+
+    <type>: <type_id>
+    root: 10
+    region: 9
+    datacenter: 8
+    room: 7
+    pod: 6
+    pdu: 5
+    row: 4
+    rack: 3
+    chassis: 2
+    host: 1
+    osd: 0
+
+    [1]: https://docs.ceph.com/en/latest/api/mon_command_api/#df
+    [2]: https://docs.ceph.com/en/latest/rados/operations/crush-map/#types-and-buckets
+    """
+
+    id: int
+    name: str
+    type_id: int
+    type: str
+    kb: int
+    kb_used: int
+    kb_avail: int
+    children: Optional[List[int]] = None
+
+    def __str__(self) -> str:
+        """Return representation of the Node as a string."""
+        return f"{self.type_id}-{self.name}({self.id})"
+
+    def __hash__(self) -> int:
+        """Return hash representation of Node."""
+        return hash(self.__str__())
 
 
 class AvailabilityZone:
     """Availability zone."""
 
-    def __init__(self, **data: str):
-        """Availability zone initialization."""
-        self._data = data
+    def __init__(self, nodes: List[NodeInfo]):
+        """Availability zone initialization.
 
-    def __getattr__(self, item: str) -> Optional[str]:
-        """Get element from crush map hierarchy."""
-        if item not in self.crush_map_hierarchy:
-            raise AttributeError(f"'{self.__class__}' object has no attribute '{item}'")
-
-        return self._data.get(item, None)
+        The nodes argument comes from the output of the `ceph df osd tree` command
+        and consists of NodeInfo.
+        All nodes of type `host` have `name` equivalent to machine hostname.
+        """
+        self._nodes = nodes
 
     def __eq__(self, other: object) -> bool:
         """Compare two Result instances."""
         if not isinstance(other, AvailabilityZone):
             return NotImplemented
 
-        return str(self) == str(other)
+        return self._nodes == other._nodes
 
     def __str__(self) -> str:
         """Return string representation of AZ objects."""
         return ",".join(
-            [
-                f"{crush_map_type}={self._data[crush_map_type]}"
-                for crush_map_type in self.crush_map_hierarchy
-                if crush_map_type in self._data
-            ]
+            str(node)
+            for node in sorted(self._nodes, key=lambda node: node.type_id, reverse=True)
         )
 
     def __hash__(self) -> int:
         """Return hash representation of AZ objects."""
         return hash(self.__str__())
 
-    @property
-    def crush_map_hierarchy(self) -> List[str]:
-        """Get Ceph Crush Map hierarchy."""
-        return [
-            "root",  # 10
-            "region",  # 9
-            "datacenter",  # 8
-            "room",  # 7
-            "pod",  # 6
-            "pdu",  # 5
-            "row",  # 4
-            "rack",  # 3
-            "chassis",  # 2
-            "host",  # 1
-            "osd",  # 0
-        ]
+    def find_parent(self, node_id: int) -> Optional[NodeInfo]:
+        """Find the node that has the id in the children list."""
+        for node in self._nodes:
+            if node.children and node_id in node.children:
+                return node
+
+        return None
+
+    def get_nodes(self, name: str) -> List[NodeInfo]:
+        """Get nodes by their name."""
+        nodes = [node for node in self._nodes if node.name == name]
+        if not nodes:
+            raise KeyError(f"Node {name} was not found.")
+
+        return nodes
+
+    def can_remove_node(self, *names: str) -> bool:
+        """Check if child could be removed."""
+        # Finds matching parents for children.
+        parents_children_map = defaultdict(list)
+        for name in names:
+            # NOTE (rgildein): `Self.get_node` could raise an error here, but the
+            # check runner catches all exceptions.
+            children = self.get_nodes(name)
+            for child in children:
+                parent = self.find_parent(child.id)
+                if not parent:
+                    logger.warning(
+                        "A parent for the node %s could not be found.", child
+                    )
+                    return False
+
+                parents_children_map[parent].append(child)
+
+        # Check if all children could be removed from parent.
+        for parent, children in parents_children_map.items():
+            # NOTE (rgildein): This will check that the parent will have enough space
+            # even if the children are removed. An example with attempt to remove 2
+            # children:
+            #   parent with 5 children has 1 000 kB free space
+            #   each child used the 400 kB space (2 000 kB total)
+            #   each child has 200 kB of free space (1 000 kB total)
+            #
+            #   total available space after removing 2 units: 1 000kB - 2x200kB
+            #   the total space that must moved to other units: 2x400kB
+            #   check failed, due 600kB <= 800kB
+            total_children_kb_used = sum(child.kb_used for child in children)
+            total_children_kb_avail = sum(child.kb_avail for child in children)
+            if (parent.kb_avail - total_children_kb_avail) <= total_children_kb_used:
+                logger.debug(
+                    "Lack of space %d kB <= %d kB. Children %s cannot be removed.",
+                    parent.kb_avail,
+                    total_children_kb_used,
+                    ",".join(str(child) for child in children),
+                )
+                return False
+
+        return True
 
 
 class CephCommon(BaseVerifier):  # pylint: disable=W0223
@@ -154,41 +232,34 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
         return None
 
     @classmethod
-    def get_number_of_free_units(cls, unit: Unit) -> int:
-        """Get number of free units from ceph df.
-
-        The `ceph df` will provide a cluster’s data usage and data distribution among
-        pools and this function calculates the number of units that are safe to remove.
-        """
+    def get_disk_utilization(cls, unit: Unit) -> List[NodeInfo]:
+        """Get disk utilization as osd tree output."""
         verify_charm_unit("ceph-mon", unit)
-        # NOTE (rgildein): This functionality is not complete and will be part of the
-        #                  fix on LP#1921121.
-        logger.warning(
-            "WARNING: The function to get the number of free units from "
-            "'ceph df' is in WIP and returns only 1. See LP#1921121 "
-            "for more information."
-        )
-        return 1
-
-    @classmethod
-    def get_availability_zones(cls, *units: Unit) -> Dict[str, AvailabilityZone]:
-        """Get information about availability zones for ceph-osd units."""
-        # NOTE (rgildein): This has been tested, but it will be fully functional only
-        #                  after merging the changes.
-        #                  https://review.opendev.org/c/openstack/charm-ceph-osd/+/778159
-        verify_charm_unit("ceph-osd", *units)
+        # NOTE (rgildein): The `show-disk-free` action will provide output w/ 3 keys,
+        # while this function uses only one, namely `nodes`.
+        # https://github.com/openstack/charm-ceph-mon#actions
         action_map = run_action_on_units(
-            list(units), "get-availability-zone", params={"format": "json"}
+            [unit], "show-disk-free", params={"format": "json"}
         )
-
-        availability_zone = {}
-        for unit, action in action_map.items():
-            action_output = data_from_action(action, "availability-zone", "{}")
-            unit_availability_zone = json.loads(action_output)["unit"]
-            unit_availability_zone.pop("host")  # need to compare AZ without host
-            availability_zone[unit] = AvailabilityZone(**unit_availability_zone)
-
-        return availability_zone
+        action_output = data_from_action(
+            action_map.get(unit.entity_id), "message", "{}"
+        )
+        # NOTE (rgildein): The returned output is supported since Ceph v10.2.11 onwards.
+        logger.debug("parse information about disk utilization: %s", action_output)
+        osd_tree: Dict[str, Any] = json.loads(action_output)
+        return [
+            NodeInfo(
+                id=node["id"],
+                name=node["name"],
+                type=node["type"],
+                type_id=node["type_id"],
+                kb=node["kb"],
+                kb_used=node["kb_used"],
+                kb_avail=node["kb_avail"],
+                children=node.get("children"),
+            )
+            for node in osd_tree["nodes"]
+        ]
 
 
 class CephOsd(CephCommon):
@@ -242,33 +313,6 @@ class CephOsd(CephCommon):
 
         return {name: unit for name, unit in app_map.items() if unit is not None}
 
-    def get_free_app_units(self, apps: List[str]) -> Dict[str, int]:
-        """Get number of free units for each application."""
-        free_units = {}
-        for app_name in apps:
-            ceph_mon_unit = self._get_ceph_mon_unit(app_name)
-            if ceph_mon_unit:
-                free_units[app_name] = self.get_number_of_free_units(ceph_mon_unit)
-
-        return free_units
-
-    def get_apps_availability_zones(
-        self, apps: List[str]
-    ) -> Dict[AvailabilityZone, List[Unit]]:
-        """Get information about availability zone for each ceph-osd unit in application.
-
-        This function return dictionary contain AZ as key and list of units as value.
-        e.g. {AZ(per_host=False, rack="nova", row=None): [<Unit entity_id="ceph-osd/0">]}
-        """
-        availability_zones = defaultdict(list)
-        for app_name in apps:
-            app_units = self.model.applications[app_name].units
-            app_availability_zones = self.get_availability_zones(*app_units)
-            for unit_id, availability_zone in app_availability_zones.items():
-                availability_zones[availability_zone].append(self.model.units[unit_id])
-
-        return availability_zones
-
     def check_ceph_cluster_health(self) -> Result:
         """Check Ceph cluster health for unique ceph-mon units from ceph_mon_app_map."""
         unique_ceph_mon_units = set(self.ceph_mon_app_map.values())
@@ -296,7 +340,7 @@ class CephOsd(CephCommon):
                 result.add_partial_result(
                     Severity.FAIL,
                     f"The minimum number of replicas in '{app_name}' is "
-                    f"{min_replication_number:d} and it's not safe to restart/shutdown "
+                    f"{min_replication_number:d} and it's not safe to reboot/shutdown "
                     f"{len(units):d} units. {len(inactive_units):d} units are not "
                     f"active.",
                 )
@@ -306,37 +350,23 @@ class CephOsd(CephCommon):
     def check_availability_zone(self) -> Result:
         """Check availability zones resources.
 
-        This function checks whether the units can be shutdown/reboot without
+        This function checks whether the units can be reboot/shutdown without
         interrupting operation in the availability zone.
         """
         result = Result()
-        ceph_osd_apps = get_applications_names(self.model, "ceph-osd")
-        free_app_units = self.get_free_app_units(ceph_osd_apps)
-        availability_zones = self.get_apps_availability_zones(ceph_osd_apps)
-
-        for availability_zone, units in availability_zones.items():
-            inactive_units = {
-                unit.entity_id for unit in units if unit.workload_status != "active"
-            }
-            units_to_remove = {
-                unit.entity_id for unit in units if unit.entity_id in self.unit_ids
-            }
-            free_units = min(free_app_units[unit.application] for unit in units)
-            logger.debug(
-                "The availability zone %s has %d inactive and %d free units. "
-                "Trying to remove %s units.",
-                str(availability_zone),
-                len(inactive_units),
-                free_units,
-                units_to_remove,
+        for ceph_osd_app, ceph_mon_unit in self.ceph_mon_app_map.items():
+            availability_zone = AvailabilityZone(
+                nodes=self.get_disk_utilization(ceph_mon_unit)
             )
+            units = [unit for unit in self.units if unit.application == ceph_osd_app]
+            affected_hosts = {unit.machine.hostname for unit in units}
 
-            if len(units_to_remove.union(inactive_units)) > free_units:
+            if not availability_zone.can_remove_node(*affected_hosts):
+                units_to_remove = ", ".join(unit.entity_id for unit in units)
                 result += Result(
                     Severity.FAIL,
-                    f"It's not safe to removed units {units_to_remove} in the "
-                    f"availability zone '{availability_zone}'. [free_units="
-                    f"{free_units:d}, inactive_units={len(inactive_units):d}]",
+                    f"It's not safe to reboot/shutdown unit(s) {units_to_remove} in "
+                    f"the availability zone '{availability_zone}'.",
                 )
 
         return result or Result(Severity.OK, "Availability zone check passed.")

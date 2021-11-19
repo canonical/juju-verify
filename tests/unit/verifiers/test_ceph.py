@@ -25,7 +25,13 @@ from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import CharmException, JujuActionFailed
-from juju_verify.verifiers.ceph import AvailabilityZone, CephCommon, CephMon, CephOsd
+from juju_verify.verifiers.ceph import (
+    AvailabilityZone,
+    CephCommon,
+    CephMon,
+    CephOsd,
+    NodeInfo,
+)
 from juju_verify.verifiers.result import Result, Severity
 
 CEPH_MON_QUORUM_OK = "Ceph-mon quorum check passed."
@@ -34,46 +40,148 @@ JUJU_VERSION_ERR = (
     "The machine for unit {} does not have a hostname attribute, "
     "please ensure that Juju controller is 2.8.10 or higher."
 )
+TEST_NODES_OUTPUT = [
+    {
+        "id": -1,
+        "name": "default",
+        "type_id": 10,
+        "type": "root",
+        "kb": 100,
+        "kb_used": 60,
+        "kb_avail": 40,
+        "children": [-2, -3],
+    },
+    {
+        "id": -2,
+        "name": "rack.1",
+        "type_id": 3,
+        "type": "rack",
+        "kb": 50,
+        "kb_used": 45,
+        "kb_avail": 5,
+        "children": [0, 1],
+    },
+    {
+        "id": 0,
+        "name": "osd.0",
+        "type_id": 0,
+        "type": "osd",
+        "kb": 25,
+        "kb_used": 23,
+        "kb_avail": 2,
+    },
+    {
+        "id": 1,
+        "name": "osd.1",
+        "type_id": 0,
+        "type": "osd",
+        "kb": 25,
+        "kb_used": 22,
+        "kb_avail": 3,
+    },
+    {
+        "id": -3,
+        "name": "rack.2",
+        "type_id": 3,
+        "type": "rack",
+        "kb": 50,
+        "kb_used": 15,
+        "kb_avail": 35,
+        "children": [2, 3],
+    },
+    {
+        "id": 2,
+        "name": "osd.2",
+        "type_id": 0,
+        "type": "osd",
+        "kb": 35,
+        "kb_used": 7,
+        "kb_avail": 28,
+    },
+    {
+        "id": 3,
+        "name": "osd.3",
+        "type_id": 0,
+        "type": "osd",
+        "kb": 15,
+        "kb_used": 8,
+        "kb_avail": 7,
+    },
+]
+
+
+def test_node_info():
+    """Test initialization of NodeInfo and comparison."""
+    node = {
+        "id": 10,
+        "name": "osd.0",
+        "type": "osd",
+        "type_id": 0,
+        "kb": 10485760,
+        "kb_used": 1051648,
+        "kb_avail": 9434112,
+    }
+    node_info = NodeInfo(**node)
+
+    assert node_info.id == 10
+    assert node_info == NodeInfo(**node)
+    assert str(node_info) == "0-osd.0(10)"
+    assert hash(node_info) == hash("0-osd.0(10)")
+
+
+def test_availability_zone_method():
+    """Test AvailabilityZone object method, e.g. __str__, __eq__, ..."""
+    nodes = [
+        NodeInfo(**node)
+        for node in sorted(
+            TEST_NODES_OUTPUT, key=lambda node: node["type_id"], reverse=True
+        )
+    ]
+    az_str = ",".join(str(node) for node in nodes)
+    az = AvailabilityZone(nodes=nodes)
+
+    assert az is not None
+    assert az == AvailabilityZone(nodes)
+    assert az != NodeInfo(**TEST_NODES_OUTPUT[0])
+    assert az != az_str
+    assert str(az) == az_str
+    assert hash(az) == hash(az_str)
 
 
 @pytest.mark.parametrize(
-    "az_info, ex_az",
+    "exp_child, exp_parent, can_remove_node",
     [
-        ({"root": "default", "host": "test"}, "root=default,host=test"),
-        (
-            {"root": "default", "rack": "nova", "row": "row1", "host": "test"},
-            "root=default,row=row1,rack=nova,host=test",
-        ),
-        ({"root": "default", "skip_argument": "test"}, "root=default"),
+        ("rack.1", "default", False),
+        ("osd.0", "rack.1", False),
+        ("osd.2", "rack.2", False),
+        ("osd.3", "rack.2", True),
     ],
 )
-def test_az(az_info, ex_az):
-    """Test availability zone object."""
-    availability_zone = AvailabilityZone(**az_info)
-    assert str(availability_zone) == ex_az
-    assert hash(availability_zone) == hash(ex_az)
+def test_availability_zone(exp_child, exp_parent, can_remove_node):
+    """Test AvailabilityZone object."""
+    nodes = [
+        NodeInfo(**node)
+        for node in sorted(
+            TEST_NODES_OUTPUT, key=lambda node: node["type_id"], reverse=True
+        )
+    ]
+    az = AvailabilityZone(nodes=nodes)
+    child = az.get_nodes(exp_child)[0]
 
+    assert exp_child == child.name
+    assert exp_parent == az.find_parent(child.id).name
+    assert can_remove_node == az.can_remove_node(exp_child)
 
-def test_az_getattr():
-    """Test get attribute from AZ."""
-    availability_zone = AvailabilityZone(root="default", host="juju-1", test="test")
-    assert availability_zone.root == "default"
-    assert availability_zone.host == "juju-1"
-    with pytest.raises(AttributeError):
-        assert availability_zone.test == "test"
+    with pytest.raises(KeyError):
+        az.get_nodes("not-valid-child-name")
 
+    with pytest.raises(KeyError):
+        az.can_remove_node("not-valid-child-name")
 
-def test_az_eq():
-    """Test AZ.__eq__."""
-    assert AvailabilityZone(root="default", host="juju-1") == AvailabilityZone(
-        root="default", host="juju-1"
-    )
-    assert AvailabilityZone(root="default", host="juju-1") != AvailabilityZone(
-        root="default", host="juju-2"
-    )
-    assert AvailabilityZone(root="default", host="juju-1") is not None
-    assert AvailabilityZone(root="default", host="juju-1") != 1
-    assert AvailabilityZone(root="default", host="juju-1") != "root=default,host=juju-1"
+    # try to find parent for root
+    assert az.find_parent(-1) is None
+    # test if root could be removed
+    assert az.can_remove_node("default") is False
 
 
 @mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
@@ -181,31 +289,96 @@ def test_get_replication_number_error(model):
         CephCommon.get_replication_number(model.units["ceph-osd/0"])
 
 
-def test_get_number_of_free_units(model):
-    """Test get number of free units from ceph df."""
-    assert CephCommon.get_number_of_free_units(model.units["ceph-mon/0"])
-
-    with pytest.raises(CharmException):
-        CephCommon.get_number_of_free_units(model.units["ceph-osd/0"])
-
-
 @mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
-def test_get_availability_zones(mock_run_action_on_units, model):
-    """Test get information about availability zones for ceph-osd units."""
-    mock_action = MagicMock()
-    mock_action.data.get.side_effect = {
+def test_get_disk_utilization(mock_run_action_on_units, model):
+    """Test get disk utilization for ceph."""
+    action = MagicMock()
+    action.data.get.side_effect = {
         "results": {
-            "availability-zone": json.dumps(
-                {"unit": {"root": "default", "rack": "nova", "host": "test"}}
+            "message": json.dumps(
+                {
+                    "nodes": [
+                        {
+                            "id": -1,
+                            "name": "default",
+                            "type": "root",
+                            "type_id": 10,
+                            "reweight": -1.000000,
+                            "kb": 31457280,
+                            "kb_used": 3154944,
+                            "kb_used_data": 9024,
+                            "kb_used_omap": 0,
+                            "kb_used_meta": 3145728,
+                            "kb_avail": 28302336,
+                            "utilization": 10.029297,
+                            "var": 1.000000,
+                            "pgs": 0,
+                            "children": [-7, -3, -5],
+                        },
+                        {
+                            "id": -3,
+                            "name": "juju-2ecfef-zaza-a0e73f67a6c0-1",
+                            "type": "host",
+                            "type_id": 1,
+                            "pool_weights": {},
+                            "reweight": -1.000000,
+                            "kb": 10485760,
+                            "kb_used": 1051648,
+                            "kb_used_data": 3008,
+                            "kb_used_omap": 0,
+                            "kb_used_meta": 1048576,
+                            "kb_avail": 9434112,
+                            "utilization": 10.029297,
+                            "var": 1.000000,
+                            "pgs": 0,
+                            "children": [0],
+                        },
+                        {
+                            "id": 0,
+                            "device_class": "hdd",
+                            "name": "osd.0",
+                            "type": "osd",
+                            "type_id": 0,
+                            "crush_weight": 0.009796,
+                            "depth": 2,
+                            "pool_weights": {},
+                            "reweight": 1.000000,
+                            "kb": 10485760,
+                            "kb_used": 1051648,
+                            "kb_used_data": 3008,
+                            "kb_used_omap": 0,
+                            "kb_used_meta": 1048576,
+                            "kb_avail": 9434112,
+                            "utilization": 10.029297,
+                            "var": 1.000000,
+                            "pgs": 0,
+                        },
+                    ],
+                    "stray": [],
+                    "summary": {
+                        "total_kb": 31457280,
+                        "total_kb_used": 3154944,
+                        "total_kb_used_data": 9024,
+                        "total_kb_used_omap": 0,
+                        "total_kb_used_meta": 3145728,
+                        "total_kb_avail": 28302336,
+                        "average_utilization": 10.029297,
+                        "min_var": 1.000000,
+                        "max_var": 1.000000,
+                        "dev": 0.000000,
+                    },
+                }
             )
         }
     }.get
-    mock_run_action_on_units.return_value = {"ceph-osd/0": mock_action}
+    mock_run_action_on_units.return_value = {"ceph-mon/0": action}
 
-    availability_zone = CephCommon.get_availability_zones(model.units["ceph-osd/0"])
-    assert availability_zone["ceph-osd/0"] == AvailabilityZone(
-        root="default", rack="nova"
+    nodes = CephCommon.get_disk_utilization(model.units["ceph-mon/0"])
+    assert any(
+        node.name == "juju-2ecfef-zaza-a0e73f67a6c0-1" and node.children == [0]
+        for node in nodes
     )
+    assert any(node.name == "osd.0" and node.id == 0 for node in nodes)
 
 
 def test_get_ceph_mon_unit(model):
@@ -237,12 +410,19 @@ def test_get_ceph_mon_unit(model):
 @mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_unit")
 def test_get_ceph_mon_app_map(mock_get_ceph_mon_unit, model):
     """Test function to get ceph-mon units related to verified units."""
-    ceph_osd_units = [model.units["ceph-osd/0"], model.units["ceph-osd/1"]]
+    ceph_osd_units = [
+        model.units["ceph-osd/0"],
+        model.units["ceph-osd/1"],
+        model.units["ceph-osd-hdd/0"],
+    ]
     mock_get_ceph_mon_unit.return_value = model.units["ceph-mon/0"]
 
     units = CephOsd(ceph_osd_units)._get_ceph_mon_app_map()
 
-    assert units == {"ceph-osd": model.units["ceph-mon/0"]}
+    assert units == {
+        "ceph-osd": model.units["ceph-mon/0"],
+        "ceph-osd-hdd": model.units["ceph-mon/0"],
+    }
 
 
 @mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
@@ -289,7 +469,7 @@ def test_check_replication_number(
     expected_fail_result = Result(
         Severity.FAIL,
         "The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to "
-        "restart/shutdown 2 units. 0 units are not active.",
+        "reboot/shutdown 2 units. 0 units are not active.",
     )
     assert ceph_osd_verifier.check_replication_number() == expected_fail_result
 
@@ -300,7 +480,7 @@ def test_check_replication_number(
     expected_fail_result = Result(
         Severity.FAIL,
         "The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to "
-        "restart/shutdown 1 units. 1 units are not active.",
+        "reboot/shutdown 1 units. 1 units are not active.",
     )
     assert ceph_osd_verifier.check_replication_number() == expected_fail_result
 
@@ -316,63 +496,60 @@ def test_check_replication_number(
     assert ceph_osd_verifier.check_replication_number() == check_passed_result
 
 
-@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_unit")
-@mock.patch("juju_verify.verifiers.ceph.CephOsd.get_number_of_free_units")
-def test_get_free_app_units(
-    mock_get_number_of_free_units, mock_get_ceph_mon_unit, model
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
+@mock.patch("juju_verify.verifiers.ceph.CephCommon.get_disk_utilization")
+def test_check_availability_zone(
+    mock_get_disk_utilization, mock_get_ceph_mon_app_map, model
 ):
-    """Test get number of free units for each application."""
-    mock_get_ceph_mon_unit.return_value = model.units["ceph-mon/0"]
-    mock_get_number_of_free_units.return_value = 1
+    """Test check removing unit from availability zone."""
+    mock_get_disk_utilization.return_value = [
+        NodeInfo(**node) for node in TEST_NODES_OUTPUT
+    ]
 
-    free_units = CephOsd([model.units["ceph-osd/0"]]).get_free_app_units(["ceph-osd"])
-    assert free_units == {"ceph-osd": 1}
-    mock_get_number_of_free_units.assert_called_once_with(model.units["ceph-mon/0"])
+    # test empty ceph_mon_app_map, aka default result
+    mock_get_ceph_mon_app_map.return_value = {}
 
+    result = CephOsd([model.units["ceph-osd/0"]]).check_availability_zone()
+    assert result == Result(Severity.OK, "Availability zone check passed.")
 
-@mock.patch("juju_verify.verifiers.ceph.CephCommon.get_availability_zones")
-def test_get_apps_availability_zones(mock_get_availability_zones, model):
-    """Test get information about availability zone for each unit in application."""
-    exp_az = AvailabilityZone(root="default", rack="nova")
-    mock_get_availability_zones.return_value = {
-        "ceph-osd/0": exp_az,
-        "ceph-osd/1": exp_az,
+    # test to remove unit, which could be removed
+    mock_get_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
+    unit = model.units["ceph-osd/0"]
+    unit.machine = mock.PropertyMock(hostname="osd.3")
+
+    result = CephOsd([unit]).check_availability_zone()
+    assert result == Result(Severity.OK, "Availability zone check passed.")
+
+    # test removing multiple units from which one could not be removed
+    mock_get_ceph_mon_app_map.return_value = {
+        "ceph-osd-hdd": model.units["ceph-mon/0"],
+        "ceph-osd-ssd": model.units["ceph-mon/0"],
     }
-    azs = CephOsd([model.units["ceph-osd/0"]]).get_apps_availability_zones(["ceph-osd"])
-    assert azs == {exp_az: [model.units["ceph-osd/0"], model.units["ceph-osd/1"]]}
-    mock_get_availability_zones.assert_called_once_with(
-        model.units["ceph-osd/0"], model.units["ceph-osd/1"]
+    unit_1 = model.units["ceph-osd-hdd/0"]
+    unit_1.machine = mock.PropertyMock(hostname="osd.0")
+    unit_2 = model.units["ceph-osd-ssd/1"]
+    unit_2.machine = mock.PropertyMock(hostname="osd.3")
+
+    result = CephOsd([unit_1, unit_2]).check_availability_zone()
+    assert result == Result(
+        Severity.FAIL,
+        "It's not safe to reboot/shutdown unit(s) ceph-osd-hdd/0 in the availability "
+        "zone '10-default(-1),3-rack.1(-2),3-rack.2(-3),0-osd.0(0),0-osd.1(1),"
+        "0-osd.2(2),0-osd.3(3)'.",
     )
 
-
-@mock.patch("juju_verify.verifiers.ceph.CephOsd.get_free_app_units")
-@mock.patch("juju_verify.verifiers.ceph.CephOsd.get_apps_availability_zones")
-def test_check_availability_zone(
-    mock_get_apps_availability_zones, mock_get_free_app_units, model
-):
-    """Test check availability zone resources."""
-    mock_get_free_app_units.return_value = {"ceph-osd": 1}
-    mock_get_apps_availability_zones.return_value = {
-        AvailabilityZone(root="default"): [
-            model.units["ceph-osd/0"],
-            model.units["ceph-osd/1"],
-        ]
-    }
-
-    # verified one ceph-osd unit
-    result_success = CephOsd([model.units["ceph-osd/0"]]).check_availability_zone()
-    assert result_success == Result(Severity.OK, "Availability zone check passed.")
-
-    # verified two ceph-osd unit
-    result_fail = CephOsd(
-        [model.units["ceph-osd/0"], model.units["ceph-osd/1"]]
-    ).check_availability_zone()
-    expected_msg = "availability zone 'root=default'. [free_units=1, inactive_units=0]"
-
-    assert result_fail.success is False
-    assert any(
-        (partial.severity == Severity.FAIL and expected_msg in partial.message)
-        for partial in result_fail.partials
+    # test removing multiple units from same application and both could not be removed
+    mock_get_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
+    unit_1 = model.units["ceph-osd/0"]
+    unit_1.machine = mock.PropertyMock(hostname="osd.0")
+    unit_2 = model.units["ceph-osd/1"]
+    unit_2.machine = mock.PropertyMock(hostname="osd.1")
+    result = CephOsd([unit_1, unit_2]).check_availability_zone()
+    assert result == Result(
+        Severity.FAIL,
+        "It's not safe to reboot/shutdown unit(s) ceph-osd/0, ceph-osd/1 in the "
+        "availability zone '10-default(-1),3-rack.1(-2),3-rack.2(-3),"
+        "0-osd.0(0),0-osd.1(1),0-osd.2(2),0-osd.3(3)'.",
     )
 
 

@@ -23,7 +23,7 @@ from juju_verify.utils.unit import run_action_on_unit
 from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.result import Result, Severity, checks_executor
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class NovaCompute(BaseVerifier):
@@ -39,14 +39,11 @@ class NovaCompute(BaseVerifier):
 
         for unit_id, action in instance_count_results.items():
             running_vms = int(data_from_action(action, "instance-count"))
-            if running_vms != 0:
-                result.add_partial_result(
-                    Severity.FAIL, f"Unit {unit_id} is running {running_vms} VMs."
-                )
-            else:
-                result.add_partial_result(
-                    Severity.OK, f"Unit {unit_id} is running {running_vms} VMs."
-                )
+            result.add_partial_result(
+                Severity.FAIL if running_vms != 0 else Severity.OK,
+                f"Unit {unit_id} is running {running_vms} VMs.",
+            )
+
         return result
 
     def check_no_empty_az(self) -> Result:
@@ -78,8 +75,8 @@ class NovaCompute(BaseVerifier):
         if empty_zones:
             result = Result(
                 Severity.FAIL,
-                f"Removing these units would leave following"
-                f" availability zones empty: {empty_zones}",
+                f"Removing these units would leave following "
+                f"availability zones empty: {empty_zones}",
             )
         else:
             result = Result(Severity.OK, "Empty Availability Zone check passed.")

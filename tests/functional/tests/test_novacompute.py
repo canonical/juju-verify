@@ -9,7 +9,7 @@ from juju_verify import juju_verify
 from juju_verify.verifiers import get_verifier
 from juju_verify.verifiers.result import Partial, Severity
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class NovaCompute(OpenstackBaseTestCase):

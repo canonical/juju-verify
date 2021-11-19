@@ -13,15 +13,13 @@ from juju_verify.verifiers import get_verifier
 from juju_verify.verifiers.ceph import CephCommon
 from juju_verify.verifiers.result import Result
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class CephOsdTests(BaseTestCase):
     """Functional testing for ceph-osd verifier."""
 
     test_pool = "test"
-
-    # TODO: add test to check_availability_zone after new approach
 
     def setUp(self):
         """Disable cache for all ceph-osd tests."""
@@ -76,6 +74,16 @@ class CephOsdTests(BaseTestCase):
 
     def test_two_osd_unit(self):
         """Test that shutdown of multiple ceph-osd units fails."""
+        # NOTE(rgildein): getting hostname prefix from ceph-osd/0 machine hostname
+        # e.g.: `juju-0c0b8f-zaza-67e01ab6cdbc` from `juju-0c0b8f-zaza-67e01ab6cdbc-0`
+        hostname_prefix = self.model.units["ceph-osd/0"].machine.hostname[:-1]
+        exp_availability_zone_regex = (
+            r"10-default\(-1\),1-{0}\d\(-\d\),1-{0}\d\(-\d\),1-{0}\d\(-\d\),"
+            r"0-osd\.\d\(\d\),0-osd\.\d\(\d\),0-osd\.\d\(\d\)".format(hostname_prefix)
+        )
+        logger.debug(
+            "expected availability zone regex: '%s'", exp_availability_zone_regex
+        )
         # juju-verify shutdown --units ceph-osd/0 ceph-osd/1
 
         units = ["ceph-osd/0", "ceph-osd/1"]
@@ -87,9 +95,9 @@ class CephOsdTests(BaseTestCase):
         logger.info("result: %s", result)
         self.assertFalse(result.success)
         self.assert_message_in_result(
-            r"\[FAIL\] It's not safe to removed units {'ceph-osd\/\d', 'ceph-osd\/\d'} "
-            r"in the availability zone 'root=default'. "
-            r"\[free_units=1, inactive_units=0\]",
+            r"\[FAIL\] It's not safe to reboot\/shutdown unit\(s\) ceph-osd\/\d, "
+            r"ceph-osd\/\d in the availability zone "
+            r"'{}'.".format(exp_availability_zone_regex),
             result,
         )
 
@@ -148,7 +156,7 @@ class CephOsdTests(BaseTestCase):
         self.assertFalse(result.success)
         self.assert_message_in_result(
             r"\[FAIL\] The minimum number of replicas in 'ceph-osd' is 1 and "
-            r"it's not safe to restart\/shutdown 2 units. 0 units "
+            r"it's not safe to reboot\/shutdown 2 units. 0 units "
             r"are not active.",
             result,
         )

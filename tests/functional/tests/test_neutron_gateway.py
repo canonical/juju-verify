@@ -27,7 +27,7 @@ from tests.base import OpenstackBaseTestCase
 from juju_verify import juju_verify
 from juju_verify.verifiers import get_verifier
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class NeutronTests(OpenstackBaseTestCase):
@@ -83,7 +83,7 @@ class NeutronTests(OpenstackBaseTestCase):
         self.assertFalse(result.success)
 
         # Check that result contains expected error about non-redundant routers.
-        # Router IDs in the error message can be in any oerder
+        # Router IDs in the error message can be in any order
         for partial in result.partials:
             if partial.message.startswith("The following routers are non-redundant:"):
                 self.assertTrue(
@@ -94,7 +94,7 @@ class NeutronTests(OpenstackBaseTestCase):
             self.fail("Non-redundant router error message not found in result.")
 
         # Check that result contains expected error about non-redundant networks.
-        # Netowrk IDs in the error message can be in any oerder
+        # Network IDs in the error message can be in any order
         for partial in result.partials:
             if partial.message.startswith(
                 "The following DHCP networks are non-redundant:"
@@ -128,7 +128,7 @@ class NeutronTests(OpenstackBaseTestCase):
         )
         lbaas = lbaas_list[0]
 
-        # get nuetron-gateway unit hosting lbaas
+        # get neutron-gateway unit hosting lbaas
         lbaas_agent = self.NEUTRON.get_lbaas_agent_hosting_loadbalancer(lbaas["id"])
         lbaas_host = lbaas_agent["agent"]["host"]
         juju_machine_id = lbaas_host.split("-")[-1]

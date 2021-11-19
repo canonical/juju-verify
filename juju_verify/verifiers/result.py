@@ -80,6 +80,7 @@ class Partial:
         """Perform equal comparison with another Partial instance."""
         if not isinstance(other, Partial):
             return NotImplemented
+
         return self.severity == other.severity and self.message == other.message
 
 
