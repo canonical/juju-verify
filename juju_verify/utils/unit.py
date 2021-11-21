@@ -153,3 +153,39 @@ def get_applications_names(model: Model, application: str) -> List[str]:
             applications.append(app_name)
 
     return applications
+
+
+async def find_units(model: Model, units: List[str]) -> List[Unit]:
+    """Return list of juju.Unit objects that match with names in 'units' parameter.
+
+    This function will exit program with error message if any of units is not
+    found in the juju model.
+
+    :param model: Juju model to search units in.
+    :param units: List of unit names to search
+    :return: List of matching juju.Unit objects
+    """
+    selected_units: List[Unit] = []
+
+    for unit_name in units:
+        unit = model.units.get(unit_name)
+        if unit is None:
+            raise CharmException(f"Unit '{unit_name}' not found in the model.")
+
+        selected_units.append(unit)
+
+    return selected_units
+
+
+async def find_units_on_machine(model: Model, machines: List[str]) -> List[Unit]:
+    """Find all principal units that run on selected machines.
+
+    :param model: Juju model to search units in
+    :param machines: names of Juju machines on which to search units
+    :return: List of juju.Unit objects that match units running on the machines
+    """
+    return [
+        unit
+        for _, unit in model.units.items()
+        if unit.machine.entity_id in machines and not unit.data.get("subordinate")
+    ]
