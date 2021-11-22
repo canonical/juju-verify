@@ -16,6 +16,7 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """Helper function to manage Juju unit."""
 import asyncio
+import logging
 import os
 import re
 from typing import Any, Dict, List, Optional
@@ -28,6 +29,7 @@ from juju.unit import Unit
 from juju_verify.exceptions import CharmException, JujuActionFailed, VerificationError
 from juju_verify.utils.action import cache, cache_manager
 
+logger = logging.getLogger(__name__)
 CHARM_URL_PATTERN = re.compile(r"^(.*):(.*/)?(?P<charm>.*)(-\d+)$")
 
 
@@ -91,6 +93,14 @@ def run_action_on_units(
                 f"on unit {unit_id}. For more info see "
                 f"'juju show-action-output {action_result.entity_id}'"
             )
+
+        logger.debug(
+            "Action %s (ID: %s) finished with status %s. Action results " "`%s`.",
+            action,
+            action_result.entity_id,
+            action_result.status,
+            action_result.data.get("results", {}),
+        )
 
     if failed_actions_msg:
         raise VerificationError(os.linesep.join(failed_actions_msg))

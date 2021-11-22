@@ -283,6 +283,11 @@ class CephOsd(CephCommon):
         if self._ceph_mon_app_map is None:
             self._ceph_mon_app_map = self._get_ceph_mon_app_map()
 
+        if not self._ceph_mon_app_map:
+            logger.warning(
+                "Warning: the relation map between ceph-osd and ceph-mon is " "empty"
+            )
+
         return self._ceph_mon_app_map
 
     def _get_ceph_mon_unit(self, app_name: str) -> Optional[Unit]:
@@ -293,7 +298,7 @@ class CephOsd(CephCommon):
                     return get_first_active_unit(relation.provides.application.units)
 
         except (IndexError, KeyError) as error:
-            logger.debug("Error to get ceph-mon unit from relations: %s", error)
+            logger.error("Error to get ceph-mon unit from relations: %s", error)
 
         return None
 
@@ -306,10 +311,12 @@ class CephOsd(CephCommon):
         :returns: Map between verified and ceph-mon units
         """
         applications = {unit.application for unit in self.units}
-        logger.debug("affected applications %s", map(str, applications))
+        logger.debug("affected applications %s", ", ".join(applications))
 
         app_map = {name: self._get_ceph_mon_unit(name) for name in applications}
-        logger.debug("found units %s", map(str, app_map.values()))
+        logger.debug(
+            "found units %s", ", ".join([str(unit) for unit in app_map.values()])
+        )
 
         return {name: unit for name, unit in app_map.items() if unit is not None}
 
