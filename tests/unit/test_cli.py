@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
-"""Test suite for the cli function and helpers."""
+"""Cli test suite for entrypoint function and helpers."""
 import importlib
 import logging
 import os
