@@ -6,7 +6,7 @@ from juju import loop
 from tests.base import OpenstackBaseTestCase
 
 from juju_verify import juju_verify
-from juju_verify.verifiers import get_verifier
+from juju_verify.verifiers import get_verifiers
 from juju_verify.verifiers.result import Partial, Severity
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ class NovaCompute(OpenstackBaseTestCase):
         """Test that shutdown of a single unit returns OK."""
         units = ["nova-compute/0"]
         unit_objects = loop.run(juju_verify.find_units(self.model, units))
-        verifier = get_verifier(unit_objects)
+        verifier = get_verifiers(unit_objects)
         result = verifier.verify(self.CHECK)
         logger.info("result: %s", result)
         self.assertTrue(result.success)
@@ -50,7 +50,7 @@ class NovaCompute(OpenstackBaseTestCase):
         should then trigger empty AZ error.
         """
         nova_application = self.model.applications.get("nova-compute")
-        verifier = get_verifier(nova_application.units)
+        verifier = get_verifiers(nova_application.units)
         expected_partial = Partial(
             Severity.FAIL,
             "Removing these units would leave "
@@ -84,7 +84,7 @@ class NovaCompute(OpenstackBaseTestCase):
             Severity.FAIL, f"Unit {compute_with_vm} is running 1 VMs."
         )
         target_unit = loop.run(juju_verify.find_units(self.model, [compute_with_vm]))
-        verifier = get_verifier(target_unit)
+        verifier = get_verifiers(target_unit)
 
         result = verifier.verify(self.CHECK)
         logger.info("result: %s", result)
