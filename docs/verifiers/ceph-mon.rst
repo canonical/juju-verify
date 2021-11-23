@@ -11,6 +11,7 @@ perform the same set of checks.
 ::
 
   $ juju-verify reboot --unit ceph-mon/0
+  ===[ceph-mon/0]===
   Checks:
   [OK] check_affected_machines check passed
   [OK] check_has_sub_machines check passed
@@ -18,7 +19,7 @@ perform the same set of checks.
   [OK] Ceph-mon quorum check passed.
   [OK] ceph-mon/0: Ceph cluster is healthy
 
-  Overall result: OK (All checks passed)
+  Result: OK (All checks passed)
 
 
 check Juju version

@@ -14,6 +14,7 @@ perform the same set of checks.
 ::
 
   $ juju-verify reboot --unit neutron-gateway/0
+  ===[neutron-gateway/0]===
   Checks:
   [OK] check_affected_machines check passed
   [OK] check_has_sub_machines check passed
@@ -23,7 +24,7 @@ perform the same set of checks.
   [OK] Redundancy check passed for: router-list
   [OK] Redundancy check passed for: dhcp-networks
 
-  Overall result: OK (All checks passed)
+  Result: OK (All checks passed)
 
 
 check minimum Juju version
