@@ -22,7 +22,7 @@ jobs:
         with:
           fetch-depth: 2
       - name: Get latest workflow run status
-        uses: actions/github-script@v4
+        uses: actions/github-script@v5
         id: latest-workflow
         with:
           script: |
