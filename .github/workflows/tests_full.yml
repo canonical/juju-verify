@@ -56,14 +56,24 @@ jobs:
           result=0
           git log | head -n 2 | grep -qE $LATEST_HEAD_SHA || result=1
           echo "::set-output name=new::$result"
+          if [ $result == 1]; then
+            echo "There's a new commit."
+          else
+            echo "There is no new commit."
+          fi
       - name: Track changed files in the PR for functional tests
         id: code-changed
         run: |
           git remote add upstream https://github.com/canonical/juju-verify
           git fetch upstream master
-          changed=1
-          git diff --name-only upstream/master | grep -qE '^(juju_verify/|tests/functional/)' || changed=0
-          echo "::set-output name=changed::$changed"
+          result=1
+          git diff --name-only upstream/master | grep -qE '^(juju_verify/|tests/functional/)' || result=0
+          echo "::set-output name=changed::$result"
+          if [ $result == 1]; then
+            echo "The code base or function test code has changed."
+          else
+            echo "No changes were found."
+          fi
       - name: Skip tests
         id: skip-tests
         if: >-
