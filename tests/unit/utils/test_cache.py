@@ -15,8 +15,9 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """Utils cache test suite."""
+from unittest.mock import MagicMock
+
 from juju.action import Action
-from juju.model import Model
 
 from juju_verify.utils.cache import Cache, CacheManager
 
@@ -25,9 +26,9 @@ def test_cache():
     """Test cache functions."""
     default_cache_maxsize = 128
     cache = Cache(default_cache_maxsize)
-    key_1, action_1 = hash("test-1"), Action("1", Model())
-    key_2, action_2 = hash("test-2"), Action("2", Model())
-    key_3, action_3 = hash("test-3"), Action("3", Model())
+    key_1, action_1 = hash("test-1"), Action("1", MagicMock())
+    key_2, action_2 = hash("test-2"), Action("2", MagicMock())
+    key_3, action_3 = hash("test-3"), Action("3", MagicMock())
 
     cache.maxsize = 2  # change the maximum cache size for testing purposes
     assert cache.maxsize == 2

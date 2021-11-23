@@ -24,14 +24,6 @@ from juju.client.connector import Connector
 from juju.model import Model
 from juju.unit import Unit
 
-from juju_verify import juju_verify
-
-
-@pytest.fixture(scope="function")
-def fail(session_mocker):
-    """Mock fail function that otherwise causes process to exit."""
-    return session_mocker.patch.object(juju_verify, "fail")
-
 
 @pytest.fixture(scope="session")
 def model_units():

@@ -15,10 +15,9 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """Juju action helpers test suite."""
-from unittest.mock import PropertyMock
+from unittest.mock import MagicMock, PropertyMock
 
 from juju.action import Action
-from juju.model import Model
 
 from juju_verify.utils.action import data_from_action
 
@@ -31,7 +30,7 @@ def test_data_from_action(mocker):
     default = "default"
 
     mocker.patch.object(Action, "data", new_callable=PropertyMock(return_value=data))
-    action = Action("0", Model())
+    action = Action("0", MagicMock())
 
     output = data_from_action(action, host_key, default)
     assert output == host_value

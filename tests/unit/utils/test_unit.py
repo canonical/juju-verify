@@ -27,6 +27,8 @@ from pytest import raises
 from juju_verify.exceptions import CharmException, VerificationError
 from juju_verify.utils.action import cache_manager
 from juju_verify.utils.unit import (
+    find_units,
+    find_units_on_machine,
     get_applications_names,
     get_cache_key,
     get_first_active_unit,
@@ -256,3 +258,50 @@ def test_get_applications_names(model):
     """Test function to get all names of application based on the same charm."""
     ceph_osd_apps = get_applications_names(model, "ceph-osd")
     assert ceph_osd_apps == ["ceph-osd", "ceph-osd-hdd", "ceph-osd-ssd"]
+
+
+@pytest.mark.asyncio
+async def test_find_units(model, all_units):
+    """Test that find_units returns correct list of Unit objects."""
+    unit_list = await find_units(model, all_units)
+
+    assert len(unit_list) == len(all_units)
+
+    result = zip(all_units, unit_list)
+    for (unit_name, unit_obj) in result:
+        assert isinstance(unit_obj, Unit)
+        assert unit_obj.entity_id == unit_name
+
+    # fail if requested unit is not in the list of all units
+
+    missing_unit = "foo/0"
+    expected_message = f"Unit '{missing_unit}' not found in the model."
+
+    with pytest.raises(CharmException) as error:
+        await find_units(model, [missing_unit])
+        assert expected_message in str(error.value)
+
+
+@pytest.mark.asyncio
+async def test_find_units_on_machine(model, all_units):
+    """Test that find_units_on_machine function returns correct units."""
+    machine_1_name = "0"
+    machine_2_name = "1"
+
+    machine_1 = MagicMock()
+    machine_1.entity_id = machine_1_name
+    machine_2 = MagicMock()
+    machine_2.entity_id = machine_2_name
+
+    machine_1_units = all_units[:3]
+    machine_2_units = all_units[3:]
+
+    for unit_name, unit in model.units.items():
+        if unit_name in machine_1_units:
+            unit.machine = machine_1
+        elif unit_name in machine_2_units:
+            unit.machine = machine_2
+
+    found_units = await find_units_on_machine(model, [machine_1_name])
+
+    assert machine_1_units == [unit.entity_id for unit in found_units]
