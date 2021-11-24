@@ -71,7 +71,7 @@ jobs:
         if: >-
           fromJson(steps.latest-workflow.outputs.workflow).status == 'completed'
           && fromJson(steps.latest-workflow.outputs.workflow).conclusion == 'success'
-          && steps.new-commit-changed.outputs.new == 0
+          && steps.new-commit.outputs.new == 0
         run: echo "::set-output name=skip::1"
 
   lint-unittests-docs-build:
