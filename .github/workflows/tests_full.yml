@@ -16,7 +16,6 @@ jobs:
       || github.event.review.body == 'recheck-snap'
       || github.event.review.body == 'recheck-full'
     outputs:
-      latest-workflow:  ${{ steps.latest-workflow.outputs.workflow }}
       skip-func-tests: ${{ steps.skip-func-tests.outputs.skip }}
       skip-tests: ${{ steps.skip-tests.outputs.skip }}
     steps:
