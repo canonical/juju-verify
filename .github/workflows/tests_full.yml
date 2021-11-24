@@ -42,10 +42,10 @@ jobs:
           done
 
           if [[ -z "$workflow" ]]; then
-            echo "::set-output name=workflow::'{\"head_sha\": \"\", \"status\": \"\", \"conclusion\": \"\"}'"
-          else
-            echo "::set-output name=workflow::$(echo $workflow | jq -r '{head_sha ,status, conclusion}')"
+            workflow=='{"head_sha": "", "status": "", "conclusion": ""}'
           fi
+
+          echo "::set-output name=workflow::$workflow"
       - name: Check to see if there is any new commit
         id: new-commit
         env:
