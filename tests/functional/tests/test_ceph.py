@@ -7,8 +7,8 @@ import zaza
 from juju import loop
 from tests.base import BaseTestCase
 
-from juju_verify import juju_verify
 from juju_verify.utils.action import cache_manager
+from juju_verify.utils.unit import find_units
 from juju_verify.verifiers import get_verifier
 from juju_verify.verifiers.ceph import CephCommon
 from juju_verify.verifiers.result import Result
@@ -45,7 +45,7 @@ class CephOsdTests(BaseTestCase):
     def _wait_to_ceph_cluster(self, healthy: bool = True):
         """Wait to Ceph cluster be healthy again."""
         logger.info(f"waiting to Ceph cluster be {'' if healthy else 'un'}healthy")
-        unit_objects = loop.run(juju_verify.find_units(self.model, ["ceph-mon/0"]))
+        unit_objects = loop.run(find_units(self.model, ["ceph-mon/0"]))
         result = CephCommon.check_cluster_health(*unit_objects)
         assert result.success == healthy
 
@@ -61,7 +61,7 @@ class CephOsdTests(BaseTestCase):
 
         units = ["ceph-osd/0"]
         check = "shutdown"
-        unit_objects = loop.run(juju_verify.find_units(self.model, units))
+        unit_objects = loop.run(find_units(self.model, units))
         self._wait_to_ceph_cluster()
         verifier = get_verifier(unit_objects)
         result = verifier.verify(check)
@@ -88,7 +88,7 @@ class CephOsdTests(BaseTestCase):
 
         units = ["ceph-osd/0", "ceph-osd/1"]
         check = "shutdown"
-        unit_objects = loop.run(juju_verify.find_units(self.model, units))
+        unit_objects = loop.run(find_units(self.model, units))
         self._wait_to_ceph_cluster()
         verifier = get_verifier(unit_objects)
         result = verifier.verify(check)
@@ -106,7 +106,7 @@ class CephOsdTests(BaseTestCase):
         # juju-verify shutdown --units ceph-osd/1
         units = ["ceph-osd/0"]
         check = "shutdown"
-        unit_objects = loop.run(juju_verify.find_units(self.model, units))
+        unit_objects = loop.run(find_units(self.model, units))
 
         self._add_test_pool(percent_data=80)
         self._wait_to_ceph_cluster()
@@ -126,7 +126,7 @@ class CephOsdTests(BaseTestCase):
         # juju-verify shutdown --units ceph-osd/1
         units = ["ceph-osd/0"]
         check = "shutdown"
-        unit_objects = loop.run(juju_verify.find_units(self.model, units))
+        unit_objects = loop.run(find_units(self.model, units))
 
         self._add_test_pool()
         self._wait_to_ceph_cluster(healthy=False)
@@ -146,7 +146,7 @@ class CephOsdTests(BaseTestCase):
         # juju-verify shutdown --units ceph-osd/1
         units = ["ceph-osd/0", "ceph-osd/1"]
         check = "shutdown"
-        unit_objects = loop.run(juju_verify.find_units(self.model, units))
+        unit_objects = loop.run(find_units(self.model, units))
         self._add_test_pool(percent_data=80)
         self._wait_to_ceph_cluster()
         # check that check_replication_number failed, due default min_size=2
@@ -188,7 +188,7 @@ class CephMonTests(BaseTestCase):
 
         units = ["ceph-mon/0"]
         check = "shutdown"
-        unit_objects = loop.run(juju_verify.find_units(self.model, units))
+        unit_objects = loop.run(find_units(self.model, units))
         verifier = get_verifier(unit_objects)
         result = verifier.verify(check)
         logger.info("result: %s", result)
@@ -200,7 +200,7 @@ class CephMonTests(BaseTestCase):
 
         units = ["ceph-mon/0", "ceph-mon/1"]
         check = "shutdown"
-        unit_objects = loop.run(juju_verify.find_units(self.model, units))
+        unit_objects = loop.run(find_units(self.model, units))
         verifier = get_verifier(unit_objects)
         result = verifier.verify(check)
         logger.info("result: %s", result)
