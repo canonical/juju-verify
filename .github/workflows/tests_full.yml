@@ -28,6 +28,7 @@ jobs:
         run: |
           echo "ref_name $GITHUB_REF_NAME"
           echo "head_ref $GITHUB_HEAD_REF"
+          echo ${{ github.event }}
 
           function get_last_workflow() {
             _workflow=$(curl $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/tests_full.yml/runs |  jq -r '.workflow_runs[1]')
