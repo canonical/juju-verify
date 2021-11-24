@@ -68,18 +68,21 @@ jobs:
           fi
       - name: Skip tests
         id: skip-tests
-        if: >-
-          fromJson(steps.latest-workflow.outputs.workflow).status == 'completed'
-          && fromJson(steps.latest-workflow.outputs.workflow).conclusion == 'success'
-          && steps.new-commit.outputs.new == 0
-        run: echo "::set-output name=skip::1"
+        run: |
+          if [[ ${{ fromJson(steps.latest-workflow.outputs.workflow).status }} == 'completed' && ${{ fromJson(steps.latest-workflow.outputs.workflow).conclusion }} == 'success' && ${{ steps.new-commit.outputs.new }} == 0 ]]; then
+            echo "Lint, Unit tests, Docs and Build will be skipped"
+            echo "::set-output name=skip::1"
+          else
+            echo "Lint, Unit tests, Docs and Build will be run"
+            echo "::set-output name=skip::0"
+          fi
 
   lint-unittests-docs-build:
     name: Lint, Unit tests, Docs and Build
     runs-on: ubuntu-latest
     needs: change-info
     if: >-
-      needs.change-info.outputs.skip-tests != 1
+      needs.change-info.outputs.skip-tests == 0
       || github.event.review.body == 'recheck-snap'
       || github.event.review.body == 'recheck-full'
     strategy:
