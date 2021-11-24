@@ -26,10 +26,9 @@ jobs:
           CURRENT_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           function get_last_workflow() {
-            _workflow=$(curl $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/tests_full.yml/runs |  jq -r '.workflow_runs[1]')
-            if [[ "$(echo $_workflow | jq -r '.head_branch')" == "$CURRENT_BRANCH" ]]; then
-              echo $_workflow
-            fi
+            _workflows=$(curl $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/tests_full.yml/runs)
+            _last_workflow=$(echo "$_workflows" | jq -r --arg branch "$CURRENT_BRANCH" '.workflow_runs[1] | select(.head_branch==$branch)')
+            echo "$_last_workflow"
           }
 
           workflow=$(get_last_workflow)
@@ -40,6 +39,7 @@ jobs:
             sleep 5
           done
 
+          # define an empty value if the workflow is not found
           if [[ -z "$workflow" ]]; then
             workflow=='{"head_sha": "", "status": "", "conclusion": ""}'
           fi
