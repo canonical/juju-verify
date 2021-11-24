@@ -26,17 +26,24 @@ jobs:
           CURRENT_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           function get_last_workflow() {
+            # get all previus workflows for "test_full.yml" file
             _workflows=$(curl $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/tests_full.yml/runs)
+            # select previous (current is with index 0) workflow from same branch as this is
             _last_workflow=$(echo "$_workflows" | jq -r --arg branch "$CURRENT_BRANCH" '.workflow_runs[1] | select(.head_branch==$branch)')
+
             echo "$_last_workflow"
           }
 
+          # get last workflow
           workflow=$(get_last_workflow)
-          while [[ ! -z "$workflow" && "$(echo $workflow | jq -r '.status')" != "completed" ]];
+
+          # wait (max is 45min) if the last workflow is still running
+          max_time=$((SECONDS+45*60))
+          while [[ -n "$workflow" && "$(echo $workflow | jq -r '.status')" != "completed" && $SECONDS -lt $max_time ]];
           do
             workflow=$(get_last_workflow)
             echo "Waiting for workflow + $(echo $workflow | jq -r '.id')"
-            sleep 5
+            sleep 20
           done
 
           # define an empty value if the workflow is not found
