@@ -46,7 +46,7 @@ jobs:
           new_commit=0
           git log | head -n 2 | grep -qE $LATEST_HEAD_SHA || new_commit=1
           echo "::set-output name=new::$new_commit"
-          if [ $new_commit == 1]
+          if [ $new_commit == 1 ]
           then
             echo "There's a new commit."
           else
@@ -60,7 +60,7 @@ jobs:
           changed=1
           git diff --name-only upstream/master | grep -qE '^(juju_verify/|tests/functional/)' || changed=0
           echo "::set-output name=changed::$changed"
-          if [ $changed == 1]
+          if [ $changed == 1 ]
           then
             echo "The code base or function test code has changed."
           else
