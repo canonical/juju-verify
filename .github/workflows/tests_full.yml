@@ -26,6 +26,9 @@ jobs:
       - name: Get latest workflow info
         id: latest-workflow
         run: |
+          echo "ref_name $GITHUB_REF_NAME"
+          echo "head_ref $GITHUB_HEAD_REF"
+
           function get_last_workflow() {
             _workflow=$(curl $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/tests_full.yml/runs |  jq -r '.workflow_runs[1]')
             if [[ "$(echo $_workflow | jq -r '.head_branch')" == "$GITHUB_REF_NAME" ]]; then
@@ -41,11 +44,11 @@ jobs:
             sleep 5
           done
 
-          workflow_info=$(echo "{\"head_sha\": \"$(echo $workflow | jq -r '.head_sha')\",
-                                 \"status\": \"$(echo $workflow | jq -r '.status')\",
-                                 \"conclusion\": \"$(echo $workflow | jq -r '.conclusion')\"}")
-          echo $workflow_info
-          echo "::set-output name=workflow::$workflow_info"
+          if [[ -z "$workflow" ]]; then
+            echo "::set-output name=workflow::'{\"head_sha\": \"\", \"status\": \"\", \"conclusion\": \"\"}'"
+          else
+            echo "::set-output name=workflow::$(echo $workflow | jq -r '{head_sha ,status, conclusion}')"
+          fi
       - name: Check to see if there is any new commit
         id: new-commit
         env:
@@ -63,7 +66,7 @@ jobs:
       - name: Track changed files in the PR for functional tests
         id: skip-func-tests
         run: |
-          git remote add upstream $GITHUB_SERVER_URL$GITHUB_REPOSITORY
+          git remote add upstream $GITHUB_SERVER_URL/$GITHUB_REPOSITORY
           git fetch upstream master
 
           changed=0
