@@ -5,7 +5,7 @@ name: Test suite
 on:
   pull_request:
     types: [ opened, synchronize, reopened ]
-    branches: [ master ]
+    branches: [ not-master ]
 
 jobs:
   lint-unittests-docs-build:
