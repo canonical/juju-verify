@@ -16,13 +16,13 @@ jobs:
       || github.event.review.body == 'recheck-full'
     outputs:
       latest-workflow:  ${{ steps.latest-workflow.outputs.workflow }}
-      code-changed: ${{ steps.code-changed.outputs.changed }}
-      skip: ${{ steps.skip-tests.outputs.skip }}
+      skip-func-tests: ${{ steps.skip-func-tests.outputs.skip }}
+      skip-tests: ${{ steps.skip-tests.outputs.skip }}
     steps:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 2
-      - name: Get latest workflow run status
+      - name: Get latest workflow info
         id: latest-workflow
         run: |
           function get_last_run() {
@@ -38,7 +38,7 @@ jobs:
           done
 
           echo "::set-output name=workflow::$workflow"
-      - name: Check to see if there is any new confirmation
+      - name: Check to see if there is any new commit
         id: new-commit
         env:
           LATEST_HEAD_SHA: ${{ fromJson(steps.latest-workflow.outputs.workflow).head_sha }}
@@ -53,14 +53,14 @@ jobs:
             echo "There is no new commit."
           fi
       - name: Track changed files in the PR for functional tests
-        id: code-changed
+        id: skip-func-tests
         run: |
           git remote add upstream https://github.com/canonical/juju-verify
           git fetch upstream master
-          changed=1
-          git diff --name-only upstream/master | grep -qE '^(juju_verify/|tests/functional/)' || changed=0
-          echo "::set-output name=changed::$changed"
-          if [ $changed == 1 ]
+          changed=0
+          git diff --name-only upstream/master | grep -qE '^(juju_verify/|tests/functional/)' || changed=1
+          echo "::set-output name=skip::$changed"
+          if [ $changed == 0 ]
           then
             echo "The code base or function test code has changed."
           else
@@ -79,7 +79,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: change-info
     if: >-
-      needs.change-info.outputs.skip != 1
+      needs.change-info.outputs.skip-tests != 1
       || github.event.review.body == 'recheck-snap'
       || github.event.review.body == 'recheck-full'
     strategy:
@@ -101,7 +101,7 @@ jobs:
     runs-on: self-hosted
     needs: build-snap
     if: >-
-      needs.change-info.outputs.code-changed == 1
+      needs.change-info.outputs.skip-func-tests == 0
       || github.event.review.body == 'recheck-full'
     steps:
       - run: echo "functional tests"
