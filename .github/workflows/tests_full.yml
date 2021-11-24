@@ -21,18 +21,14 @@ jobs:
       skip-tests: ${{ steps.skip-tests.outputs.skip }}
     steps:
       - uses: actions/checkout@v2
-        with:
-          fetch-depth: 2
       - name: Get latest workflow info
         id: latest-workflow
+        env:
+          CURRENT_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
-          echo "ref_name $GITHUB_REF_NAME"
-          echo "head_ref $GITHUB_HEAD_REF"
-          echo ${{ github.event }}
-
           function get_last_workflow() {
             _workflow=$(curl $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/tests_full.yml/runs |  jq -r '.workflow_runs[1]')
-            if [[ "$(echo $_workflow | jq -r '.head_branch')" == "$GITHUB_REF_NAME" ]]; then
+            if [[ "$(echo $_workflow | jq -r '.head_branch')" == "$CURRENT_BRANCH" ]]; then
               echo $_workflow
             fi
           }
@@ -54,14 +50,14 @@ jobs:
         id: new-commit
         env:
           LATEST_HEAD_SHA: ${{ fromJson(steps.latest-workflow.outputs.workflow).head_sha }}
+          CURRENT_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          new_commit=0
-          git log | head -n 2 | grep -qE $LATEST_HEAD_SHA || new_commit=1
-          echo "::set-output name=new::$new_commit"
-          if [ $new_commit == 1 ]
+          if [ "$LATEST_HEAD_SHA" != "$CURRENT_SHA" ]
           then
+            echo "::set-output name=new:1"
             echo "There's a new commit."
           else
+            echo "::set-output name=new:0"
             echo "There is no new commit."
           fi
       - name: Track changed files in the PR for functional tests
