@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       github.event.review.state == 'approved'
+      || github.event.review.body == 'recheck'
       || github.event.review.body == 'recheck-snap'
       || github.event.review.body == 'recheck-full'
     outputs:
@@ -25,14 +26,17 @@ jobs:
       - name: Get latest workflow info
         id: latest-workflow
         run: |
-          function get_last_run() {
-            echo $(curl $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/tests_full.yml/runs |  jq -r '.workflow_runs[1]')
+          function get_last_workflow() {
+            _workflow=$(curl $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/tests_full.yml/runs |  jq -r '.workflow_runs[1]')
+            if [[ "$(echo $_workflow | jq -r '.head_branch')" == "$GITHUB_REF_NAME" ]]; then
+              echo $_workflow
+            fi
           }
 
-          workflow=$(get_last_run)
-          while [[ "$(echo $workflow | jq -r '.status')" != "completed" ]];
+          workflow=$(get_last_workflow)
+          while [[ ! -z "$workflow" && "$(echo $workflow | jq -r '.status')" != "completed" ]];
           do
-            workflow=$(get_last_run)
+            workflow=$(get_last_workflow)
             echo "Waiting for workflow + $(echo $workflow | jq -r '.id')"
             sleep 5
           done
@@ -55,8 +59,9 @@ jobs:
       - name: Track changed files in the PR for functional tests
         id: skip-func-tests
         run: |
-          git remote add upstream https://github.com/canonical/juju-verify
+          git remote add upstream $GITHUB_SERVER_URL$GITHUB_REPOSITORY
           git fetch upstream master
+
           changed=0
           git diff --name-only upstream/master | grep -qE '^(juju_verify/|tests/functional/)' || changed=1
           echo "::set-output name=skip::$changed"
@@ -69,11 +74,11 @@ jobs:
       - name: Skip tests
         id: skip-tests
         env:
-          STATUS: ${{ fromJson(steps.latest-workflow.outputs.workflow).status }}
-          CONCLUSION: ${{ fromJson(steps.latest-workflow.outputs.workflow).conclusion }}
+          WORKFLOW_STATUS: ${{ fromJson(steps.latest-workflow.outputs.workflow).status }}
+          WORKFLOW_CONCLUSION: ${{ fromJson(steps.latest-workflow.outputs.workflow).conclusion }}
           NEW_COMMIT: ${{ steps.new-commit.outputs.new }}
         run: |
-          if [[ $STATUS == 'completed' && $CONCLUSION == 'success' && $NEW_COMMIT == 0 ]]; then
+          if [[ $WORKFLOW_STATUS == 'completed' && $WORKFLOW_CONCLUSION == 'success' && $NEW_COMMIT == 0 ]]; then
             echo "Lint, Unit tests, Docs and Build will be skipped"
             echo "::set-output name=skip::1"
           else
@@ -87,6 +92,7 @@ jobs:
     needs: change-info
     if: >-
       needs.change-info.outputs.skip-tests == 0
+      || github.event.review.body == 'recheck'
       || github.event.review.body == 'recheck-snap'
       || github.event.review.body == 'recheck-full'
     strategy:
