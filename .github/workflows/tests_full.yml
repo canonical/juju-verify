@@ -68,8 +68,12 @@ jobs:
           fi
       - name: Skip tests
         id: skip-tests
+        env:
+          STATUS: ${{ fromJson(steps.latest-workflow.outputs.workflow).status }}
+          CONCLUSION: ${{ fromJson(steps.latest-workflow.outputs.workflow).conclusion }}
+          NEW_COMMIT: ${{ steps.new-commit.outputs.new }}
         run: |
-          if [[ ${{ fromJson(steps.latest-workflow.outputs.workflow).status }} == 'completed' && ${{ fromJson(steps.latest-workflow.outputs.workflow).conclusion }} == 'success' && ${{ steps.new-commit.outputs.new }} == 0 ]]; then
+          if [[ $STATUS == 'completed' && $CONCLUSION == 'success' && $NEW_COMMIT == 0 ]]; then
             echo "Lint, Unit tests, Docs and Build will be skipped"
             echo "::set-output name=skip::1"
           else
