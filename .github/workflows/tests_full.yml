@@ -25,6 +25,8 @@ jobs:
       - name: Get latest workflow run status
         id: latest-workflow
         run: |
+          echo $GITHUB_WORKFLOW
+
           function get_last_run() {
             echo $(curl $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/tests_full.yml/runs |  jq -r '.workflow_runs[1]')
           }
@@ -41,12 +43,12 @@ jobs:
       - name: Check to see if there is any new confirmation
         id: new-commit
         env:
-          LATEST_HEAD_SHA: ${{ fromJson(steps.latest-workflow.outputs.result).head_sha }}
+          LATEST_HEAD_SHA: ${{ fromJson(steps.latest-workflow.outputs.workflow).head_sha }}
         run: |
           new_commit=0
           git log | head -n 2 | grep -qE $LATEST_HEAD_SHA || new_commit=1
           echo "::set-output name=new::$new_commit"
-          if [ $result == 1]; then
+          if [ $new_commit == 1]; then
             echo "There's a new commit."
           else
             echo "There is no new commit."
@@ -56,10 +58,10 @@ jobs:
         run: |
           git remote add upstream https://github.com/canonical/juju-verify
           git fetch upstream master
-          result=1
-          git diff --name-only upstream/master | grep -qE '^(juju_verify/|tests/functional/)' || result=0
-          echo "::set-output name=changed::$result"
-          if [ $result == 1]; then
+          changed=1
+          git diff --name-only upstream/master | grep -qE '^(juju_verify/|tests/functional/)' || changed=0
+          echo "::set-output name=changed::$changed"
+          if [ $changed == 1]; then
             echo "The code base or function test code has changed."
           else
             echo "No changes were found."
@@ -67,8 +69,8 @@ jobs:
       - name: Skip tests
         id: skip-tests
         if: >-
-          fromJson(steps.latest-workflow.outputs.result).status == 'completed'
-          && fromJson(steps.latest-workflow.outputs.result).conclusion == 'success'
+          fromJson(steps.latest-workflow.outputs.workflow).status == 'completed'
+          && fromJson(steps.latest-workflow.outputs.workflow).conclusion == 'success'
           && steps.new-commit-changed.outputs.new == 0
         run: echo "::set-output name=skip::1"
 
