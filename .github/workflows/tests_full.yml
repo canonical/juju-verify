@@ -29,7 +29,7 @@ jobs:
             # get all previus workflows for "test_full.yml" file
             _workflows=$(curl $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/tests_full.yml/runs)
             # select previous (current is with index 0) workflow from same branch as this is
-            _last_workflow=$(echo "$_workflows" | jq -r --arg branch "$CURRENT_BRANCH" '.workflow_runs[1] | select(.head_branch==$branch)')
+            _last_workflow=$(echo "$_workflows" | jq -r --arg branch "$CURRENT_BRANCH" '[.workflow_runs[] | select(.head_branch==$branch)][1]')
 
             echo "$_last_workflow"
           }
