@@ -285,7 +285,7 @@ class CephOsd(CephCommon):
 
         if not self._ceph_mon_app_map:
             logger.warning(
-                "Warning: the relation map between ceph-osd and ceph-mon is " "empty"
+                "Warning: the relation map between ceph-osd and ceph-mon is empty"
             )
 
         return self._ceph_mon_app_map
@@ -295,7 +295,16 @@ class CephOsd(CephCommon):
         try:
             for relation in self.model.applications[app_name].relations:
                 if relation.matches(f"{app_name}:mon"):
-                    return get_first_active_unit(relation.provides.application.units)
+                    unit = get_first_active_unit(relation.provides.application.units)
+                    if unit is None:
+                        logger.warning(
+                            "No active unit related to %s application via "
+                            "relation %s was found.",
+                            app_name,
+                            relation,
+                        )
+
+                    return unit
 
         except (IndexError, KeyError) as error:
             logger.error("Error to get ceph-mon unit from relations: %s", error)

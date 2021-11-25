@@ -151,6 +151,7 @@ def get_first_active_unit(units: List[Unit]) -> Optional[Unit]:
         if unit.workload_status == "active":
             return unit
 
+    logger.debug("No active unit was found.")
     return None
 
 
