@@ -12,72 +12,99 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       github.event.review.state == 'approved'
+      || github.event.review.body == 'recheck'
       || github.event.review.body == 'recheck-snap'
       || github.event.review.body == 'recheck-full'
     outputs:
-      code-changed: ${{ steps.code-changed.outputs.changed }}
-      skip: ${{ steps.skip-tests.outputs.skip }}
+      skip-func-tests: ${{ steps.skip-func-tests.outputs.skip }}
+      skip-tests: ${{ steps.skip-tests.outputs.skip }}
     steps:
       - uses: actions/checkout@v2
-        with:
-          fetch-depth: 2
-      - name: Get latest workflow run status
-        uses: actions/github-script@v4
+      - name: Get latest workflow info
         id: latest-workflow
-        with:
-          script: |
-            function sleep(seconds) {
-              return new Promise(resolve => setTimeout(resolve, seconds * 1000));
-            }
+        env:
+          CURRENT_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          function get_last_workflow() {
+            # get all previus workflows for "test_full.yml" file and current branch
+            _workflows=$(curl -H "Accept: application/vnd.github.v3+json" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/tests_full.yml/runs?branch=$CURRENT_BRANCH")
+            # clear unsupported characters
+            _workflows_safe=$(echo "$_workflows" | tr "\r" " " | tr "\n" " " | tr "\t" " ")
+            # select previous (current is with index 0) workflow
+            _last_workflow=$(echo "$_workflows_safe" | jq -c '.workflow_runs[1]')
 
-            async function get_last_run() {
-              const runs = await github.actions.listWorkflowRuns({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                workflow_id: 'tests_full.yml',
-                per_page: 2
-              })
+            echo "$_last_workflow"
+          }
 
-              if (runs.data.workflow_runs[1].status == 'completed') {
-                return runs.data.workflow_runs[1];
-              } else {
-                console.log('Waiting for workflow ' + runs.data.workflow_runs[1].id);
-                await sleep(10); // Sleep 10 seconds
-                return await get_last_run();
-              }
-            }
+          # get last workflow
+          workflow=$(get_last_workflow)
 
-            return await get_last_run();
-      - name: Check to see if there is any new confirmation
+          # wait (max is 60min) if the last workflow is still running
+          max_time=$((SECONDS+60*60))
+          while [[ -n "$workflow" && "$(echo $workflow | jq -r '.status')" != "completed" && $SECONDS -lt $max_time ]];
+          do
+            workflow=$(get_last_workflow)
+            echo "Waiting for workflow + $(echo $workflow | jq -r '.id')"
+            sleep 20
+          done
+
+          # define an empty value if the workflow is not found
+          if [[ -z "$workflow" ]]; then
+            workflow='{"head_sha": "", "status": "", "conclusion": ""}'
+          fi
+
+          echo "::set-output name=workflow::$workflow"
+      - name: Check to see if there is any new commit
         id: new-commit
         env:
-          LATEST_HEAD_SHA: ${{ fromJson(steps.latest-workflow.outputs.result).head_sha }}
+          LATEST_HEAD_SHA: ${{ fromJson(steps.latest-workflow.outputs.workflow).head_sha }}
+          CURRENT_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          result=0
-          git log | head -n 2 | grep -qE $LATEST_HEAD_SHA || result=1
-          echo "::set-output name=new::$result"
-      - name: Track changed files in the PR
-        id: code-changed
+          if [ "$LATEST_HEAD_SHA" != "$CURRENT_SHA" ]
+          then
+            echo "::set-output name=new::1"
+            echo "There's a new commit."
+          else
+            echo "::set-output name=new::0"
+            echo "There is no new commit."
+          fi
+      - name: Track changed files in the PR for functional tests
+        id: skip-func-tests
         run: |
-          git remote add upstream https://github.com/canonical/juju-verify
+          git remote add upstream $GITHUB_SERVER_URL/$GITHUB_REPOSITORY
           git fetch upstream master
-          failed=1
-          git diff --name-only upstream/master | grep -qE '^(./juju_verify|./tests)' || failed=0
-          echo "::set-output name=changed::$failed"
+
+          changed=0
+          git diff --name-only upstream/master | grep -qE '^(juju_verify/|tests/functional/)' || changed=1
+          echo "::set-output name=skip::$changed"
+          if [ $changed == 0 ]
+          then
+            echo "The code base or function test code has changed."
+          else
+            echo "No changes were found."
+          fi
       - name: Skip tests
         id: skip-tests
-        if: >-
-          fromJson(steps.latest-workflow.outputs.result).status == 'completed'
-          && fromJson(steps.latest-workflow.outputs.result).conclusion == 'success'
-          && steps.new-commit-changed.outputs.new == 0
-        run: echo "::set-output name=skip::1"
+        env:
+          WORKFLOW_STATUS: ${{ fromJson(steps.latest-workflow.outputs.workflow).status }}
+          WORKFLOW_CONCLUSION: ${{ fromJson(steps.latest-workflow.outputs.workflow).conclusion }}
+          NEW_COMMIT: ${{ steps.new-commit.outputs.new }}
+        run: |
+          if [[ $WORKFLOW_STATUS == 'completed' && $WORKFLOW_CONCLUSION == 'success' && $NEW_COMMIT == 0 ]]; then
+            echo "Lint, Unit tests, Docs and Build will be skipped"
+            echo "::set-output name=skip::1"
+          else
+            echo "Lint, Unit tests, Docs and Build will be run"
+            echo "::set-output name=skip::0"
+          fi
 
   lint-unittests-docs-build:
     name: Lint, Unit tests, Docs and Build
     runs-on: ubuntu-latest
     needs: change-info
     if: >-
-      needs.change-info.outputs.skip != 1
+      needs.change-info.outputs.skip-tests == 0
+      || github.event.review.body == 'recheck'
       || github.event.review.body == 'recheck-snap'
       || github.event.review.body == 'recheck-full'
     strategy:
@@ -121,7 +148,7 @@ jobs:
     runs-on: self-hosted
     needs: build-snap
     if: >-
-      needs.change-info.outputs.code-changed == 1
+      needs.change-info.outputs.skip-func-tests == 0
       || github.event.review.body == 'recheck-full'
     steps:
       - uses: actions/checkout@v2
