@@ -48,7 +48,7 @@ jobs:
 
           # define an empty value if the workflow is not found
           if [[ -z "$workflow" ]]; then
-            workflow=='{"head_sha": "", "status": "", "conclusion": ""}'
+            workflow='{"head_sha": "", "status": "", "conclusion": ""}'
           fi
 
           echo "::set-output name=workflow::$workflow"
