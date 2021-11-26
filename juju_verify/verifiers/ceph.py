@@ -24,6 +24,7 @@ from juju.action import Action
 from juju.unit import Unit
 from packaging.version import Version
 
+from juju_verify.exceptions import CharmException
 from juju_verify.utils.action import data_from_action
 from juju_verify.utils.unit import (
     get_first_active_unit,
@@ -290,26 +291,24 @@ class CephOsd(CephCommon):
 
         return self._ceph_mon_app_map
 
-    def _get_ceph_mon_unit(self, app_name: str) -> Optional[Unit]:
+    def _get_ceph_mon_unit(self, app_name: str) -> Unit:
         """Get first ceph-mon unit from relation."""
-        try:
-            for relation in self.model.applications[app_name].relations:
-                if relation.matches(f"{app_name}:mon"):
-                    unit = get_first_active_unit(relation.provides.application.units)
-                    if unit is None:
-                        logger.warning(
-                            "No active unit related to %s application via "
-                            "relation %s was found.",
-                            app_name,
-                            relation,
-                        )
+        if app_name not in self.model.applications.keys():
+            raise CharmException(f"Application {app_name} was not found in model.")
 
-                    return unit
+        for relation in self.model.applications[app_name].relations:
+            if relation.matches(f"{app_name}:mon"):
+                unit = get_first_active_unit(relation.provides.application.units)
+                if unit is None:
+                    raise CharmException(
+                        f"No active unit related to {app_name} application via "
+                        f"relation {relation} was found."
+                    )
 
-        except (IndexError, KeyError) as error:
-            logger.error("Error to get ceph-mon unit from relations: %s", error)
+                return unit
 
-        return None
+        # if no unit has been returned yet
+        raise CharmException(f"No `{app_name}:mon` relation was found.")
 
     def _get_ceph_mon_app_map(self) -> Dict[str, Unit]:
         """Get first ceph-mon units related to verified units.
