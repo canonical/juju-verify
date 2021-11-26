@@ -31,7 +31,7 @@ jobs:
             # clear unsupported characters
             _workflows_safe=$(echo "$_workflows" | tr "\r" " " | tr "\n" " " | tr "\t" " ")
             # select previous (current is with index 0) workflow
-            _last_workflow=$(echo "$_workflows_safe" | jq -r '.workflow_runs[1]')
+            _last_workflow=$(echo "$_workflows_safe" | jq -c '.workflow_runs[1]')
 
             echo "$_last_workflow"
           }
