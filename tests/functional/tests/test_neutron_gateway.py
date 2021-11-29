@@ -138,7 +138,7 @@ class NeutronTests(OpenstackBaseTestCase):
         affected_untis = [unit.entity_id for unit in units]
         lbaas_warning = (
             "Following units have neutron LBaasV2 load-balancers that "
-            "will be lost on unit shutdown:"
+            "will be lost on unit reboot/shutdown:"
         )
 
         verifier = get_verifier(units)
