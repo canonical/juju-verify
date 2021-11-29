@@ -9,7 +9,7 @@ from tests.base import BaseTestCase
 
 from juju_verify.utils.action import cache_manager
 from juju_verify.utils.unit import find_units
-from juju_verify.verifiers import get_verifier
+from juju_verify.verifiers import Severity, get_verifier
 from juju_verify.verifiers.ceph import CephCommon
 from juju_verify.verifiers.result import Result
 
@@ -42,12 +42,20 @@ class CephOsdTests(BaseTestCase):
     @tenacity.retry(
         wait=tenacity.wait_exponential(max=60), stop=tenacity.stop_after_attempt(8)
     )
-    def _wait_to_ceph_cluster(self, healthy: bool = True):
-        """Wait to Ceph cluster be healthy again."""
-        logger.info(f"waiting to Ceph cluster be {'' if healthy else 'un'}healthy")
+    def _wait_to_ceph_cluster(self, state: str = "healthy"):
+        """Wait to Ceph cluster be in specific status again."""
+        if state == "healthy":
+            exp_severity = Severity.OK
+        elif state == "warning":
+            exp_severity = Severity.WARN
+        else:
+            exp_severity = Severity.FAIL
+
+        logger.info("waiting to Ceph cluster be in %s state", state)
         unit_objects = loop.run(find_units(self.model, ["ceph-mon/0"]))
         result = CephCommon.check_cluster_health(*unit_objects)
-        assert result.success == healthy
+        logger.debug("waiting result: %s", result)
+        assert all(partial.severity == exp_severity for partial in result.partials)
 
     def assert_message_in_result(self, exp_message: str, result: Result):
         """Assert that message is in partials results."""
@@ -121,22 +129,25 @@ class CephOsdTests(BaseTestCase):
 
         self._remove_test_pool()
 
-    def test_check_ceph_cluster_health_failed(self):
-        """Test that shutdown of a single ceph-osd unit fails."""
+    def test_check_ceph_cluster_health_warning(self):
+        """Test warning result for shutdown of a single ceph-osd unit."""
         # juju-verify shutdown --units ceph-osd/1
         units = ["ceph-osd/0"]
         check = "shutdown"
         unit_objects = loop.run(find_units(self.model, units))
 
         self._add_test_pool()
-        self._wait_to_ceph_cluster(healthy=False)
+        self._wait_to_ceph_cluster("warning")
         # check that Ceph cluster is unhealthy
         verifier = get_verifier(unit_objects)
         result = verifier.verify(check)
-        logger.info("result: %s", result)
-        self.assertFalse(result.success)
+        logger.info("result test_check_ceph_cluster_health_failed: %s", result)
+        self.assertTrue(
+            any(partial.severity == Severity.WARN for partial in result.partials)
+        )
         self.assert_message_in_result(
-            r"\[FAIL\] ceph-mon\/\d: Ceph cluster is unhealthy", result
+            r"\[WARN\] ceph-mon\/\d: Ceph cluster is in a warning state",
+            result,
         )
 
         self._remove_test_pool()

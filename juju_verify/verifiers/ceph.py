@@ -17,6 +17,7 @@
 """ceph-osd verification."""
 import json
 import logging
+import os
 from collections import defaultdict
 from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple
 
@@ -191,17 +192,26 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
                 result.add_partial_result(
                     Severity.OK, f"{unit}: Ceph cluster is healthy"
                 )
-            elif "HEALTH_WARN" in cluster_health or "HEALTH_ERR" in cluster_health:
+            elif "HEALTH_WARN" in cluster_health:
                 result.add_partial_result(
-                    Severity.FAIL, f"{unit}: Ceph cluster is unhealthy"
+                    Severity.WARN,
+                    f"{unit}: Ceph cluster is in a warning state{os.linesep}"
+                    f"  {cluster_health}",
+                )
+            elif "HEALTH_ERR" in cluster_health:
+                result.add_partial_result(
+                    Severity.FAIL,
+                    f"{unit}: Ceph cluster is unhealthy{os.linesep}  {cluster_health}",
                 )
             else:
                 result.add_partial_result(
-                    Severity.FAIL, f"{unit}: Ceph cluster is in an unknown state"
+                    Severity.FAIL,
+                    f"{unit}: Ceph cluster is in an unknown state{os.linesep}"
+                    f"  {cluster_health}",
                 )
 
         if not action_map:
-            result = Result(Severity.FAIL, "Ceph cluster is in an unknown state")
+            result = Result(Severity.FAIL, "Ceph cluster status could not be obtained")
 
         return result
 

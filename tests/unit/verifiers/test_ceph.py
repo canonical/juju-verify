@@ -16,6 +16,7 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """CephOsd verifier class test suite."""
 import json
+import os
 from unittest import mock
 from unittest.mock import MagicMock, PropertyMock
 
@@ -191,15 +192,26 @@ def test_availability_zone(exp_child, exp_parent, can_remove_node):
         ("HEALTH_OK ...", Result(Severity.OK, "ceph-mon/0: Ceph cluster is healthy")),
         (
             "HEALTH_WARN ...",
-            Result(Severity.FAIL, "ceph-mon/0: Ceph cluster is unhealthy"),
+            Result(
+                Severity.WARN,
+                f"ceph-mon/0: Ceph cluster is in a warning state"
+                f"{os.linesep}  HEALTH_WARN ...",
+            ),
         ),
         (
             "HEALTH_ERR ...",
-            Result(Severity.FAIL, "ceph-mon/0: Ceph cluster is unhealthy"),
+            Result(
+                Severity.FAIL,
+                f"ceph-mon/0: Ceph cluster is unhealthy{os.linesep}  HEALTH_ERR ...",
+            ),
         ),
         (
             "not valid message",
-            Result(Severity.FAIL, "ceph-mon/0: Ceph cluster is in an unknown state"),
+            Result(
+                Severity.FAIL,
+                f"ceph-mon/0: Ceph cluster is in an unknown state"
+                f"{os.linesep}  not valid message",
+            ),
         ),
     ],
 )
@@ -220,7 +232,7 @@ def test_check_cluster_health_combination(mock_run_action_on_units, model):
     exp_result = Result()
     exp_result.add_partial_result(Severity.OK, "ceph-mon/0: Ceph cluster is healthy")
     exp_result.add_partial_result(
-        Severity.FAIL, "ceph-mon/1: Ceph cluster is unhealthy"
+        Severity.FAIL, f"ceph-mon/1: Ceph cluster is unhealthy{os.linesep}  HEALTH_ERR"
     )
 
     action_healthy = MagicMock()
@@ -248,7 +260,7 @@ def test_check_cluster_health_unknown_state(mock_run_action_on_units, model):
         model.units["ceph-mon/0"], model.units["ceph-mon/1"]
     )
 
-    assert result == Result(Severity.FAIL, "Ceph cluster is in an unknown state")
+    assert result == Result(Severity.FAIL, "Ceph cluster status could not be obtained")
 
 
 def test_check_cluster_health_error(model):

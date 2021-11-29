@@ -49,17 +49,11 @@ expressions.
 
 ::
 
-  [FAIL] ceph-mon/1: Ceph cluster is unhealthy
+  [WARN] ceph-mon/1: Ceph cluster is in a warning state
+    HEALTH_WARN too few PGs per OSD (8 < min 30)
 
 There are several possible reasons why the Ceph cluster is not healthy, but not all of
 them can be listed here. For more info visit `ceph-monitoring`_.
-
-To see details run juju-verify in debug mode. Bellow is an example of a log message
-that provide more information about why Ceph cluster is unhealthy.
-
-::
-
-  | DEBUG | Unit (ceph-mon/1): Ceph cluster health 'HEALTH_WARN Degraded data redundancy: 8 pgs undersized; too few PGs per OSD (8 < min 30)'
 
 .. image:: ../img/check_ceph_cluster_health.svg
   :alt: Ceph cluster health check
