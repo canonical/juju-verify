@@ -24,7 +24,7 @@ from juju import loop
 from neutronclient.v2_0.client import Client
 from tests.base import OpenstackBaseTestCase
 
-from juju_verify import juju_verify
+from juju_verify.utils.unit import find_units, find_units_on_machine
 from juju_verify.verifiers import get_verifiers
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ class NeutronTests(OpenstackBaseTestCase):
     def test_single_unit(self):
         """Test that shutdown of a single unit returns OK."""
         units = ["neutron-gateway/0"]
-        unit_objects = loop.run(juju_verify.find_units(self.model, units))
+        unit_objects = loop.run(find_units(self.model, units))
         verifier = get_verifiers(unit_objects)
         result = verifier.verify(self.CHECK)
         logger.info("result: %s", result)
@@ -65,7 +65,7 @@ class NeutronTests(OpenstackBaseTestCase):
     def test_redundancy_fail(self):
         """Test that stopping all neutron gateway returns failure."""
         units = ["neutron-gateway/0", "neutron-gateway/1"]
-        unit_objects = loop.run(juju_verify.find_units(self.model, units))
+        unit_objects = loop.run(find_units(self.model, units))
         verifier = get_verifiers(unit_objects)
 
         # expected routers in error message
@@ -132,15 +132,13 @@ class NeutronTests(OpenstackBaseTestCase):
         lbaas_agent = self.NEUTRON.get_lbaas_agent_hosting_loadbalancer(lbaas["id"])
         lbaas_host = lbaas_agent["agent"]["host"]
         juju_machine_id = lbaas_host.split("-")[-1]
-        units = loop.run(
-            juju_verify.find_units_on_machine(self.model, [juju_machine_id])
-        )
+        units = loop.run(find_units_on_machine(self.model, [juju_machine_id]))
 
         # expected units in the warning message
         affected_untis = [unit.entity_id for unit in units]
         lbaas_warning = (
             "Following units have neutron LBaasV2 load-balancers that "
-            "will be lost on unit shutdown:"
+            "will be lost on unit reboot/shutdown:"
         )
 
         verifier = get_verifiers(units)

@@ -23,59 +23,19 @@ import logging
 import os
 import sys
 import typing
-from typing import List, Union
+from typing import Union
 
 from juju import errors, loop
 from juju.model import Model
-from juju.unit import Unit
 
 from juju_verify import logger as juju_verify_logger
 from juju_verify import stream_handler
-from juju_verify.exceptions import CharmException, VerificationError
+from juju_verify.exceptions import CharmException, JujuVerifyError, VerificationError
+from juju_verify.utils.unit import find_units, find_units_on_machine
 from juju_verify.verifiers import BaseVerifier, get_verifiers
 from juju_verify.verifiers.result import set_stop_on_failure
 
 logger = logging.getLogger(__name__)
-
-
-def fail(err_msg: str) -> None:
-    """Log error message and exit."""
-    logger.error(err_msg)
-    sys.exit(1)
-
-
-async def find_units(model: Model, units: List[str]) -> List[Unit]:
-    """Return list of juju.Unit objects that match with names in 'units' parameter.
-
-    This function will exit program with error message if any of units is not
-    found in the juju model.
-
-    :param model: Juju model to search units in.
-    :param units: List of unit names to search
-    :return: List of matching juju.Unit objects
-    """
-    selected_units: List[Unit] = []
-
-    for unit_name in units:
-        unit = model.units.get(unit_name)
-        if unit is None:
-            fail(f"Unit '{unit_name}' not found in the model.")
-        selected_units.append(unit)
-    return selected_units
-
-
-async def find_units_on_machine(model: Model, machines: List[str]) -> List[Unit]:
-    """Find all principal units that run on selected machines.
-
-    :param model: Juju model to search units in
-    :param machines: names of Juju machines on which to search units
-    :return: List of juju.Unit objects that match units running on the machines
-    """
-    return [
-        unit
-        for _, unit in model.units.items()
-        if unit.machine.entity_id in machines and not unit.data.get("subordinate")
-    ]
 
 
 async def connect_model(model_name: Union[str, None]) -> Model:
@@ -88,12 +48,15 @@ async def connect_model(model_name: Union[str, None]) -> Model:
     try:
         if model_name:
             logger.debug("Connecting to model '%s'.", model_name)
-            await model.connect_model(model_name)
+            await model.connect(model_name=model_name)
         else:
             logger.debug("Connecting to currently active model.")
-            await model.connect_current()
+            await model.connect()
     except errors.JujuError as exc:
-        fail(f"Failed to connect to the model.{os.linesep}{exc}")
+        raise CharmException(
+            f"Failed to connect to the model.{os.linesep}{exc}"
+        ) from exc
+
     return model
 
 
@@ -180,31 +143,34 @@ def config_logger(log_level: str) -> None:
         # set INFO level only for juju-verify logger
         juju_verify_logger.setLevel(logging.INFO)
     else:
-        fail(f"Unsupported log level requested: '{log_level}'")
+        raise JujuVerifyError(f"Unsupported log level requested: '{log_level}'")
 
 
-def main() -> None:
+def entrypoint() -> None:
     """Execute 'juju-verify' command."""
-    args = parse_args()
-    set_stop_on_failure(args.stop_on_failure)
-    config_logger(args.log_level)  # update logging option
-    model = loop.run(connect_model(args.model))
-    units: List[Unit] = []
-
-    if args.units:
-        units = loop.run(find_units(model, args.units))
-    elif args.machines:
-        units = loop.run(find_units_on_machine(model, args.machines))
-    else:
-        fail("juju-verify must target either juju units or juju machines")
-
     try:
+        args = parse_args()
+        set_stop_on_failure(args.stop_on_failure)
+        config_logger(args.log_level)  # update logging option
+        model = loop.run(connect_model(args.model))
+
+        if args.units:
+            units = loop.run(find_units(model, args.units))
+        elif args.machines:
+            units = loop.run(find_units_on_machine(model, args.machines))
+        else:
+            raise JujuVerifyError(
+                "juju-verify must target either juju units or juju machines"
+            )
+
         for verifier in get_verifiers(units):
             result = verifier.verify(args.check)
             logger.info("%s", result)
-    except (CharmException, VerificationError, NotImplementedError) as exc:
-        fail(str(exc))
-
-
-if __name__ == "__main__":  # pragma: no cover
-    main()
+    except (
+        JujuVerifyError,
+        CharmException,
+        VerificationError,
+        NotImplementedError,
+    ) as exc:
+        logger.error(exc)
+        sys.exit(1)
