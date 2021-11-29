@@ -31,6 +31,10 @@ class CharmException(Exception):
     """Exception related to the charm or the unit that runs it."""
 
 
+class JujuVerifyError(Exception):
+    """Exception related to the main logic of Juju-verify."""
+
+
 class JujuActionFailed(Exception):
     """Exception related to failing action run on the unit."""
 
