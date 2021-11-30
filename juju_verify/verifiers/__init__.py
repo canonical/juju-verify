@@ -18,7 +18,8 @@
 """Package with classes implementing verification methods for various charms."""
 import logging
 import os
-from typing import List
+from collections import defaultdict
+from typing import Iterator, List
 
 from juju.unit import Unit
 
@@ -41,7 +42,7 @@ SUPPORTED_CHARMS = {
 }
 
 
-def get_verifier(units: List[Unit]) -> BaseVerifier:
+def get_verifiers(units: List[Unit]) -> Iterator[BaseVerifier]:
     """Implement Factory function "verifier" creator for the supplied units.
 
     :param units: Juju unit(s) for which you want to produce verifier
@@ -49,30 +50,28 @@ def get_verifier(units: List[Unit]) -> BaseVerifier:
     :raises CharmException: Raised if units do not belong to the same charm or
         if the charm is unsupported for verification
     """
-    charm_types = set()
-
     if not units:
         raise CharmException("List of units can not be empty when creating verifier")
+
+    charms = defaultdict(list)
+
     for unit in units:
         charm_type = parse_charm_name(unit.data.get("charm-url", ""))
         logger.debug("Inferred charm for unit %s: %s", unit.entity_id, charm_type)
-        charm_types.add(charm_type)
+        charms[charm_type].append(unit)
 
-    if len(charm_types) > 1:
-        raise CharmException(
-            f"Units are not running same charm. Detected types: {charm_types}"
-        )
+    for charm, charm_units in charms.items():
+        logger.info("===[%s]===", ", ".join([unit.entity_id for unit in charm_units]))
+        verifier = SUPPORTED_CHARMS.get(charm)
+        if verifier is None:
+            supported_charms = os.linesep.join(SUPPORTED_CHARMS.keys())
+            logger.error(
+                "Charm '%s' is not supported by juju-verify. Supported charms:%s%s",
+                charm,
+                os.linesep,
+                supported_charms,
+            )
+            continue
 
-    charm = charm_types.pop()
-
-    verifier = SUPPORTED_CHARMS.get(charm)
-
-    if verifier is None:
-        supported_charms = os.linesep.join(SUPPORTED_CHARMS.keys())
-        raise CharmException(
-            f"Charm '{charm}' is not supported by juju-verify. "
-            f"Supported charms:{os.linesep}"
-            f"{supported_charms}"
-        )
-    logger.debug("Initiating verifier instance of class: %s", verifier.__name__)
-    return verifier(units=units)
+        logger.debug("Initiating verifier instance of class: %s", verifier.__name__)
+        yield verifier(units=charm_units)

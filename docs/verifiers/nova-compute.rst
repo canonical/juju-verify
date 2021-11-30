@@ -10,13 +10,14 @@ perform the same set of checks.
 ::
 
   $ juju-verify reboot --unit nova-compute/0
+  ===[nova-compute/0]===
   Checks:
   [OK] check_affected_machines check passed
   [OK] check_has_sub_machines check passed
   [OK] Unit nova-compute/0 is running 0 VMs.
   [OK] Empty Availability Zone check passed.
 
-  Overall result: OK (All checks passed)
+  Result: OK (All checks passed)
 
 
 check running VMs

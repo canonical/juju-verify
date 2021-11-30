@@ -11,13 +11,14 @@ perform the same set of checks.
 ::
 
   $ juju-verify reboot --unit ceph-osd/0
+  ===[ceph-osd/0]===
   Checks:
   [OK] check_affected_machines check passed
   [OK] ceph-mon/1: Ceph cluster is healthy
   [OK] Minimum replica number check passed.
   [OK] Availability zone check passed.
 
-  Overall result: OK (All checks passed)
+  Result: OK (All checks passed)
 
 
 .. _check Ceph cluster health:

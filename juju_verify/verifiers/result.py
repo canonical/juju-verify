@@ -132,7 +132,7 @@ class Result:
         output += os.linesep
 
         max_severity = max(partial.severity for partial in self.partials)
-        output += f"Overall result: {self.VERBOSE_MAP.get(max_severity)}"
+        output += f"Result: {self.VERBOSE_MAP.get(max_severity)}{os.linesep}"
         return output
 
     def __add__(self, other: object) -> "Result":

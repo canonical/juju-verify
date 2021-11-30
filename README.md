@@ -58,13 +58,14 @@ $ juju-verify shutdown --units nova-compute/0 nova-compute/1
    Example:
    ```bash
    $ juju-verify shutdown --unit ceph-osd/0
+   ===[ceph-osd/0]===
    Checks:
    [WARN] ceph-osd/0 has units running on child machines: ceph-mon/0*
    [OK] ceph-mon/0: Ceph cluster is healthy
    [OK] Minimum replica number check passed.
    [OK] Availability zone check passed.
 
-   Overall result: OK (Checks passed with warnings)
+   Result: OK (Checks passed with warnings)
    ```
 
 ## How to contribute
@@ -194,13 +195,14 @@ and three ending with a severity OK, but the overall result is OK.
    
 ```bash
 $ juju-verify shutdown --unit ceph-osd/0
+===[ceph-osd/0]===
 Checks:
 [WARN] ceph-osd/0 has units running on child machines: ceph-mon/0*
 [OK] ceph-mon/0: Ceph cluster is healthy
 [OK] Minimum replica number check passed.
 [OK] Availability zone check passed.
 
-Overall result: OK (Checks passed with warnings)
+Result: OK (Checks passed with warnings)
 ```
 
 ## Submit a bug

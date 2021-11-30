@@ -32,7 +32,7 @@ from juju_verify import logger as juju_verify_logger
 from juju_verify import stream_handler
 from juju_verify.exceptions import CharmException, JujuVerifyError, VerificationError
 from juju_verify.utils.unit import find_units, find_units_on_machine
-from juju_verify.verifiers import BaseVerifier, get_verifier
+from juju_verify.verifiers import BaseVerifier, get_verifiers
 from juju_verify.verifiers.result import set_stop_on_failure
 
 logger = logging.getLogger(__name__)
@@ -163,9 +163,9 @@ def entrypoint() -> None:
                 "juju-verify must target either juju units or juju machines"
             )
 
-        verifier = get_verifier(units)
-        result = verifier.verify(args.check)
-        logger.info(str(result))
+        for verifier in get_verifiers(units):
+            result = verifier.verify(args.check)
+            logger.info("%s", result)
     except (
         JujuVerifyError,
         CharmException,
