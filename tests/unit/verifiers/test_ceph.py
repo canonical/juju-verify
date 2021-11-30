@@ -195,7 +195,7 @@ def test_availability_zone(exp_child, exp_parent, can_remove_node):
         (
             "HEALTH_WARN ...",
             Result(
-                Severity.WARN,
+                Severity.FAIL,
                 f"ceph-mon/0: Ceph cluster is in a warning state"
                 f"{os.linesep}  HEALTH_WARN ...",
             ),

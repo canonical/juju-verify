@@ -194,7 +194,7 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
                 )
             elif "HEALTH_WARN" in cluster_health:
                 result.add_partial_result(
-                    Severity.WARN,
+                    Severity.FAIL,
                     f"{unit}: Ceph cluster is in a warning state{os.linesep}"
                     f"  {cluster_health}",
                 )

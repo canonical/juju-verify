@@ -94,7 +94,7 @@ expressions.
 
 ::
 
-  [WARN] ceph-mon/1: Ceph cluster is in a warning state
+  [FAIL] ceph-mon/1: Ceph cluster is in a warning state
     HEALTH_WARN too few PGs per OSD (8 < min 30)
 
 There are several possible reasons why the Ceph cluster is not healthy, but not all of

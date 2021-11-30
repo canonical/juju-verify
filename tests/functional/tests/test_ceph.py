@@ -137,7 +137,7 @@ class CephOsdTests(BaseTestCase):
         unit_objects = loop.run(find_units(self.model, units))
 
         self._add_test_pool()
-        self._wait_to_ceph_cluster("warning")
+        self._wait_to_ceph_cluster("fail")
         # check that Ceph cluster is unhealthy
         verifier = get_verifier(unit_objects)
         result = verifier.verify(check)
@@ -146,7 +146,7 @@ class CephOsdTests(BaseTestCase):
             any(partial.severity == Severity.WARN for partial in result.partials)
         )
         self.assert_message_in_result(
-            r"\[WARN\] ceph-mon\/\d: Ceph cluster is in a warning state",
+            r"\[FAIL\] ceph-mon\/\d: Ceph cluster is in a warning state",
             result,
         )
 
