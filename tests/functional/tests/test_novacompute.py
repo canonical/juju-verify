@@ -37,7 +37,7 @@ class NovaCompute(OpenstackBaseTestCase):
         """Test that shutdown of a single unit returns OK."""
         units = ["nova-compute/0"]
         unit_objects = loop.run(find_units(self.model, units))
-        verifier = get_verifiers(unit_objects)
+        verifier = next(get_verifiers(unit_objects))
         result = verifier.verify(self.CHECK)
         logger.info("result: %s", result)
         self.assertTrue(result.success)
@@ -50,7 +50,7 @@ class NovaCompute(OpenstackBaseTestCase):
         should then trigger empty AZ error.
         """
         nova_application = self.model.applications.get("nova-compute")
-        verifier = get_verifiers(nova_application.units)
+        verifier = next(get_verifiers(nova_application.units))
         expected_partial = Partial(
             Severity.FAIL,
             "Removing these units would leave "
@@ -84,7 +84,7 @@ class NovaCompute(OpenstackBaseTestCase):
             Severity.FAIL, f"Unit {compute_with_vm} is running 1 VMs."
         )
         target_unit = loop.run(find_units(self.model, [compute_with_vm]))
-        verifier = get_verifiers(target_unit)
+        verifier = next(get_verifiers(target_unit))
 
         result = verifier.verify(self.CHECK)
         logger.info("result: %s", result)

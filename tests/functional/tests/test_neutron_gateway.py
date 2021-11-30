@@ -56,7 +56,7 @@ class NeutronTests(OpenstackBaseTestCase):
         """Test that shutdown of a single unit returns OK."""
         units = ["neutron-gateway/0"]
         unit_objects = loop.run(find_units(self.model, units))
-        verifier = get_verifiers(unit_objects)
+        verifier = next(get_verifiers(unit_objects))
         result = verifier.verify(self.CHECK)
         logger.info("result: %s", result)
 
@@ -66,7 +66,7 @@ class NeutronTests(OpenstackBaseTestCase):
         """Test that stopping all neutron gateway returns failure."""
         units = ["neutron-gateway/0", "neutron-gateway/1"]
         unit_objects = loop.run(find_units(self.model, units))
-        verifier = get_verifiers(unit_objects)
+        verifier = next(get_verifiers(unit_objects))
 
         # expected routers in error message
         routers = self.NEUTRON.list_routers().get("routers", [])
@@ -141,7 +141,7 @@ class NeutronTests(OpenstackBaseTestCase):
             "will be lost on unit reboot/shutdown:"
         )
 
-        verifier = get_verifiers(units)
+        verifier = next(get_verifiers(units))
         result = verifier.verify_shutdown()
         logger.info("result: %s", result)
 
