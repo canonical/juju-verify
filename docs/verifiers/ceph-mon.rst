@@ -60,7 +60,7 @@ and vice versa if reboot/shutdown the unit(s) causes a loss of Ceph quorum:
 
 ::
 
-  [FAIL] Removing unit ceph-mon/0 will lose Ceph mon quorum
+  [FAIL] Rebooting or shutting down the unit ceph-mon/0 will lose ceph-mon quorum
 
 Another possible failure is if it is not possible to read the result from the output of
 the "get-quorum-status" action. In this case, the following result message will be
