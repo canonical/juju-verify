@@ -41,7 +41,7 @@ jobs:
 
           # wait (max is 60min) if the last workflow is still running
           max_time=$((SECONDS+60*60))
-          while [[ -n "$workflow" && "$(echo $workflow | jq -r '.status')" != "completed" && $SECONDS -lt $max_time ]];
+          while [[ "$workflow" != "null" && "$(echo $workflow | jq -r '.status')" != "completed" && $SECONDS -lt $max_time ]];
           do
             workflow=$(get_last_workflow)
             echo "Waiting for workflow + $(echo $workflow | jq -r '.id')"
