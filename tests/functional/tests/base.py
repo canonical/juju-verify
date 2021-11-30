@@ -24,8 +24,6 @@ class BaseTestCase(unittest.TestCase):
     def setUpClass(cls):
         """Run class setup for running tests."""
         super(BaseTestCase, cls).setUpClass()
-        cls.log_level = "info"
-        cli.config_logger(cls.log_level)
         cls.model = loop.run(cli.connect_model(zaza.model.CURRENT_MODEL))
 
     @classmethod
