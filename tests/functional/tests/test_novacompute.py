@@ -5,7 +5,7 @@ import zaza
 from juju import loop
 from tests.base import OpenstackBaseTestCase
 
-from juju_verify import juju_verify
+from juju_verify.utils.unit import find_units
 from juju_verify.verifiers import get_verifier
 from juju_verify.verifiers.result import Partial, Severity
 
@@ -36,7 +36,7 @@ class NovaCompute(OpenstackBaseTestCase):
     def test_single_unit(self):
         """Test that shutdown of a single unit returns OK."""
         units = ["nova-compute/0"]
-        unit_objects = loop.run(juju_verify.find_units(self.model, units))
+        unit_objects = loop.run(find_units(self.model, units))
         verifier = get_verifier(unit_objects)
         result = verifier.verify(self.CHECK)
         logger.info("result: %s", result)
@@ -83,7 +83,7 @@ class NovaCompute(OpenstackBaseTestCase):
         expected_partial = Partial(
             Severity.FAIL, f"Unit {compute_with_vm} is running 1 VMs."
         )
-        target_unit = loop.run(juju_verify.find_units(self.model, [compute_with_vm]))
+        target_unit = loop.run(find_units(self.model, [compute_with_vm]))
         verifier = get_verifier(target_unit)
 
         result = verifier.verify(self.CHECK)

@@ -35,7 +35,9 @@ from juju_verify.verifiers.ceph import (
 from juju_verify.verifiers.result import Result, Severity
 
 CEPH_MON_QUORUM_OK = "Ceph-mon quorum check passed."
-CEPH_MON_QUORUM_FAIL = "Removing unit {} will lose Ceph mon quorum"
+CEPH_MON_QUORUM_FAIL = (
+    "Rebooting or shutting down the unit {} will lose ceph-mon quorum"
+)
 JUJU_VERSION_ERR = (
     "The machine for unit {} does not have a hostname attribute, "
     "please ensure that Juju controller is 2.8.10 or higher."

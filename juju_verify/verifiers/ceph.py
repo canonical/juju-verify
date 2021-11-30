@@ -439,7 +439,8 @@ class CephMon(CephCommon):
                 if mons_after_change <= mon_count // 2:
                     result.add_partial_result(
                         Severity.FAIL,
-                        f"Removing unit {unit_id} will lose Ceph mon quorum",
+                        f"Rebooting or shutting down the unit {unit_id} will lose "
+                        f"ceph-mon quorum",
                     )
 
             except (json.decoder.JSONDecodeError, KeyError) as error:
