@@ -202,7 +202,7 @@ def test_main_cli_target_units(mocker):
     verifier.verify.return_value = result
 
     mocker.patch.object(cli, "parse_args").return_value = args
-    mocker.patch.object(cli, "get_verifier").return_value = verifier
+    mocker.patch.object(cli, "get_verifiers").return_value = [verifier]
     mocker.patch.object(cli, "loop")
     mocker.patch.object(cli, "connect_model", new_callable=MagicMock())
     mocker.patch.object(cli, "find_units", new_callable=MagicMock())
@@ -213,7 +213,7 @@ def test_main_cli_target_units(mocker):
     cli.connect_model.assert_called_with(args.model)
     cli.find_units.assert_called_with(ANY, args.units)
     verifier.verify.asssert_called_with(args.check)
-    logger.info.assert_called_with(str(result))
+    logger.info.assert_called_with("%s", result)
 
 
 def test_main_cli_target_machine(mocker):
@@ -231,7 +231,7 @@ def test_main_cli_target_machine(mocker):
     verifier.verify.return_value = result
 
     mocker.patch.object(cli, "parse_args").return_value = args
-    mocker.patch.object(cli, "get_verifier").return_value = verifier
+    mocker.patch.object(cli, "get_verifiers").return_value = [verifier]
     mocker.patch.object(cli, "loop")
     mocker.patch.object(cli, "connect_model", new_callable=MagicMock())
     mocker.patch.object(
@@ -244,7 +244,7 @@ def test_main_cli_target_machine(mocker):
     cli.connect_model.assert_called_with(args.model)
     cli.find_units_on_machine.assert_called_with(ANY, args.machines)
     verifier.verify.asssert_called_with(args.check)
-    logger.info.assert_called_with(str(result))
+    logger.info.assert_called_with("%s", result)
 
 
 def test_main_cli_no_target_fail(mocker):
@@ -283,7 +283,7 @@ def test_main_expected_failure(mocker, error, error_msg):
     mocker.patch.object(cli, "loop")
     mocker.patch.object(cli, "connect_model", new_callable=MagicMock())
     mocker.patch.object(cli, "find_units", new_callable=MagicMock())
-    mocker.patch.object(cli, "get_verifier").side_effect = error(error_msg)
+    mocker.patch.object(cli, "get_verifiers").side_effect = [error(error_msg)]
     mock_logger = mocker.patch.object(cli, "logger")
 
     with pytest.raises(SystemExit):

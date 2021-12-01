@@ -103,7 +103,7 @@ def test_result_formatting(severity):
     result = Result(partial_result.severity, partial_result.message)
 
     expected_success_msg = Result.VERBOSE_MAP.get(partial_result.severity)
-    expected_msg = "Checks:{0}{1}{0}{0}Overall result: {2}".format(
+    expected_msg = "Checks:{0}{1}{0}{0}Result: {2}{0}".format(
         os.linesep, partial_result, expected_success_msg
     )
 

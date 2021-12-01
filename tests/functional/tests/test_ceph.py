@@ -9,7 +9,7 @@ from tests.base import BaseTestCase
 
 from juju_verify.utils.action import cache_manager
 from juju_verify.utils.unit import find_units
-from juju_verify.verifiers import Severity, get_verifier
+from juju_verify.verifiers import Severity, get_verifiers
 from juju_verify.verifiers.ceph import CephCommon
 from juju_verify.verifiers.result import Result
 
@@ -71,7 +71,7 @@ class CephOsdTests(BaseTestCase):
         check = "shutdown"
         unit_objects = loop.run(find_units(self.model, units))
         self._wait_to_ceph_cluster()
-        verifier = get_verifier(unit_objects)
+        verifier = next(get_verifiers(unit_objects))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertTrue(result.success)
@@ -98,7 +98,7 @@ class CephOsdTests(BaseTestCase):
         check = "shutdown"
         unit_objects = loop.run(find_units(self.model, units))
         self._wait_to_ceph_cluster()
-        verifier = get_verifier(unit_objects)
+        verifier = next(get_verifiers(unit_objects))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertFalse(result.success)
@@ -119,7 +119,7 @@ class CephOsdTests(BaseTestCase):
         self._add_test_pool(percent_data=80)
         self._wait_to_ceph_cluster()
         # check that Ceph cluster is healthy
-        verifier = get_verifier(unit_objects)
+        verifier = next(get_verifiers(unit_objects))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertTrue(result.success)
@@ -139,7 +139,7 @@ class CephOsdTests(BaseTestCase):
         self._add_test_pool()
         self._wait_to_ceph_cluster("fail")
         # check that Ceph cluster is unhealthy
-        verifier = get_verifier(unit_objects)
+        verifier = next(get_verifiers(unit_objects))
         result = verifier.verify(check)
         logger.info("result test_check_ceph_cluster_health_failed: %s", result)
         self.assertTrue(
@@ -161,7 +161,7 @@ class CephOsdTests(BaseTestCase):
         self._add_test_pool(percent_data=80)
         self._wait_to_ceph_cluster()
         # check that check_replication_number failed, due default min_size=2
-        verifier = get_verifier(unit_objects)
+        verifier = next(get_verifiers(unit_objects))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertFalse(result.success)
@@ -179,7 +179,7 @@ class CephOsdTests(BaseTestCase):
             action_params={"name": "test", "key": "min_size", "value": "1"},
         )
         # check that check_replication_number passed
-        verifier = get_verifier(unit_objects)
+        verifier = next(get_verifiers(unit_objects))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertFalse(result.success)
@@ -200,7 +200,7 @@ class CephMonTests(BaseTestCase):
         units = ["ceph-mon/0"]
         check = "shutdown"
         unit_objects = loop.run(find_units(self.model, units))
-        verifier = get_verifier(unit_objects)
+        verifier = next(get_verifiers(unit_objects))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertTrue(result.success)
@@ -212,7 +212,7 @@ class CephMonTests(BaseTestCase):
         units = ["ceph-mon/0", "ceph-mon/1"]
         check = "shutdown"
         unit_objects = loop.run(find_units(self.model, units))
-        verifier = get_verifier(unit_objects)
+        verifier = next(get_verifiers(unit_objects))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertFalse(result.success)
