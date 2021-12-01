@@ -24,6 +24,7 @@ from juju.action import Action
 from juju.unit import Unit
 from packaging.version import Version
 
+from juju_verify.exceptions import CharmException
 from juju_verify.utils.action import data_from_action
 from juju_verify.utils.unit import (
     get_first_active_unit,
@@ -283,19 +284,31 @@ class CephOsd(CephCommon):
         if self._ceph_mon_app_map is None:
             self._ceph_mon_app_map = self._get_ceph_mon_app_map()
 
+        if not self._ceph_mon_app_map:
+            logger.warning(
+                "Warning: the relation map between ceph-osd and ceph-mon is empty"
+            )
+
         return self._ceph_mon_app_map
 
-    def _get_ceph_mon_unit(self, app_name: str) -> Optional[Unit]:
+    def _get_ceph_mon_unit(self, app_name: str) -> Unit:
         """Get first ceph-mon unit from relation."""
-        try:
-            for relation in self.model.applications[app_name].relations:
-                if relation.matches(f"{app_name}:mon"):
-                    return get_first_active_unit(relation.provides.application.units)
+        if app_name not in self.model.applications.keys():
+            raise CharmException(f"Application {app_name} was not found in model.")
 
-        except (IndexError, KeyError) as error:
-            logger.debug("Error to get ceph-mon unit from relations: %s", error)
+        for relation in self.model.applications[app_name].relations:
+            if relation.matches(f"{app_name}:mon"):
+                unit = get_first_active_unit(relation.provides.application.units)
+                if unit is None:
+                    raise CharmException(
+                        f"No active unit related to {app_name} application via "
+                        f"relation {relation} was found."
+                    )
 
-        return None
+                return unit
+
+        # if no unit has been returned yet
+        raise CharmException(f"No `{app_name}:mon` relation was found.")
 
     def _get_ceph_mon_app_map(self) -> Dict[str, Unit]:
         """Get first ceph-mon units related to verified units.
@@ -306,10 +319,12 @@ class CephOsd(CephCommon):
         :returns: Map between verified and ceph-mon units
         """
         applications = {unit.application for unit in self.units}
-        logger.debug("affected applications %s", map(str, applications))
+        logger.debug("affected applications %s", ", ".join(applications))
 
         app_map = {name: self._get_ceph_mon_unit(name) for name in applications}
-        logger.debug("found units %s", map(str, app_map.values()))
+        logger.debug(
+            "found units %s", ", ".join([str(unit) for unit in app_map.values()])
+        )
 
         return {name: unit for name, unit in app_map.items() if unit is not None}
 

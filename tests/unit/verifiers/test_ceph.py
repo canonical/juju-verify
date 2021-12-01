@@ -399,14 +399,27 @@ def test_get_ceph_mon_unit(model):
     unit = CephOsd([model.units["ceph-osd/0"]])._get_ceph_mon_unit("ceph-osd")
     assert unit == ceph_mon_units[0]
 
-    # return none for non-existent application name
-    unit = CephOsd([model.units["ceph-osd/0"]])._get_ceph_mon_unit("ceph-osd-cluster")
-    assert unit is None
+    # raise CharmException for non-existent application name
+    with pytest.raises(CharmException):
+        CephOsd([model.units["ceph-osd/0"]])._get_ceph_mon_unit("ceph-osd-cluster")
 
-    # return none for application with no units
+    # raise CharmException for application with no units
     mock_relation.provides.application.units = []
-    unit = CephOsd([model.units["ceph-osd/0"]])._get_ceph_mon_unit("ceph-osd")
-    assert unit is None
+    with pytest.raises(CharmException):
+        CephOsd([model.units["ceph-osd/0"]])._get_ceph_mon_unit("ceph-osd")
+
+    # raise CharmExeption for no active units
+    with mock.patch(
+        "juju_verify.utils.unit.get_first_active_unit"
+    ) as mock_get_first_active_unit:
+        mock_get_first_active_unit.return_value = None
+        with pytest.raises(CharmException):
+            CephOsd([model.units["ceph-osd/0"]])._get_ceph_mon_unit("ceph-osd")
+
+    # raise CharmException for no relations
+    model.applications["ceph-osd"].relations = []
+    with pytest.raises(CharmException):
+        CephOsd([model.units["ceph-osd/0"]])._get_ceph_mon_unit("ceph-osd")
 
 
 @mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_unit")
