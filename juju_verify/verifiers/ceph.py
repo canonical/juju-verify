@@ -28,8 +28,11 @@ from packaging.version import Version
 from juju_verify.exceptions import CharmException
 from juju_verify.utils.action import data_from_action
 from juju_verify.utils.unit import (
+    find_unit_by_hostname,
     get_first_active_unit,
+    run_action_on_unit,
     run_action_on_units,
+    run_command_on_unit,
     verify_charm_unit,
 )
 from juju_verify.verifiers.base import BaseVerifier
@@ -52,9 +55,37 @@ CEPH_CRUSH_TYPES = {
     "osd": 0,
 }
 
+CRUSH_RULE_DEVICE_TYPES = {
+    "default": None,
+    "default~hdd": "hdd",
+    "default~ssd": "ssd",
+    "default~nvme": "nvme",
+}
+
+
+class CrushRuleInfo(NamedTuple):
+    """Information about Node obtains from `ceph osd dump`."""
+
+    id: int
+    name: str
+    failure_domain: str
+    device_class: Optional[str] = None
+
+
+class PoolInfo(NamedTuple):
+    """Information about Node obtains from `ceph osd dump`."""
+
+    id: int
+    name: str
+    type: int
+    size: int
+    min_size: int
+    crush_rule: CrushRuleInfo
+    erasure_code_profile: str
+
 
 class NodeInfo(NamedTuple):
-    """Information about Node obtains from `ceph df osd tree`.
+    """Information about Node obtains from `ceph osd df tree`.
 
     The `ceph df` [1] comes from ceph-mon unit and it's run with additional option
     `tree` to show output in Crush Map hierarchy format.
@@ -85,6 +116,7 @@ class NodeInfo(NamedTuple):
     kb_used: int
     kb_avail: int
     children: Optional[List[int]] = None
+    device_class: Optional[str] = None
 
     def __str__(self) -> str:
         """Return representation of the Node as a string."""
@@ -128,32 +160,37 @@ class CephTree:
         if not isinstance(other, CephTree):
             return NotImplemented
 
-        return self._nodes == other._nodes
+        return self.nodes == other._nodes
 
     def __str__(self) -> str:
         """Return string representation of AZ objects."""
         return ",".join(
             str(node)
-            for node in sorted(self._nodes, key=lambda node: node.type_id, reverse=True)
+            for node in sorted(self.nodes, key=lambda node: node.type_id, reverse=True)
         )
 
     def __hash__(self) -> int:
         """Return hash representation of AZ objects."""
         return hash(self.__str__())
 
-    def _get_node(self, name: str) -> NodeInfo:
+    @property
+    def nodes(self) -> List[NodeInfo]:
+        """List of nodes in Ceph tree."""
+        return self._nodes
+
+    def get_node(self, name: str) -> NodeInfo:
         """Get node by name."""
         if name not in self._nodes_name_map.keys():
             raise KeyError(f"Node {name} was not found.")
 
         try:
-            node = self._nodes[self._nodes_name_map[name]]
+            node = self.nodes[self._nodes_name_map[name]]
             assert node.name == name  # check that variable _nodes was not changed
             return node
         except (IndexError, AssertionError) as error:
             raise ValueError("Private value `_nodes` was changed.") from error
 
-    def _find_ancestor(self, node: NodeInfo, required_type: str) -> Optional[NodeInfo]:
+    def find_ancestor(self, node: NodeInfo, required_type: str) -> Optional[NodeInfo]:
         """Find ancestor with the desired type.
 
         This function will recursively search for the parent node until the parent
@@ -174,11 +211,11 @@ class CephTree:
             so the first step is repeated for this node until the parent node is of the
             root type.
         """
-        for _node in self._nodes:
+        for _node in self.nodes:
             if _node.children and node.id in _node.children:
                 if _node.type != required_type:
                     # continue searching for the parent for the currently found node
-                    return self._find_ancestor(_node, required_type)
+                    return self.find_ancestor(_node, required_type)
 
                 return _node
 
@@ -192,7 +229,7 @@ class CephTree:
             raise ValueError(f"`{required_ancestor_type}` is not supported")
 
         # names allowed are of the type "host", which matches Juju units
-        if not all(self._get_node(name).type == "host" for name in names):
+        if not all(self.get_node(name).type == "host" for name in names):
             raise ValueError(
                 "Function can_remove_host_node is working only for node type host."
             )
@@ -200,10 +237,10 @@ class CephTree:
         # Finds matching ancestors for host node.
         ancestors_map = defaultdict(list)
         for name in names:
-            # NOTE (rgildein): `self._get_node` could raise an error here, but the
+            # NOTE (rgildein): `self.get_node` could raise an error here, but the
             # check runner catches all exceptions.
-            descendent = self._get_node(name)
-            ancestor = self._find_ancestor(descendent, required_ancestor_type)
+            descendent = self.get_node(name)
+            ancestor = self.find_ancestor(descendent, required_ancestor_type)
             logger.debug("found ancestor `%s` for host node `%s`", ancestor, descendent)
             if ancestor is None:
                 raise ValueError(
@@ -263,7 +300,7 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
             cluster_health = data_from_action(action, "message")
             logger.debug("Unit (%s): Ceph cluster health '%s'", unit, cluster_health)
 
-            if "HEALTH_OK" in cluster_health and result.success:
+            if "HEALTH_OK" in cluster_health:
                 result.add_partial_result(
                     Severity.OK, f"{unit}: Ceph cluster is healthy"
                 )
@@ -291,30 +328,77 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
         return result
 
     @classmethod
-    def get_replication_number(cls, unit: Unit) -> Optional[int]:
-        """Get minimum replication number from ceph-mon unit.
+    def get_crush_rules(cls, unit: Unit) -> Dict[int, CrushRuleInfo]:
+        """Get all crush rules in Ceph cluster."""
+        verify_charm_unit("ceph-mon", unit)
+        # NOTE (rgildein): This should be replaced be feature action in ceph-mon.
+        action = run_command_on_unit(
+            unit, "ceph --id admin osd crush rule dump -f json"
+        )
+        crush_rule_dump = data_from_action(action, "Stdout")
+        # NOTE (rgildein): Need to remove `\n` character. This is from unit, so using
+        # os.linesep does not make sense.
+        crush_rules_json: List[Dict[str, Any]] = json.loads(
+            crush_rule_dump.replace("\n", "")
+        )
+        crush_rules = {}
+        for crush_rule in crush_rules_json:
+            crush_rule_info = {
+                "id": crush_rule["rule_id"],
+                "name": crush_rule["rule_name"],
+            }
+            for step in crush_rule["steps"]:
+                if "type" in step:
+                    crush_rule_info["failure_domain"] = step["type"]
+                elif "item_name" in step:
+                    crush_rule_info["device_class"] = CRUSH_RULE_DEVICE_TYPES[
+                        step["item_name"]
+                    ]
 
-        This function runs the `list-pools` action with the parameter 'detail=true'
-        to get the replication number.
+            crush_rules[crush_rule["rule_id"]] = CrushRuleInfo(**crush_rule_info)
+
+        return crush_rules
+
+    @classmethod
+    def get_ceph_pools(cls, unit: Unit) -> List[PoolInfo]:
+        """Get detail about Ceph pools namely name, type, min_size and replicated.
+
+        This function runs the `list-pools` action with the parameter 'format=json'
+        to gather information about all pools.
+
+        Pool types:
+        1 - replicated
+            need to get the crush rule type, to know how the data is replicated
+        2 - erasure (not supported yet)
+        3 - erasure-coded (not supported yet)
+
         :raises CharmException: if the unit does not belong to the ceph-mon charm
         :raises TypeError: if the object pools is not iterable
-        :raises KeyError: if the pool detail does not contain `size` or `min_size`
+        :raises KeyError: if the pool detail does not contain `pool`, `pool_name`,
+                          `type`, `size`, `min_size` or `crush_rule`
+        :raises VerificationError: if any pool is in not supported type
         :raises json.decoder.JSONDecodeError: if json.loads failed
         """
         verify_charm_unit("ceph-mon", unit)
-        action_map = run_action_on_units(
-            [unit], "list-pools", params={"format": "json"}
-        )
-        action_output = data_from_action(
-            action_map.get(unit.entity_id), "message", "[]"
-        )
+        action = run_action_on_unit(unit, "list-pools", params={"format": "json"})
+        action_output = data_from_action(action, "message", "[]")
         logger.debug("parse information about pools: %s", action_output)
         pools: List[Dict[str, Any]] = json.loads(action_output)
 
-        if pools:
-            return min(pool["size"] - pool["min_size"] for pool in pools)
-
-        return None
+        # get all crush rules in Ceph cluster
+        crush_rules = cls.get_crush_rules(unit)
+        return [
+            PoolInfo(
+                id=pool["pool"],
+                name=pool["pool_name"],
+                type=pool["type"],
+                size=pool["size"],
+                min_size=pool["min_size"],
+                crush_rule=crush_rules[pool["crush_rule"]],
+                erasure_code_profile=pool["erasure_code_profile"],
+            )
+            for pool in pools
+        ]
 
     @classmethod
     def get_disk_utilization(cls, unit: Unit) -> List[NodeInfo]:
@@ -323,12 +407,8 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
         # NOTE (rgildein): The `show-disk-free` action will provide output w/ 3 keys,
         # while this function uses only one, namely `nodes`.
         # https://github.com/openstack/charm-ceph-mon#actions
-        action_map = run_action_on_units(
-            [unit], "show-disk-free", params={"format": "json"}
-        )
-        action_output = data_from_action(
-            action_map.get(unit.entity_id), "message", "{}"
-        )
+        action = run_action_on_unit(unit, "show-disk-free", params={"format": "json"})
+        action_output = data_from_action(action, "message", "{}")
         # NOTE (rgildein): The returned output is supported since Ceph v10.2.11 onwards.
         logger.debug("parse information about disk utilization: %s", action_output)
         osd_tree: Dict[str, Any] = json.loads(action_output)
@@ -342,6 +422,7 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
                 kb_used=node["kb_used"],
                 kb_avail=node["kb_avail"],
                 children=node.get("children"),
+                device_class=node.get("device_class"),
             )
             for node in osd_tree["nodes"]
         ]
@@ -375,6 +456,7 @@ class CephOsd(CephCommon):
         if not self._ceph_mon_app_map:
             logger.warning("the relation map between ceph-osd and ceph-mon is empty")
 
+        logger.debug("found ceph-mon application map: %s", self._ceph_mon_app_map)
         return self._ceph_mon_app_map
 
     @property
@@ -386,6 +468,7 @@ class CephOsd(CephCommon):
         if not self._ceph_tree_map:
             logger.warning("could not get Ceph tree")
 
+        logger.debug("found ceph tree map: %s", self._ceph_tree_map)
         return self._ceph_tree_map
 
     @property
@@ -445,8 +528,65 @@ class CephOsd(CephCommon):
         """
         applications = {unit.application for unit in self.units}
         logger.debug("affected applications %s", ", ".join(applications))
-
         return {name: self._get_ceph_mon_unit(name) for name in applications}
+
+    def _find_units_in_ceph_tree(
+        self, tree: CephTree, device_class: Optional[str] = None
+    ) -> Set[Unit]:
+        """Get set of units from ceph tree."""
+        units = set()
+        for node in tree.nodes:
+            if node.type == "host" and node.children is not None:
+                if device_class is not None:
+                    # check if there is any osd with required device_class
+                    if not any(
+                        osd.device_class == device_class
+                        for osd in tree.nodes
+                        if osd.id in node.children
+                    ):
+                        continue
+
+                units.add(find_unit_by_hostname(self.model, node.name, self.NAME))
+
+        return units
+
+    @staticmethod
+    def _count_branch(tree: CephTree, units: Set[Unit], root_type: str) -> int:
+        """Count unique branches for list of units (hots) in Ceph Tree."""
+        if root_type == "host":
+            return len(units)
+
+        ancestors = set()
+        for unit in units:
+            node = tree.get_node(unit.machine.hostname)
+            ancestor = tree.find_ancestor(node, root_type)
+            if ancestor is None:
+                raise CharmException(f"Could nod find ancestors for node `{node.name}`")
+
+            logging.debug("Found ancestor %s for unit %s", ancestor, unit)
+            ancestors.add(ancestor)
+
+        return len(ancestors)
+
+    def check_ceph_pools(self) -> Result:
+        """Check whether Ceph cluster pools meet the requirements."""
+        for ceph_mon_unit in self.ceph_mon_app_map.values():
+            pools = self.get_ceph_pools(ceph_mon_unit)
+
+            if any(pool.type != 1 for pool in pools):
+                return Result(
+                    Severity.FAIL,
+                    "Juju-verify only supports the replicated pool for now.",
+                )
+
+            if len({pool.crush_rule.failure_domain for pool in pools}) > 1:
+                return Result(
+                    Severity.FAIL,
+                    "Juju-verify only supports crush rules with same failure-domain "
+                    "for now.",
+                )
+
+        return Result(Severity.OK, "The requirements for ceph check were met.")
 
     def check_ceph_cluster_health(self) -> Result:
         """Check Ceph cluster health for unique ceph-mon units from ceph_mon_app_map."""
@@ -458,27 +598,35 @@ class CephOsd(CephCommon):
         result = Result()
 
         for app_name, ceph_mon_unit in self.ceph_mon_app_map.items():
-            min_replication_number = self.get_replication_number(ceph_mon_unit)
-            if min_replication_number is None:
-                continue  # get_replication_number returns None if no pools are available
-
-            units = {
-                unit.entity_id for unit in self.units if unit.application == app_name
-            }
-            inactive_units = {
-                unit.entity_id
-                for unit in self.model.applications[app_name].units
-                if unit.workload_status != "active"
-            }
-
-            if len(units.union(inactive_units)) > min_replication_number:
-                result.add_partial_result(
-                    Severity.FAIL,
-                    f"The minimum number of replicas in '{app_name}' is "
-                    f"{min_replication_number:d} and it's not safe to reboot/shutdown "
-                    f"{len(units):d} units. {len(inactive_units):d} units are not "
-                    f"active.",
+            ceph_tree = self.ceph_tree_map[app_name]
+            for pool in self.get_ceph_pools(ceph_mon_unit):
+                # get all ceph-osd units, that contain at least one osd w/ device class
+                # same as crush rule in pool
+                all_units = self._find_units_in_ceph_tree(
+                    ceph_tree, pool.crush_rule.device_class
                 )
+                # filter active units and units out of self.units
+                units = {
+                    unit
+                    for unit in all_units
+                    if unit.entity_id not in self.unit_ids and unit.workload_status == "active"
+                }
+                count_remaining_failure_domains = self._count_branch(
+                    ceph_tree, units, pool.crush_rule.failure_domain
+                )
+
+                if count_remaining_failure_domains < pool.min_size:
+                    affected_units = {
+                        unit.entity_id
+                        for unit in self.units
+                        if unit.application == app_name
+                    }
+                    result.add_partial_result(
+                        Severity.FAIL,
+                        f"The minimum number of replicas in `{app_name}` and pool "
+                        f"`{pool.name}` is {pool.min_size:d} and it's not safe to "
+                        f"reboot/shutdown {', '.join(affected_units)} units.",
+                    )
 
         return result or Result(Severity.OK, "Minimum replica number check passed.")
 
@@ -510,7 +658,11 @@ class CephOsd(CephCommon):
 
     def verify_reboot(self) -> Result:
         """Verify that it's safe to reboot selected ceph-osd units."""
-        return checks_executor(
+        ceph_pools_check = checks_executor(self.check_ceph_pools)
+        if not ceph_pools_check.success:
+            return ceph_pools_check
+
+        return ceph_pools_check + checks_executor(
             self.check_ceph_cluster_health,
             self.check_replication_number,
             self.check_availability_zone,

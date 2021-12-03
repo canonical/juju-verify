@@ -1,6 +1,7 @@
 """Test deployment and functionality of juju-verify."""
 import logging
 import re
+from typing import Optional
 
 import tenacity
 import zaza
@@ -17,42 +18,57 @@ logger = logging.getLogger(__name__)
 class CephOsdTests(BaseTestCase):
     """Functional testing for ceph-osd verifier."""
 
-    test_pool = "test"
-
     def setUp(self):
         """Disable cache for all ceph-osd tests."""
         cache_manager.disable()  # disable cache for all run action
+        self.pools = []  # list of pools created in tests
 
-    def _add_test_pool(self, percent_data: int = 10):
-        """Add a test pool."""
+    def tearDown(self):
+        """Remove all pools."""
+        for pool in self.pools:
+            self._remove_pool(pool)
+
+    def _add_pool(
+        self, name: str, crush_rule: Optional[str] = None, percent_data: Optional[int] = None
+    ):
+        """Add pool."""
+        action_params = {
+            "name": name,
+            "profile-name": crush_rule,
+            "percent-data": percent_data,
+        }
         _ = zaza.model.run_action(
             "ceph-mon/0",
             "create-pool",
-            action_params={"name": self.test_pool, "percent-data": percent_data},
+            action_params={param: value for param, value in action_params.items() if value},
         )
+        # NOTE (rgildein): The create-pool action ignores the profile-name.
+        # https://bugs.launchpad.net/charm-ceph-mon/+bug/1905573
+        if crush_rule:
+            _ = zaza.model.run_action(
+                "ceph-mon/0", "pool-set", action_params={"name": name, "key": "crush_rule", "value": crush_rule}
+            )
+        self.pools.append(name)
+        logger.info("Add pool `%s` with crush rule `%s` and percent_data=%s", name, crush_rule, percent_data)
 
-    def _remove_test_pool(self):
-        """Delete a test pool."""
+    @staticmethod
+    def _remove_pool(name: str):
+        """Delete pool."""
         _ = zaza.model.run_action(
-            "ceph-mon/0", "delete-pool", action_params={"name": self.test_pool}
+            "ceph-mon/0", "delete-pool", action_params={"name": name}
         )
+        logger.info("Remove pool `%s`", name)
 
     @tenacity.retry(
         wait=tenacity.wait_exponential(max=60), stop=tenacity.stop_after_attempt(8)
     )
-    def _wait_to_ceph_cluster(self, state: str = "healthy"):
-        """Wait to Ceph cluster be in specific status again."""
-        if state == "healthy":
-            exp_severity = Severity.OK
-        elif state == "warning":
-            exp_severity = Severity.WARN
-        else:
-            exp_severity = Severity.FAIL
-
+    def _wait_to_ceph_cluster(self, state: str = "HEALTH_OK"):
+        """Wait to Ceph cluster be in specific status agwe proceed according to the diagramain."""
         logger.info("waiting to Ceph cluster be in %s state", state)
-        result = CephCommon.check_cluster_health(self.model.units["ceph-mon/0"])
-        logger.debug("waiting result: %s", result)
-        assert all(partial.severity == exp_severity for partial in result.partials)
+        ceph_health = zaza.model.run_action("ceph-mon/0", "get-health")
+        ceph_health_message = ceph_health.data.get("results", {}).get("message", "")
+        logger.info("Ceph cluster health message: %s", ceph_health_message)
+        assert state in ceph_health_message
 
     def assert_message_in_result(self, exp_message: str, result: Result):
         """Assert that message is in partials results."""
@@ -63,8 +79,7 @@ class CephOsdTests(BaseTestCase):
     def test_single_osd_unit(self):
         """Test that shutdown of a single ceph-osd unit returns OK."""
         # juju-verify shutdown --units ceph-osd/1
-
-        units = [self.model.units["ceph-osd/0"]]
+        units = [self.model.units["ceph-osd-hdd/0"]]
         check = "shutdown"
         self._wait_to_ceph_cluster()
         verifier = next(get_verifiers(units))
@@ -72,44 +87,34 @@ class CephOsdTests(BaseTestCase):
         logger.info("result: %s", result)
         self.assertTrue(result.success)
         self.assert_message_in_result(
-            r"\[WARN\] ceph-osd\/\d has units running on child machines: ceph-mon\/\d",
+            r"\[WARN\] ceph-osd-hdd\/\d has units running on child machines: "
+            r"ceph-mon\/\d",
             result,
         )
 
-    def test_two_osd_unit(self):
-        """Test that shutdown of multiple ceph-osd units fails."""
-        # NOTE(rgildein): getting hostname prefix from ceph-osd/0 machine hostname
-        # e.g.: `juju-0c0b8f-zaza-67e01ab6cdbc` from `juju-0c0b8f-zaza-67e01ab6cdbc-0`
-        hostname_prefix = self.model.units["ceph-osd/0"].machine.hostname[:-1]
-        exp_availability_zone_regex = (
-            r"10-default\(-1\),1-{0}\d\(-\d\),1-{0}\d\(-\d\),1-{0}\d\(-\d\),"
-            r"0-osd\.\d\(\d\),0-osd\.\d\(\d\),0-osd\.\d\(\d\)".format(hostname_prefix)
-        )
-        logger.debug(
-            "expected availability zone regex: '%s'", exp_availability_zone_regex
-        )
+    def test_pool_with_multiple_failure_domain(self):
+        """Test multiple pools with different failure-domain."""
         # juju-verify shutdown --units ceph-osd/0 ceph-osd/1
-
-        units = [self.model.units["ceph-osd/0"], self.model.units["ceph-osd/1"]]
+        units = [self.model.units["ceph-osd-hdd/0"]]
         check = "shutdown"
+        self._add_pool("pool-hdd-replication", "hdd-host", 50)
+        self._add_pool("pool-ssd-replication", "ssd-rack", 50)
         self._wait_to_ceph_cluster()
         verifier = next(get_verifiers(units))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertFalse(result.success)
         self.assert_message_in_result(
-            r"\[FAIL\] It's not safe to reboot\/shutdown unit\(s\) ceph-osd\/\d, "
-            r"ceph-osd\/\d in the availability zone "
-            r"'{}'.".format(exp_availability_zone_regex),
-            result,
+            r"\[FAIL\] Juju-verify only supports crush rules with same failure-domain "
+            r"for now.", result
         )
 
     def test_check_ceph_cluster_health_passed(self):
         """Test that shutdown of a single ceph-osd unit returns OK."""
         # juju-verify shutdown --units ceph-osd/1
-        units = [self.model.units["ceph-osd/0"]]
+        units = [self.model.units["ceph-osd-hdd/0"]]
         check = "shutdown"
-        self._add_test_pool(percent_data=80)
+        self._add_pool("test-healthy-cluster", percent_data=80)
         self._wait_to_ceph_cluster()
         # check that Ceph cluster is healthy
         verifier = next(get_verifiers(units))
@@ -120,19 +125,19 @@ class CephOsdTests(BaseTestCase):
             r"\[OK\] ceph-mon\/\d: Ceph cluster is healthy", result
         )
 
-        self._remove_test_pool()
-
     def test_check_ceph_cluster_health_warning(self):
         """Test warning result for shutdown of a single ceph-osd unit."""
         # juju-verify shutdown --units ceph-osd/1
-        units = [self.model.units["ceph-osd/0"]]
+        units = [self.model.units["ceph-osd-hdd/0"]]
         check = "shutdown"
-        self._add_test_pool()
-        self._wait_to_ceph_cluster("fail")
+        self._add_pool("test-warn-cluster", "hdd-host")
+        self._wait_to_ceph_cluster("HEALTH_WARN")
         # check that Ceph cluster is unhealthy
         verifier = next(get_verifiers(units))
+        self._wait_to_ceph_cluster("HEALTH_WARN")
         result = verifier.verify(check)
-        logger.info("result test_check_ceph_cluster_health_failed: %s", result)
+        self._wait_to_ceph_cluster("HEALTH_WARN")
+        logger.info("result: %s", result)
         self.assertTrue(
             any(partial.severity == Severity.WARN for partial in result.partials)
         )
@@ -141,43 +146,45 @@ class CephOsdTests(BaseTestCase):
             result,
         )
 
-        self._remove_test_pool()
-
-    def test_check_replication_number(self):
-        """Test that shutdown of a single ceph-osd unit returns OK."""
-        # juju-verify shutdown --units ceph-osd/1
-        units = [self.model.units["ceph-osd/0"], self.model.units["ceph-osd/1"]]
+    def test_replication_number(self):
+        """Test that shutdown of multiple ceph-osd units pass/fails."""
+        # juju-verify shutdown --units ceph-osd/0 ceph-osd/1
         check = "shutdown"
-        self._add_test_pool(percent_data=80)
+        self._add_pool("hdd-replication", "hdd", 50)
         self._wait_to_ceph_cluster()
-        # check that check_replication_number failed, due default min_size=2
+
+        # try to remove two units w/ device-class == hdd
+        units = [self.model.units["ceph-osd-hdd/0"], self.model.units["ceph-osd-hdd/1"]]
         verifier = next(get_verifiers(units))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertFalse(result.success)
         self.assert_message_in_result(
-            r"\[FAIL\] The minimum number of replicas in 'ceph-osd' is 1 and "
-            r"it's not safe to reboot\/shutdown 2 units. 0 units "
-            r"are not active.",
+            r"\[FAIL\] The minimum number of replicas in `ceph-osd-hdd` and pool "
+            r"`hdd-replication` is 2 and it's not safe to reboot\/shutdown "
+            r"ceph-osd-hdd/\d, ceph-osd-hdd/\d units.",
             result,
         )
 
-        # change min_size to 1
-        _ = zaza.model.run_action(
-            "ceph-mon/0",
-            "pool-set",
-            action_params={"name": "test", "key": "min_size", "value": "1"},
-        )
-        # check that check_replication_number passed
+        # try to remove two units w/ device-class == ssd
+        units = [self.model.units["ceph-osd-ssd/0"], self.model.units["ceph-osd-ssd/1"]]
+        verifier = next(get_verifiers(units))
+        result = verifier.verify(check)
+        logger.info("result: %s", result)  # passes because there is no pool using ssd
+        self.assertTrue(result.success)
+
+        # try to remove two units, but one w/ device-class hdd and another w/ ssd
+        units = [self.model.units["ceph-osd-hdd/0"], self.model.units["ceph-osd-ssd/0"]]
         verifier = next(get_verifiers(units))
         result = verifier.verify(check)
         logger.info("result: %s", result)
-        self.assertFalse(result.success)
+        self.assertTrue(result.success)
         self.assert_message_in_result(
-            r"\[OK\] Minimum replica number check passed.", result
+            r"\[OK\] Minimum replica number check passed.", result,
         )
-
-        self._remove_test_pool()
+        self.assert_message_in_result(
+            r"\[OK\] Availability zone check passed.", result,
+        )
 
 
 class CephMonTests(BaseTestCase):
