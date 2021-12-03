@@ -37,6 +37,21 @@ from juju_verify.verifiers.result import Result, Severity, checks_executor
 
 logger = logging.getLogger(__name__)
 
+CEPH_CRUSH_TYPES = {
+    # <crush-type>: <crush-type_id>
+    "root": 10,
+    "region": 9,
+    "datacenter": 8,
+    "room": 7,
+    "pod": 6,
+    "pdu": 5,
+    "row": 4,
+    "rack": 3,
+    "chassis": 2,
+    "host": 1,
+    "osd": 0,
+}
+
 
 class NodeInfo(NamedTuple):
     """Information about Node obtains from `ceph df osd tree`.
@@ -80,8 +95,20 @@ class NodeInfo(NamedTuple):
         return hash(self.__str__())
 
 
-class AvailabilityZone:
-    """Availability zone."""
+class CephTree:
+    """Ceph tree."""
+
+    SUPPORTED_REPLICATION_RULE = [
+        "region",
+        "datacenter",
+        "room",
+        "pod",
+        "pdu",
+        "row",
+        "rack",
+        "chassis",
+        "host",
+    ]
 
     def __init__(self, nodes: List[NodeInfo]):
         """Availability zone initialization.
@@ -91,10 +118,11 @@ class AvailabilityZone:
         All nodes of type `host` have `name` equivalent to machine hostname.
         """
         self._nodes = nodes
+        self._nodes_name_map = {node.name: index for index, node in enumerate(nodes)}
 
     def __eq__(self, other: object) -> bool:
         """Compare two Result instances."""
-        if not isinstance(other, AvailabilityZone):
+        if not isinstance(other, CephTree):
             return NotImplemented
 
         return self._nodes == other._nodes
@@ -110,45 +138,62 @@ class AvailabilityZone:
         """Return hash representation of AZ objects."""
         return hash(self.__str__())
 
-    def find_parent(self, node_id: int) -> Optional[NodeInfo]:
-        """Find the node that has the id in the children list."""
+    def get_node(self, name: str) -> NodeInfo:
+        """Get node by name."""
+        if name not in self._nodes_name_map.keys():
+            raise KeyError(f"Node {name} was not found.")
+
+        try:
+            node = self._nodes[self._nodes_name_map[name]]
+            assert node.name == name  # check that variable _nodes was not changed
+        except (IndexError, AssertionError) as error:
+            raise ValueError("Private value `_nodes` was changed.") from error
+
+        return node
+
+    def find_ancestor(
+        self, host_node: NodeInfo, required_type: str
+    ) -> Optional[NodeInfo]:
+        """Find ancestor, by using a replication rule."""
         for node in self._nodes:
-            if node.children and node_id in node.children:
+            if node.children and host_node.id in node.children:
+                if node.type != required_type:
+                    # NOTE (rgildein): it is necessary to go higher on the leaves of
+                    # the tree up to the desired leaf
+                    return self.find_ancestor(node, required_type)
+
                 return node
 
         return None
 
-    def get_nodes(self, name: str) -> List[NodeInfo]:
-        """Get nodes by their name."""
-        nodes = [node for node in self._nodes if node.name == name]
-        if not nodes:
-            raise KeyError(f"Node {name} was not found.")
-
-        return nodes
-
-    def can_remove_node(self, *names: str) -> bool:
+    def can_remove_host_node(
+        self, *names: str, required_ancestor_type: str = "root"
+    ) -> bool:
         """Check if child could be removed."""
-        # Finds matching parents for children.
-        parents_children_map = defaultdict(list)
-        for name in names:
-            # NOTE (rgildein): `Self.get_node` could raise an error here, but the
-            # check runner catches all exceptions.
-            children = self.get_nodes(name)
-            for child in children:
-                parent = self.find_parent(child.id)
-                if not parent:
-                    logger.warning(
-                        "A parent for the node %s could not be found.", child
-                    )
-                    return False
+        if not all(self.get_node(name).type == "host" for name in names):
+            raise ValueError(
+                "Function can_remove_host_node is working only for node type host."
+            )
 
-                parents_children_map[parent].append(child)
+        # Finds matching ancestors for host node.
+        ancestors_map = defaultdict(list)
+        for name in names:
+            # NOTE (rgildein): `self.get_node` could raise an error here, but the
+            # check runner catches all exceptions.
+            descendent = self.get_node(name)
+            ancestor = self.find_ancestor(descendent, required_ancestor_type)
+            if not ancestor:
+                raise ValueError(
+                    f"A ancestor for the host node {descendent} could not be found."
+                )
+
+            ancestors_map[ancestor].append(descendent)
 
         # Check if all children could be removed from parent.
-        for parent, children in parents_children_map.items():
-            # NOTE (rgildein): This will check that the parent will have enough space
-            # even if the children are removed. An example with attempt to remove 2
-            # children:
+        for ancestor, descendents in ancestors_map.items():
+            # NOTE (rgildein): This will check that the ancestor will have enough space
+            # even if the descendent are removed. An example with attempt to remove 2
+            # descendents:
             #   parent with 5 children has 1 000 kB free space
             #   each child used the 400 kB space (2 000 kB total)
             #   each child has 200 kB of free space (1 000 kB total)
@@ -156,14 +201,20 @@ class AvailabilityZone:
             #   total available space after removing 2 units: 1 000kB - 2x200kB
             #   the total space that must moved to other units: 2x400kB
             #   check failed, due 600kB <= 800kB
-            total_children_kb_used = sum(child.kb_used for child in children)
-            total_children_kb_avail = sum(child.kb_avail for child in children)
-            if (parent.kb_avail - total_children_kb_avail) <= total_children_kb_used:
+            total_descendent_kb_used = sum(
+                descendent.kb_used for descendent in descendents
+            )
+            total_descendent_kb_avail = sum(
+                descendent.kb_avail for descendent in descendents
+            )
+            if (
+                ancestor.kb_avail - total_descendent_kb_avail
+            ) <= total_descendent_kb_used:
                 logger.debug(
                     "Lack of space %d kB <= %d kB. Children %s cannot be removed.",
-                    parent.kb_avail,
-                    total_children_kb_used,
-                    ",".join(str(child) for child in children),
+                    ancestor.kb_avail,
+                    total_descendent_kb_used,
+                    ",".join(str(descendent) for descendent in descendents),
                 )
                 return False
 
@@ -277,11 +328,15 @@ class CephOsd(CephCommon):
     """Implementation of verification checks for the ceph-osd charm."""
 
     NAME = "ceph-osd"
+    # NOTE (rgildein): need to implement replication_rule here, aka need to get this
+    # information from pools
+    REPLICATION_RULE = "root"
 
     def __init__(self, units: List[Unit]):
         """Ceph-osd charm verifier."""
         super().__init__(units=units)
         self._ceph_mon_app_map: Optional[Dict[str, Unit]] = None
+        self._ceph_tree_map: Optional[Dict[str, CephTree]] = None
 
     @property
     def ceph_mon_app_map(self) -> Dict[str, Unit]:
@@ -295,11 +350,27 @@ class CephOsd(CephCommon):
             self._ceph_mon_app_map = self._get_ceph_mon_app_map()
 
         if not self._ceph_mon_app_map:
-            logger.warning(
-                "Warning: the relation map between ceph-osd and ceph-mon is empty"
-            )
+            logger.warning("the relation map between ceph-osd and ceph-mon is empty")
 
         return self._ceph_mon_app_map
+
+    @property
+    def ceph_tree_map(self) -> Dict[str, CephTree]:
+        """Get a map between ceph-osd application and the Ceph tree."""
+        if self._ceph_tree_map is None:
+            self._ceph_tree_map = self._get_ceph_tree_map()
+
+        if not self._ceph_tree_map:
+            logger.warning("could not get Ceph tree")
+
+        return self._ceph_tree_map
+
+    def _get_ceph_tree_map(self) -> Dict[str, CephTree]:
+        """Get Ceph tree for each ceph-osd application."""
+        return {
+            app_name: CephTree(nodes=self.get_disk_utilization(ceph_mon_unit))
+            for app_name, ceph_mon_unit in self.ceph_mon_app_map.items()
+        }
 
     def _get_ceph_mon_unit(self, app_name: str) -> Unit:
         """Get first ceph-mon unit from relation."""
@@ -315,6 +386,11 @@ class CephOsd(CephCommon):
                         f"relation {relation} was found."
                     )
 
+                logger.debug(
+                    "found ceph-mon unit `%s` related to ceph-osd application `%s`",
+                    unit,
+                    app_name,
+                )
                 return unit
 
         # if no unit has been returned yet
@@ -331,12 +407,7 @@ class CephOsd(CephCommon):
         applications = {unit.application for unit in self.units}
         logger.debug("affected applications %s", ", ".join(applications))
 
-        app_map = {name: self._get_ceph_mon_unit(name) for name in applications}
-        logger.debug(
-            "found units %s", ", ".join([str(unit) for unit in app_map.values()])
-        )
-
-        return {name: unit for name, unit in app_map.items() if unit is not None}
+        return {name: self._get_ceph_mon_unit(name) for name in applications}
 
     def check_ceph_cluster_health(self) -> Result:
         """Check Ceph cluster health for unique ceph-mon units from ceph_mon_app_map."""
@@ -379,19 +450,21 @@ class CephOsd(CephCommon):
         interrupting operation in the availability zone.
         """
         result = Result()
-        for ceph_osd_app, ceph_mon_unit in self.ceph_mon_app_map.items():
-            availability_zone = AvailabilityZone(
-                nodes=self.get_disk_utilization(ceph_mon_unit)
-            )
-            units = [unit for unit in self.units if unit.application == ceph_osd_app]
-            affected_hosts = {unit.machine.hostname for unit in units}
+        for ceph_osd_app, ceph_tree in self.ceph_tree_map.items():
+            units = {
+                unit.entity_id: unit.machine.hostname
+                for unit in self.units
+                if unit.application == ceph_osd_app
+            }
 
-            if not availability_zone.can_remove_node(*affected_hosts):
-                units_to_remove = ", ".join(unit.entity_id for unit in units)
+            if not ceph_tree.can_remove_host_node(
+                *units.values(), required_ancestor_type=self.REPLICATION_RULE
+            ):
+                units_to_remove = ", ".join(units.keys())
                 result += Result(
                     Severity.FAIL,
                     f"It's not safe to reboot/shutdown unit(s) {units_to_remove} in "
-                    f"the availability zone '{availability_zone}'.",
+                    f"the availability zone '{ceph_tree}'.",
                 )
 
         return result or Result(Severity.OK, "Availability zone check passed.")
