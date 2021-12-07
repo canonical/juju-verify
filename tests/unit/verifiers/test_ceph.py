@@ -145,12 +145,12 @@ def test_ceph_tree_method():
     assert hash(tree) == hash(tree_str)
 
     with pytest.raises(KeyError):
-        tree.get_node("not-valid-child-name")
+        tree._get_node("not-valid-child-name")
 
     with pytest.raises(ValueError):
         test_tree = CephTree(nodes)
         test_tree._nodes = nodes[1:]  # change private value
-        test_tree.get_node("default")  # trying to get root node by name
+        test_tree._get_node("default")  # trying to get root node by name
 
     with pytest.raises(KeyError):
         tree.can_remove_host_node("not-valid-child-name")
@@ -159,7 +159,7 @@ def test_ceph_tree_method():
         # test if root could be removed
         tree.can_remove_host_node("default")
 
-    assert tree.find_ancestor(tree.get_node("default"), required_type="host") is None
+    assert tree._find_ancestor(tree._get_node("default"), required_type="host") is None
 
     with pytest.raises(ValueError):
         test_tree = CephTree(nodes[1:])  # remove root node to find_ancestor return None
@@ -187,10 +187,10 @@ def test_ceph_tree(exp_child, exp_parent, ancestor_type, can_remove_host_node):
         )
     ]
     tree = CephTree(nodes=nodes)
-    child = tree.get_node(exp_child)
+    child = tree._get_node(exp_child)
 
     assert exp_child == child.name
-    assert exp_parent == tree.find_ancestor(child, ancestor_type).name
+    assert exp_parent == tree._find_ancestor(child, ancestor_type).name
     assert can_remove_host_node == tree.can_remove_host_node(
         exp_child, required_ancestor_type=ancestor_type
     )

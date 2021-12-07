@@ -98,7 +98,11 @@ class NodeInfo(NamedTuple):
 class CephTree:
     """Ceph tree."""
 
-    SUPPORTED_REPLICATION_RULE = [
+    # list of supported ancestor types (for the host) based on the failure domain in
+    # the replication rule, where the ancestor type is the same as the failure domain
+    # except for failure-domain=host -> ancestor=root
+    SUPPORTED_ANCESTOR_TYPES = [
+        "root",
         "region",
         "datacenter",
         "room",
@@ -107,7 +111,6 @@ class CephTree:
         "row",
         "rack",
         "chassis",
-        "host",
     ]
 
     def __init__(self, nodes: List[NodeInfo]):
@@ -138,7 +141,7 @@ class CephTree:
         """Return hash representation of AZ objects."""
         return hash(self.__str__())
 
-    def get_node(self, name: str) -> NodeInfo:
+    def _get_node(self, name: str) -> NodeInfo:
         """Get node by name."""
         if name not in self._nodes_name_map.keys():
             raise KeyError(f"Node {name} was not found.")
@@ -146,31 +149,49 @@ class CephTree:
         try:
             node = self._nodes[self._nodes_name_map[name]]
             assert node.name == name  # check that variable _nodes was not changed
+            return node
         except (IndexError, AssertionError) as error:
             raise ValueError("Private value `_nodes` was changed.") from error
 
-        return node
+    def _find_ancestor(self, node: NodeInfo, required_type: str) -> Optional[NodeInfo]:
+        """Find ancestor w/ the desired type.
 
-    def find_ancestor(
-        self, host_node: NodeInfo, required_type: str
-    ) -> Optional[NodeInfo]:
-        """Find ancestor, by using a replication rule."""
-        for node in self._nodes:
-            if node.children and host_node.id in node.children:
-                if node.type != required_type:
-                    # NOTE (rgildein): it is necessary to go higher on the leaves of
-                    # the tree up to the desired leaf
-                    return self.find_ancestor(node, required_type)
+        This function will recursively search for the parent node until the parent
+        is of the desired type.
+        Example:
+            [
+                {"id": -1, "name": "root", "children": [-2, -3], ...},
+                {"id": -2, "name": "rack.0", "children": [-4, -5], ...},
+                {"id": -4, "name": "host.0", "children": [0, 1, 2], ...},
+                {"id": -5, "name": "host.1", "children": [3, 4, 5], ...},
+                ...
+                {"id": -3, "name": "rack.1", "children": [-6, -7], ...},
+                ...
+            ]
+            The request is to find the `root` ancestor for the `host.0`.
+            The first step is to find a parent who has id=-4 among its children, then
+            check if it is root. The parent node found is of the rack type with id=-2,
+            so the first step is repeated for this node until the parent node is of the
+            root type.
+        """
+        for _node in self._nodes:
+            if _node.children and node.id in _node.children:
+                if _node.type != required_type:
+                    # continue searching for the parent for the currently found node
+                    return self._find_ancestor(_node, required_type)
 
-                return node
+                return _node
 
         return None
 
     def can_remove_host_node(
         self, *names: str, required_ancestor_type: str = "root"
     ) -> bool:
-        """Check if child could be removed."""
-        if not all(self.get_node(name).type == "host" for name in names):
+        """Check if host node could be removed."""
+        if required_ancestor_type not in self.SUPPORTED_ANCESTOR_TYPES:
+            raise ValueError(f"`{required_ancestor_type}` is not supported")
+
+        if not all(self._get_node(name).type == "host" for name in names):
             raise ValueError(
                 "Function can_remove_host_node is working only for node type host."
             )
@@ -180,11 +201,11 @@ class CephTree:
         for name in names:
             # NOTE (rgildein): `self.get_node` could raise an error here, but the
             # check runner catches all exceptions.
-            descendent = self.get_node(name)
-            ancestor = self.find_ancestor(descendent, required_ancestor_type)
+            descendent = self._get_node(name)
+            ancestor = self._find_ancestor(descendent, required_ancestor_type)
             if not ancestor:
                 raise ValueError(
-                    f"A ancestor for the host node {descendent} could not be found."
+                    f"An ancestor for the host node {descendent} could not be found."
                 )
 
             ancestors_map[ancestor].append(descendent)
@@ -330,7 +351,7 @@ class CephOsd(CephCommon):
     NAME = "ceph-osd"
     # NOTE (rgildein): need to implement replication_rule here, aka need to get this
     # information from pools
-    REPLICATION_RULE = "root"
+    REPLICATION_RULE = "host"
 
     def __init__(self, units: List[Unit]):
         """Ceph-osd charm verifier."""
@@ -364,6 +385,22 @@ class CephOsd(CephCommon):
             logger.warning("could not get Ceph tree")
 
         return self._ceph_tree_map
+
+    @property
+    def ancestor_node_type(self) -> str:
+        """Get ancestor node type based on all crush rules used on pools.
+
+        If the replication rule is set to a host and the goal is to remove the host(s),
+        then it is necessary to calculate free space for the entire root. Otherwise, if
+        there is a replication rule between the chassis and the region, then it is
+        necessary to check the free space on these nodes.
+        """
+        replication_rule = self.REPLICATION_RULE
+
+        if replication_rule == "host":
+            return "root"
+
+        return replication_rule
 
     def _get_ceph_tree_map(self) -> Dict[str, CephTree]:
         """Get Ceph tree for each ceph-osd application."""
@@ -458,7 +495,7 @@ class CephOsd(CephCommon):
             }
 
             if not ceph_tree.can_remove_host_node(
-                *units.values(), required_ancestor_type=self.REPLICATION_RULE
+                *units.values(), required_ancestor_type=self.ancestor_node_type
             ):
                 units_to_remove = ", ".join(units.keys())
                 result += Result(
