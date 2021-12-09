@@ -267,7 +267,11 @@ def test_check_cluster_health_unknown_state(mock_run_action_on_units, model):
 
 def test_check_cluster_health_error(model):
     """Test check Ceph cluster health raise CharmException."""
-    model.units["ceph-mon/0"].run_action.side_effect = JujuError("action not exists")
+
+    async def mock_run_action(*args, **kwargs):
+        raise JujuError("action not exists")
+
+    model.units["ceph-mon/0"].run_action.side_effect = mock_run_action
     with pytest.raises(JujuActionFailed):
         CephCommon.check_cluster_health(model.units["ceph-mon/0"])
 
