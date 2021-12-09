@@ -154,7 +154,7 @@ class CephTree:
             raise ValueError("Private value `_nodes` was changed.") from error
 
     def _find_ancestor(self, node: NodeInfo, required_type: str) -> Optional[NodeInfo]:
-        """Find ancestor w/ the desired type.
+        """Find ancestor with the desired type.
 
         This function will recursively search for the parent node until the parent
         is of the desired type.
@@ -191,6 +191,7 @@ class CephTree:
         if required_ancestor_type not in self.SUPPORTED_ANCESTOR_TYPES:
             raise ValueError(f"`{required_ancestor_type}` is not supported")
 
+        # names allowed are of the type "host", which matches Juju units
         if not all(self._get_node(name).type == "host" for name in names):
             raise ValueError(
                 "Function can_remove_host_node is working only for node type host."
@@ -199,11 +200,12 @@ class CephTree:
         # Finds matching ancestors for host node.
         ancestors_map = defaultdict(list)
         for name in names:
-            # NOTE (rgildein): `self.get_node` could raise an error here, but the
+            # NOTE (rgildein): `self._get_node` could raise an error here, but the
             # check runner catches all exceptions.
             descendent = self._get_node(name)
             ancestor = self._find_ancestor(descendent, required_ancestor_type)
-            if not ancestor:
+            logger.debug("found ancestor `%s` for host node `%s`", ancestor, descendent)
+            if ancestor is None:
                 raise ValueError(
                     f"An ancestor for the host node {descendent} could not be found."
                 )
