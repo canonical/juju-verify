@@ -1,9 +1,9 @@
 """Generic setup for functional tests."""
+import asyncio
 import logging
 import unittest
 
 import zaza.model
-from juju import loop
 from zaza.openstack.charm_tests.test_utils import OpenStackBaseTest
 
 from juju_verify import cli
@@ -24,12 +24,14 @@ class BaseTestCase(unittest.TestCase):
     def setUpClass(cls):
         """Run class setup for running tests."""
         super(BaseTestCase, cls).setUpClass()
-        cls.model = loop.run(cli.connect_model(zaza.model.CURRENT_MODEL))
+        loop = asyncio.get_event_loop()
+        cls.model = loop.run_until_complete(cli.connect_model(zaza.model.CURRENT_MODEL))
 
     @classmethod
     def tearDownClass(cls):
         """Teardown class after running tests."""
-        loop.run(cls.model.disconnect())
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(cls.model.disconnect())
 
 
 class OpenstackBaseTestCase(BaseTestCase, OpenStackBaseTest):

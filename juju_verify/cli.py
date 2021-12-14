@@ -19,13 +19,14 @@
 
 """Entrypoint to the 'juju-verify' plugin."""
 import argparse
+import asyncio
 import logging
 import os
 import sys
 import typing
 from typing import Union
 
-from juju import errors, loop
+from juju import errors
 from juju.model import Model
 
 from juju_verify import logger as juju_verify_logger
@@ -152,12 +153,13 @@ def entrypoint() -> None:
         args = parse_args()
         set_stop_on_failure(args.stop_on_failure)
         config_logger(args.log_level)  # update logging option
-        model = loop.run(connect_model(args.model))
+        loop = asyncio.get_event_loop()
+        model = loop.run_until_complete(connect_model(args.model))
 
         if args.units:
-            units = loop.run(find_units(model, args.units))
+            units = loop.run_until_complete(find_units(model, args.units))
         elif args.machines:
-            units = loop.run(find_units_on_machine(model, args.machines))
+            units = loop.run_until_complete(find_units_on_machine(model, args.machines))
         else:
             raise JujuVerifyError(
                 "juju-verify must target either juju units or juju machines"

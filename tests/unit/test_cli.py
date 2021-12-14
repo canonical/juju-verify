@@ -203,7 +203,7 @@ def test_main_cli_target_units(mocker):
 
     mocker.patch.object(cli, "parse_args").return_value = args
     mocker.patch.object(cli, "get_verifiers").return_value = [verifier]
-    mocker.patch.object(cli, "loop")
+    mocker.patch.object(cli, "asyncio")
     mocker.patch.object(cli, "connect_model", new_callable=MagicMock())
     mocker.patch.object(cli, "find_units", new_callable=MagicMock())
     logger = mocker.patch.object(cli, "logger")
@@ -232,7 +232,7 @@ def test_main_cli_target_machine(mocker):
 
     mocker.patch.object(cli, "parse_args").return_value = args
     mocker.patch.object(cli, "get_verifiers").return_value = [verifier]
-    mocker.patch.object(cli, "loop")
+    mocker.patch.object(cli, "asyncio")
     mocker.patch.object(cli, "connect_model", new_callable=MagicMock())
     mocker.patch.object(
         cli, "find_units_on_machine", new_callable=MagicMock()
@@ -260,7 +260,7 @@ def test_main_cli_no_target_fail(mocker):
 
     mocker.patch.object(cli, "parse_args").return_value = args
     mocker.patch.object(cli, "connect_model", new_callable=MagicMock())
-    mocker.patch.object(cli, "loop")
+    mocker.patch.object(cli, "asyncio")
     mock_logger = mocker.patch.object(cli, "logger")
 
     with pytest.raises(SystemExit):
@@ -280,7 +280,7 @@ def test_main_expected_failure(mocker, error, error_msg):
     """Verify handling of expected exceptions."""
     mocker.patch.object(cli, "parse_args")
     mocker.patch.object(cli, "config_logger")
-    mocker.patch.object(cli, "loop")
+    mocker.patch.object(cli, "asyncio")
     mocker.patch.object(cli, "connect_model", new_callable=MagicMock())
     mocker.patch.object(cli, "find_units", new_callable=MagicMock())
     mocker.patch.object(cli, "get_verifiers").side_effect = [error(error_msg)]

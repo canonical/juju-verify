@@ -80,7 +80,7 @@ def run_action_on_units(
         task_map = {unit.entity_id: run_action(unit, action, params) for unit in units}
 
     loop = asyncio.get_event_loop()
-    tasks = asyncio.gather(*task_map.values())
+    tasks: asyncio.Future = asyncio.gather(*task_map.values())
     results: List[Action] = loop.run_until_complete(tasks)
 
     result_map = dict(zip(task_map.keys(), results))

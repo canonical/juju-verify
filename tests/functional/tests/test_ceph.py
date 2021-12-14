@@ -4,11 +4,9 @@ import re
 
 import tenacity
 import zaza
-from juju import loop
 from tests.base import BaseTestCase
 
 from juju_verify.utils.action import cache_manager
-from juju_verify.utils.unit import find_units
 from juju_verify.verifiers import Severity, get_verifiers
 from juju_verify.verifiers.ceph import CephCommon
 from juju_verify.verifiers.result import Result
@@ -52,8 +50,7 @@ class CephOsdTests(BaseTestCase):
             exp_severity = Severity.FAIL
 
         logger.info("waiting to Ceph cluster be in %s state", state)
-        unit_objects = loop.run(find_units(self.model, ["ceph-mon/0"]))
-        result = CephCommon.check_cluster_health(*unit_objects)
+        result = CephCommon.check_cluster_health(self.model.units["ceph-mon/0"])
         logger.debug("waiting result: %s", result)
         assert all(partial.severity == exp_severity for partial in result.partials)
 
@@ -67,11 +64,10 @@ class CephOsdTests(BaseTestCase):
         """Test that shutdown of a single ceph-osd unit returns OK."""
         # juju-verify shutdown --units ceph-osd/1
 
-        units = ["ceph-osd/0"]
+        units = [self.model.units["ceph-osd/0"]]
         check = "shutdown"
-        unit_objects = loop.run(find_units(self.model, units))
         self._wait_to_ceph_cluster()
-        verifier = next(get_verifiers(unit_objects))
+        verifier = next(get_verifiers(units))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertTrue(result.success)
@@ -94,11 +90,10 @@ class CephOsdTests(BaseTestCase):
         )
         # juju-verify shutdown --units ceph-osd/0 ceph-osd/1
 
-        units = ["ceph-osd/0", "ceph-osd/1"]
+        units = [self.model.units["ceph-osd/0"], self.model.units["ceph-osd/1"]]
         check = "shutdown"
-        unit_objects = loop.run(find_units(self.model, units))
         self._wait_to_ceph_cluster()
-        verifier = next(get_verifiers(unit_objects))
+        verifier = next(get_verifiers(units))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertFalse(result.success)
@@ -112,14 +107,12 @@ class CephOsdTests(BaseTestCase):
     def test_check_ceph_cluster_health_passed(self):
         """Test that shutdown of a single ceph-osd unit returns OK."""
         # juju-verify shutdown --units ceph-osd/1
-        units = ["ceph-osd/0"]
+        units = [self.model.units["ceph-osd/0"]]
         check = "shutdown"
-        unit_objects = loop.run(find_units(self.model, units))
-
         self._add_test_pool(percent_data=80)
         self._wait_to_ceph_cluster()
         # check that Ceph cluster is healthy
-        verifier = next(get_verifiers(unit_objects))
+        verifier = next(get_verifiers(units))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertTrue(result.success)
@@ -132,14 +125,12 @@ class CephOsdTests(BaseTestCase):
     def test_check_ceph_cluster_health_warning(self):
         """Test warning result for shutdown of a single ceph-osd unit."""
         # juju-verify shutdown --units ceph-osd/1
-        units = ["ceph-osd/0"]
+        units = [self.model.units["ceph-osd/0"]]
         check = "shutdown"
-        unit_objects = loop.run(find_units(self.model, units))
-
         self._add_test_pool()
         self._wait_to_ceph_cluster("fail")
         # check that Ceph cluster is unhealthy
-        verifier = next(get_verifiers(unit_objects))
+        verifier = next(get_verifiers(units))
         result = verifier.verify(check)
         logger.info("result test_check_ceph_cluster_health_failed: %s", result)
         self.assertTrue(
@@ -155,13 +146,12 @@ class CephOsdTests(BaseTestCase):
     def test_check_replication_number(self):
         """Test that shutdown of a single ceph-osd unit returns OK."""
         # juju-verify shutdown --units ceph-osd/1
-        units = ["ceph-osd/0", "ceph-osd/1"]
+        units = [self.model.units["ceph-osd/0"], self.model.units["ceph-osd/1"]]
         check = "shutdown"
-        unit_objects = loop.run(find_units(self.model, units))
         self._add_test_pool(percent_data=80)
         self._wait_to_ceph_cluster()
         # check that check_replication_number failed, due default min_size=2
-        verifier = next(get_verifiers(unit_objects))
+        verifier = next(get_verifiers(units))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertFalse(result.success)
@@ -179,7 +169,7 @@ class CephOsdTests(BaseTestCase):
             action_params={"name": "test", "key": "min_size", "value": "1"},
         )
         # check that check_replication_number passed
-        verifier = next(get_verifiers(unit_objects))
+        verifier = next(get_verifiers(units))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertFalse(result.success)
@@ -197,10 +187,9 @@ class CephMonTests(BaseTestCase):
         """Test that shutdown of a single mon unit returns OK."""
         # juju-verify shutdown --units ceph-mon/0
 
-        units = ["ceph-mon/0"]
+        units = [self.model.units["ceph-mon/0"]]
         check = "shutdown"
-        unit_objects = loop.run(find_units(self.model, units))
-        verifier = next(get_verifiers(unit_objects))
+        verifier = next(get_verifiers(units))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertTrue(result.success)
@@ -209,10 +198,9 @@ class CephMonTests(BaseTestCase):
         """Test that shutdown of multiple mon units fails."""
         # juju-verify shutdown --units ceph-mon/0 ceph-mon/1
 
-        units = ["ceph-mon/0", "ceph-mon/1"]
+        units = [self.model.units["ceph-mon/0"], self.model.units["ceph-mon/1"]]
         check = "shutdown"
-        unit_objects = loop.run(find_units(self.model, units))
-        verifier = next(get_verifiers(unit_objects))
+        verifier = next(get_verifiers(units))
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertFalse(result.success)

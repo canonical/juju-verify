@@ -15,16 +15,15 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """Functional tests for neutron-gateway verifier."""
-
+import asyncio
 import logging
 from typing import Optional
 
 import zaza.openstack.utilities.openstack as openstack_utils
-from juju import loop
 from neutronclient.v2_0.client import Client
 from tests.base import OpenstackBaseTestCase
 
-from juju_verify.utils.unit import find_units, find_units_on_machine
+from juju_verify.utils.unit import find_units_on_machine
 from juju_verify.verifiers import get_verifiers
 
 logger = logging.getLogger(__name__)
@@ -54,9 +53,8 @@ class NeutronTests(OpenstackBaseTestCase):
 
     def test_single_unit(self):
         """Test that shutdown of a single unit returns OK."""
-        units = ["neutron-gateway/0"]
-        unit_objects = loop.run(find_units(self.model, units))
-        verifier = next(get_verifiers(unit_objects))
+        units = [self.model.units["neutron-gateway/0"]]
+        verifier = next(get_verifiers(units))
         result = verifier.verify(self.CHECK)
         logger.info("result: %s", result)
 
@@ -64,9 +62,11 @@ class NeutronTests(OpenstackBaseTestCase):
 
     def test_redundancy_fail(self):
         """Test that stopping all neutron gateway returns failure."""
-        units = ["neutron-gateway/0", "neutron-gateway/1"]
-        unit_objects = loop.run(find_units(self.model, units))
-        verifier = next(get_verifiers(unit_objects))
+        units = [
+            self.model.units["neutron-gateway/0"],
+            self.model.units["neutron-gateway/1"],
+        ]
+        verifier = next(get_verifiers(units))
 
         # expected routers in error message
         routers = self.NEUTRON.list_routers().get("routers", [])
@@ -132,7 +132,10 @@ class NeutronTests(OpenstackBaseTestCase):
         lbaas_agent = self.NEUTRON.get_lbaas_agent_hosting_loadbalancer(lbaas["id"])
         lbaas_host = lbaas_agent["agent"]["host"]
         juju_machine_id = lbaas_host.split("-")[-1]
-        units = loop.run(find_units_on_machine(self.model, [juju_machine_id]))
+        loop = asyncio.get_event_loop()
+        units = loop.run_until_complete(
+            find_units_on_machine(self.model, [juju_machine_id])
+        )
 
         # expected units in the warning message
         affected_untis = [unit.entity_id for unit in units]
