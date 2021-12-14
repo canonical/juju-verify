@@ -9,7 +9,6 @@ from tests.base import BaseTestCase
 
 from juju_verify.utils.action import cache_manager
 from juju_verify.verifiers import Severity, get_verifiers
-from juju_verify.verifiers.ceph import CephCommon
 from juju_verify.verifiers.result import Result
 
 logger = logging.getLogger(__name__)
@@ -29,7 +28,10 @@ class CephOsdTests(BaseTestCase):
             self._remove_pool(pool)
 
     def _add_pool(
-        self, name: str, crush_rule: Optional[str] = None, percent_data: Optional[int] = None
+        self,
+        name: str,
+        crush_rule: Optional[str] = None,
+        percent_data: Optional[int] = None,
     ):
         """Add pool."""
         action_params = {
@@ -40,16 +42,25 @@ class CephOsdTests(BaseTestCase):
         _ = zaza.model.run_action(
             "ceph-mon/0",
             "create-pool",
-            action_params={param: value for param, value in action_params.items() if value},
+            action_params={
+                param: value for param, value in action_params.items() if value
+            },
         )
         # NOTE (rgildein): The create-pool action ignores the profile-name.
         # https://bugs.launchpad.net/charm-ceph-mon/+bug/1905573
         if crush_rule:
             _ = zaza.model.run_action(
-                "ceph-mon/0", "pool-set", action_params={"name": name, "key": "crush_rule", "value": crush_rule}
+                "ceph-mon/0",
+                "pool-set",
+                action_params={"name": name, "key": "crush_rule", "value": crush_rule},
             )
         self.pools.append(name)
-        logger.info("Add pool `%s` with crush rule `%s` and percent_data=%s", name, crush_rule, percent_data)
+        logger.info(
+            "Add pool `%s` with crush rule `%s` and percent_data=%s",
+            name,
+            crush_rule,
+            percent_data,
+        )
 
     @staticmethod
     def _remove_pool(name: str):
@@ -63,7 +74,7 @@ class CephOsdTests(BaseTestCase):
         wait=tenacity.wait_exponential(max=60), stop=tenacity.stop_after_attempt(8)
     )
     def _wait_to_ceph_cluster(self, state: str = "HEALTH_OK"):
-        """Wait to Ceph cluster be in specific status agwe proceed according to the diagramain."""
+        """Wait to Ceph cluster be in specific status."""
         logger.info("waiting to Ceph cluster be in %s state", state)
         ceph_health = zaza.model.run_action("ceph-mon/0", "get-health")
         ceph_health_message = ceph_health.data.get("results", {}).get("message", "")
@@ -106,7 +117,8 @@ class CephOsdTests(BaseTestCase):
         self.assertFalse(result.success)
         self.assert_message_in_result(
             r"\[FAIL\] Juju-verify only supports crush rules with same failure-domain "
-            r"for now.", result
+            r"for now.",
+            result,
         )
 
     def test_check_ceph_cluster_health_passed(self):
@@ -134,9 +146,7 @@ class CephOsdTests(BaseTestCase):
         self._wait_to_ceph_cluster("HEALTH_WARN")
         # check that Ceph cluster is unhealthy
         verifier = next(get_verifiers(units))
-        self._wait_to_ceph_cluster("HEALTH_WARN")
         result = verifier.verify(check)
-        self._wait_to_ceph_cluster("HEALTH_WARN")
         logger.info("result: %s", result)
         self.assertTrue(
             any(partial.severity == Severity.WARN for partial in result.partials)
@@ -180,10 +190,12 @@ class CephOsdTests(BaseTestCase):
         logger.info("result: %s", result)
         self.assertTrue(result.success)
         self.assert_message_in_result(
-            r"\[OK\] Minimum replica number check passed.", result,
+            r"\[OK\] Minimum replica number check passed.",
+            result,
         )
         self.assert_message_in_result(
-            r"\[OK\] Availability zone check passed.", result,
+            r"\[OK\] Availability zone check passed.",
+            result,
         )
 
 

@@ -609,7 +609,8 @@ class CephOsd(CephCommon):
                 units = {
                     unit
                     for unit in all_units
-                    if unit.entity_id not in self.unit_ids and unit.workload_status == "active"
+                    if unit.entity_id not in self.unit_ids
+                    and unit.workload_status == "active"
                 }
                 count_remaining_failure_domains = self._count_branch(
                     ceph_tree, units, pool.crush_rule.failure_domain

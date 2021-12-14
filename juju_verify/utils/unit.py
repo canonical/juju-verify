@@ -48,7 +48,7 @@ def run_command_on_unit(unit: Unit, command: str, use_cache: bool = True) -> Act
     """
     with cache_manager(use_cache):
         key = get_cache_key(unit, command)
-        if key not in cache or not cache_manager.enabled:
+        if key not in cache or not cache_manager.active:
             try:
                 logger.debug("run command `%s` on unit %s", command, unit.entity_id)
                 loop = asyncio.get_event_loop()

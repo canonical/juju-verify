@@ -98,12 +98,18 @@ def _create_replication_rule(
         "device-class": device_class,
     }
     _ = zaza.model.run_action(
-        "ceph-mon/0", "create-crush-rule",
+        "ceph-mon/0",
+        "create-crush-rule",
         action_params={
             param: value for param, value in crush_rule_info.items() if value
         },
     )
-    logger.info("Create crush rule `%s` with failure-domain=%s and device-class=%s", name, failure_domain, device_class)
+    logger.info(
+        "Create crush rule `%s` with failure-domain=%s and device-class=%s",
+        name,
+        failure_domain,
+        device_class,
+    )
 
 
 def create_replication_rules():

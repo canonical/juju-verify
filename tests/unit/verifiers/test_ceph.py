@@ -676,7 +676,7 @@ def test_check_ceph_pool(mock_get_ceph_mon_app_map, mock_get_ceph_pools, model):
     result = CephOsd([model.units["ceph-osd/0"]]).check_ceph_pools()
     assert result == Result(
         Severity.FAIL,
-        "Juju-verify only supports crush rules w/ same failure-domain for now.",
+        "Juju-verify only supports crush rules with same failure-domain for now.",
     )
 
     # check Ceph cluster w/ two pools of the different type and two similar crush rules
@@ -745,7 +745,7 @@ def test_check_replication_number(
     assert len(result.partials) == 1
     assert result.partials[0].severity == Severity.FAIL
     assert result.partials[0].message.startswith(
-        "The minimum number of replicas in 'ceph-osd' and pool `pool-1` is 2 and it's "
+        "The minimum number of replicas in `ceph-osd` and pool `pool-1` is 2 and it's "
         "not safe to reboot/shutdown"
     )
 
