@@ -22,7 +22,6 @@ import zaza.openstack.utilities.openstack as openstack_utils
 from neutronclient.v2_0.client import Client
 from tests.base import OpenstackBaseTestCase
 
-from juju_verify.utils.unit import find_units_on_machine
 from juju_verify.verifiers import get_verifiers
 
 logger = logging.getLogger(__name__)
