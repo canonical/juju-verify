@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """Functional tests for neutron-gateway verifier."""
+import asyncio
 import logging
 from typing import Optional
 
@@ -22,6 +23,7 @@ import zaza.openstack.utilities.openstack as openstack_utils
 from neutronclient.v2_0.client import Client
 from tests.base import OpenstackBaseTestCase
 
+from juju_verify.utils.unit import find_units_on_machine
 from juju_verify.verifiers import get_verifiers
 
 logger = logging.getLogger(__name__)
@@ -130,7 +132,10 @@ class NeutronTests(OpenstackBaseTestCase):
         lbaas_agent = self.NEUTRON.get_lbaas_agent_hosting_loadbalancer(lbaas["id"])
         lbaas_host = lbaas_agent["agent"]["host"]
         juju_machine_id = lbaas_host.split("-")[-1]
-        units = self.model.units[juju_machine_id]
+        loop = asyncio.get_event_loop()
+        units = loop.run_until_complete(
+            find_units_on_machine(self.model, [juju_machine_id])
+        )
 
         # expected units in the warning message
         affected_untis = [unit.entity_id for unit in units]
