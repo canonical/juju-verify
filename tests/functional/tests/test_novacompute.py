@@ -80,7 +80,7 @@ class NovaCompute(OpenstackBaseTestCase):
         expected_partial = Partial(
             Severity.FAIL, f"Unit {compute_with_vm} is running 1 VMs."
         )
-        verifier = next(get_verifiers(self.model.units[compute_with_vm]))
+        verifier = next(get_verifiers([self.model.units[compute_with_vm]]))
 
         result = verifier.verify(self.CHECK)
         logger.info("result: %s", result)
