@@ -59,26 +59,25 @@ def test_enable_cache():
     cache = CacheManager(enabled=True)
 
     assert cache.enabled
-    with cache(None):
-        assert cache.enabled
+    with cache(True):
+        assert cache.active
 
     with cache(False):
-        assert cache.previous_state
-        assert not cache.enabled
+        assert not cache.active
 
     assert cache.enabled
 
 
 def test_disable_cache():
     """Cache disabled test."""
-    cache = CacheManager(enabled=False)
+    cache = CacheManager(enabled=True)
+    cache.disable()
 
     assert not cache.enabled
-    with cache(None):
+    with cache(True):
         assert not cache.enabled
 
-    with cache(True):
-        assert not cache.previous_state
-        assert cache.enabled
+    with cache(False):
+        assert not cache.enabled
 
     assert not cache.enabled

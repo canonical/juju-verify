@@ -17,7 +17,7 @@
 """Helper function to manage cache."""
 from collections import OrderedDict
 from contextlib import _GeneratorContextManager, contextmanager
-from typing import Any, Generator, List, Optional
+from typing import Any, Generator, List
 
 
 class Cache:
@@ -81,7 +81,7 @@ class CacheManager:
     cache = Cache()
 
     def run_action(name: str) -> Any:
-        if cache_manager.enabled and name in cache:
+        if cache_manager.active and name in cache:
             return cache[name]
 
         return _run_action(name)
@@ -97,48 +97,36 @@ class CacheManager:
 
     def __init__(self, enabled: bool = True):
         """Init the Cache class with default state."""
-        self._previous_state: Optional[bool] = None
         self._enabled: bool = enabled
+        self._active: bool = False
 
-    def __call__(self, use_cache: Optional[bool] = None) -> _GeneratorContextManager:
+    def __call__(self, use_cache: bool) -> _GeneratorContextManager:
         """Return cache contextmanager if instance is called."""
         return self.cache_contextmanager(use_cache)
+
+    @property
+    def active(self) -> bool:
+        """Return True if cache is activated."""
+        return self._active
 
     @property
     def enabled(self) -> bool:
         """Return True if cache is enabled."""
         return self._enabled
 
-    @property
-    def previous_state(self) -> bool:
-        """Return previous cache state."""
-        if self._previous_state is None:
-            return self.enabled
-
-        return self._previous_state
-
-    def set_state(self, use_cache: Optional[bool] = None) -> None:
-        """Set the cache state."""
-        if use_cache is True:
-            self.enable()
-        elif use_cache is False:
-            self.disable()
-
     def enable(self) -> None:
         """Enable the cache."""
-        self._previous_state = self.enabled
         self._enabled = True
 
     def disable(self) -> None:
         """Disable the cache."""
-        self._previous_state = self.enabled
         self._enabled = False
 
     @contextmanager
-    def cache_contextmanager(self, use_cache: Optional[bool] = None) -> Generator:
+    def cache_contextmanager(self, use_cache: bool) -> Generator:
         """Possibility to temporarily run the cache."""
-        self.set_state(use_cache)
+        self._active = use_cache is True and self.enabled
         try:
             yield
         finally:
-            self.set_state(self.previous_state)
+            self._active = False

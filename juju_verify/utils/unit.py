@@ -47,7 +47,7 @@ async def run_action(
     params = params or {}
     key = get_cache_key(unit, action, **params)
 
-    if key not in cache or not cache_manager.enabled:
+    if key not in cache or not cache_manager.active:
         try:
             _action = await unit.run_action(action, **params)
             result = await _action.wait()  # wait for result
@@ -63,7 +63,7 @@ async def run_action(
 def run_action_on_units(
     units: List[Unit],
     action: str,
-    use_cache: Optional[bool] = None,
+    use_cache: bool = True,
     params: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Action]:
     """Run Juju action on specified units.
