@@ -573,6 +573,9 @@ class CephOsd(CephCommon):
         for ceph_mon_unit in self.ceph_mon_app_map.values():
             pools = self.get_ceph_pools(ceph_mon_unit)
 
+            # 1: replicated,
+            # 2: erasure (not supported yet)
+            # 3: erasure-coded (not supported yet)
             if any(pool.type != 1 for pool in pools):
                 return Result(
                     Severity.FAIL,

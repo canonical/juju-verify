@@ -219,7 +219,7 @@ def find_unit_by_hostname(model: Model, hostname: str, charm: str) -> Unit:
         ):
             return unit
 
-    raise CharmException(f"could not find unit w/ hostname `{hostname}`")
+    raise CharmException(f"could not find unit with hostname `{hostname}`")
 
 
 async def find_units(model: Model, units: List[str]) -> List[Unit]:
