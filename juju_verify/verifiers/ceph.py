@@ -196,20 +196,19 @@ class CephTree:
         This function will recursively search for the parent node until the parent
         is of the desired type.
         Example:
-            [
-                {"id": -1, "name": "root", "children": [-2, -3], ...},
-                {"id": -2, "name": "rack.0", "children": [-4, -5], ...},
-                {"id": -4, "name": "host.0", "children": [0, 1, 2], ...},
-                {"id": -5, "name": "host.1", "children": [3, 4, 5], ...},
-                ...
-                {"id": -3, "name": "rack.1", "children": [-6, -7], ...},
-                ...
-            ]
-            The request is to find the `root` ancestor for the `host.0`.
-            The first step is to find a parent who has id=-4 among its children, then
-            check if it is root. The parent node found is of the rack type with id=-2,
-            so the first step is repeated for this node until the parent node is of the
-            root type.
+        {"id": -1, "name": "root", "children": [-2, -3], ...},
+        {"id": -2, "name": "rack.0", "children": [-4, -5], ...},
+        {"id": -4, "name": "host.0", "children": [0, 1, 2], ...},
+        {"id": -5, "name": "host.1", "children": [3, 4, 5], ...},
+        ...
+        {"id": -3, "name": "rack.1", "children": [-6, -7], ...},
+        ...
+
+        The request is to find the `root` ancestor for the `host.0`.
+        The first step is to find a parent who has id=-4 among its children, then
+        check if it is root. The parent node found is of the rack type with id=-2,
+        so the first step is repeated for this node until the parent node is of the
+        root type.
         """
         for _node in self.nodes:
             if _node.children and node.id in _node.children:
@@ -365,17 +364,14 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
 
         This function runs the `list-pools` action with the parameter 'format=json'
         to gather information about all pools.
-
         Pool types:
-        1 - replicated
-            need to get the crush rule type, to know how the data is replicated
+        1 - replicated crush rule type is required to know how the data is replicated
         2 - erasure (not supported yet)
         3 - erasure-coded (not supported yet)
 
         :raises CharmException: if the unit does not belong to the ceph-mon charm
         :raises TypeError: if the object pools is not iterable
-        :raises KeyError: if the pool detail does not contain `pool`, `pool_name`,
-                          `type`, `size`, `min_size` or `crush_rule`
+        :raises KeyError: if the key could not be obtained from the pool detail
         :raises VerificationError: if any pool is in not supported type
         :raises json.decoder.JSONDecodeError: if json.loads failed
         """
