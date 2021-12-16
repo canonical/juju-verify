@@ -26,13 +26,7 @@ from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import CharmException, JujuActionFailed
-from juju_verify.verifiers.ceph import (
-    AvailabilityZone,
-    CephCommon,
-    CephMon,
-    CephOsd,
-    NodeInfo,
-)
+from juju_verify.verifiers.ceph import CephCommon, CephMon, CephOsd, CephTree, NodeInfo
 from juju_verify.verifiers.result import Result, Severity
 
 CEPH_MON_QUORUM_OK = "Ceph-mon quorum check passed."
@@ -66,18 +60,18 @@ TEST_NODES_OUTPUT = [
     },
     {
         "id": 0,
-        "name": "osd.0",
-        "type_id": 0,
-        "type": "osd",
+        "name": "unit.0",
+        "type_id": 1,
+        "type": "host",
         "kb": 25,
         "kb_used": 23,
         "kb_avail": 2,
     },
     {
         "id": 1,
-        "name": "osd.1",
-        "type_id": 0,
-        "type": "osd",
+        "name": "unit.1",
+        "type_id": 1,
+        "type": "host",
         "kb": 25,
         "kb_used": 22,
         "kb_avail": 3,
@@ -94,18 +88,18 @@ TEST_NODES_OUTPUT = [
     },
     {
         "id": 2,
-        "name": "osd.2",
-        "type_id": 0,
-        "type": "osd",
+        "name": "unit.2",
+        "type_id": 1,
+        "type": "host",
         "kb": 35,
         "kb_used": 7,
         "kb_avail": 28,
     },
     {
         "id": 3,
-        "name": "osd.3",
-        "type_id": 0,
-        "type": "osd",
+        "name": "unit.3",
+        "type_id": 1,
+        "type": "host",
         "kb": 15,
         "kb_used": 8,
         "kb_avail": 7,
@@ -132,59 +126,74 @@ def test_node_info():
     assert hash(node_info) == hash("0-osd.0(10)")
 
 
-def test_availability_zone_method():
-    """Test AvailabilityZone object method, e.g. __str__, __eq__, ..."""
+def test_ceph_tree_method():
+    """Test CephTree object method, e.g. __str__, __eq__, ..."""
     nodes = [
         NodeInfo(**node)
         for node in sorted(
             TEST_NODES_OUTPUT, key=lambda node: node["type_id"], reverse=True
         )
     ]
-    az_str = ",".join(str(node) for node in nodes)
-    az = AvailabilityZone(nodes=nodes)
+    tree_str = ",".join(str(node) for node in nodes)
+    tree = CephTree(nodes=nodes)
 
-    assert az is not None
-    assert az == AvailabilityZone(nodes)
-    assert az != NodeInfo(**TEST_NODES_OUTPUT[0])
-    assert az != az_str
-    assert str(az) == az_str
-    assert hash(az) == hash(az_str)
+    assert tree is not None
+    assert tree == CephTree(nodes)
+    assert tree != NodeInfo(**TEST_NODES_OUTPUT[0])
+    assert tree != tree_str
+    assert str(tree) == tree_str
+    assert hash(tree) == hash(tree_str)
+
+    with pytest.raises(KeyError):
+        tree._get_node("not-valid-child-name")
+
+    with pytest.raises(ValueError):
+        test_tree = CephTree(nodes)
+        test_tree._nodes = nodes[1:]  # change private value
+        test_tree._get_node("default")  # trying to get root node by name
+
+    with pytest.raises(KeyError):
+        tree.can_remove_host_node("not-valid-child-name")
+
+    with pytest.raises(ValueError):
+        # test if root could be removed
+        tree.can_remove_host_node("default")
+
+    assert tree._find_ancestor(tree._get_node("default"), required_type="host") is None
+
+    with pytest.raises(ValueError):
+        test_tree = CephTree(nodes[1:])  # remove root node to find_ancestor return None
+        test_tree.can_remove_host_node("unit.0")
+
+    with pytest.raises(ValueError):
+        tree.can_remove_host_node("unit.0", required_ancestor_type="not-valid-rule")
 
 
 @pytest.mark.parametrize(
-    "exp_child, exp_parent, can_remove_node",
+    "exp_child, exp_parent, ancestor_type, can_remove_host_node",
     [
-        ("rack.1", "default", False),
-        ("osd.0", "rack.1", False),
-        ("osd.2", "rack.2", False),
-        ("osd.3", "rack.2", True),
+        ("unit.1", "default", "root", True),
+        ("unit.0", "rack.1", "rack", False),
+        ("unit.2", "rack.2", "rack", False),
+        ("unit.3", "rack.2", "rack", True),
     ],
 )
-def test_availability_zone(exp_child, exp_parent, can_remove_node):
-    """Test AvailabilityZone object."""
+def test_ceph_tree(exp_child, exp_parent, ancestor_type, can_remove_host_node):
+    """Test CephTree object."""
     nodes = [
         NodeInfo(**node)
         for node in sorted(
             TEST_NODES_OUTPUT, key=lambda node: node["type_id"], reverse=True
         )
     ]
-    az = AvailabilityZone(nodes=nodes)
-    child = az.get_nodes(exp_child)[0]
+    tree = CephTree(nodes=nodes)
+    child = tree._get_node(exp_child)
 
     assert exp_child == child.name
-    assert exp_parent == az.find_parent(child.id).name
-    assert can_remove_node == az.can_remove_node(exp_child)
-
-    with pytest.raises(KeyError):
-        az.get_nodes("not-valid-child-name")
-
-    with pytest.raises(KeyError):
-        az.can_remove_node("not-valid-child-name")
-
-    # try to find parent for root
-    assert az.find_parent(-1) is None
-    # test if root could be removed
-    assert az.can_remove_node("default") is False
+    assert exp_parent == tree._find_ancestor(child, ancestor_type).name
+    assert can_remove_host_node == tree.can_remove_host_node(
+        exp_child, required_ancestor_type=ancestor_type
+    )
 
 
 @mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
@@ -546,7 +555,7 @@ def test_check_availability_zone(
     # test to remove unit, which could be removed
     mock_get_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
     unit = model.units["ceph-osd/0"]
-    unit.machine = mock.PropertyMock(hostname="osd.3")
+    unit.machine = mock.PropertyMock(hostname="unit.3")
 
     result = CephOsd([unit]).check_availability_zone()
     assert result == Result(Severity.OK, "Availability zone check passed.")
@@ -557,30 +566,39 @@ def test_check_availability_zone(
         "ceph-osd-ssd": model.units["ceph-mon/0"],
     }
     unit_1 = model.units["ceph-osd-hdd/0"]
-    unit_1.machine = mock.PropertyMock(hostname="osd.0")
+    unit_1.machine = mock.PropertyMock(hostname="unit.0")
     unit_2 = model.units["ceph-osd-ssd/1"]
-    unit_2.machine = mock.PropertyMock(hostname="osd.3")
+    unit_2.machine = mock.PropertyMock(hostname="unit.3")
 
-    result = CephOsd([unit_1, unit_2]).check_availability_zone()
+    ceph_osd_verifier = CephOsd([unit_1, unit_2])
+    # NOTE (rgildein): this should be replaced with mocking function, which will be
+    # handling getting replication_rule from pools
+    ceph_osd_verifier.REPLICATION_RULE = "rack"
+    result = ceph_osd_verifier.check_availability_zone()
     assert result == Result(
         Severity.FAIL,
         "It's not safe to reboot/shutdown unit(s) ceph-osd-hdd/0 in the availability "
-        "zone '10-default(-1),3-rack.1(-2),3-rack.2(-3),0-osd.0(0),0-osd.1(1),"
-        "0-osd.2(2),0-osd.3(3)'.",
+        "zone '10-default(-1),3-rack.1(-2),3-rack.2(-3),1-unit.0(0),1-unit.1(1),"
+        "1-unit.2(2),1-unit.3(3)'.",
     )
 
     # test removing multiple units from same application and both could not be removed
     mock_get_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
     unit_1 = model.units["ceph-osd/0"]
-    unit_1.machine = mock.PropertyMock(hostname="osd.0")
+    unit_1.machine = mock.PropertyMock(hostname="unit.0")
     unit_2 = model.units["ceph-osd/1"]
-    unit_2.machine = mock.PropertyMock(hostname="osd.1")
-    result = CephOsd([unit_1, unit_2]).check_availability_zone()
+    unit_2.machine = mock.PropertyMock(hostname="unit.1")
+
+    ceph_osd_verifier = CephOsd([unit_1, unit_2])
+    # NOTE (rgildein): this should be replaced with mocking function, which will be
+    # handling getting replication_rule from pools
+    ceph_osd_verifier.REPLICATION_RULE = "rack"
+    result = ceph_osd_verifier.check_availability_zone()
     assert result == Result(
         Severity.FAIL,
         "It's not safe to reboot/shutdown unit(s) ceph-osd/0, ceph-osd/1 in the "
         "availability zone '10-default(-1),3-rack.1(-2),3-rack.2(-3),"
-        "0-osd.0(0),0-osd.1(1),0-osd.2(2),0-osd.3(3)'.",
+        "1-unit.0(0),1-unit.1(1),1-unit.2(2),1-unit.3(3)'.",
     )
 
 
