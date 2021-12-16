@@ -1,6 +1,8 @@
 tests:
   - openstack:
-    - tests.test_novacompute.NovaCompute
+    # NOTE (rgildein): This will be temporarily disabled until the bug [1] is fixed.
+    # [1]: https://bugs.launchpad.net/juju-verify/+bug/1955054
+    # - tests.test_novacompute.NovaCompute
     - tests.test_neutron_gateway.NeutronTests
   - ceph:
     - tests.test_ceph.CephOsdTests
