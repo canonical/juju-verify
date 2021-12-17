@@ -78,21 +78,18 @@ async def test_run_action():
     unit_1.run_action.side_effect = unit_2.run_action.side_effect = mock_unit_run_action
 
     # test run_action once
-    with cache_manager(use_cache=True):
-        await run_action(unit_1, "action", params=dict(format="json"))
+    await run_action(unit_1, "action", params=dict(format="json"), use_cache=True)
 
     unit_1.run_action.assert_called_once_with("action", format="json")
     unit_1.run_action.reset_mock()
 
     # test run_action multiple times without cache
-    with cache_manager(use_cache=False):
-        await run_action(unit_1, "action-1", params=dict(format="json"))
-        await run_action(unit_1, "action-2")
-        await run_action(unit_1, "action-1", params=dict(format="json"))
-        await run_action(unit_2, "action-1")
+    await run_action(unit_1, "action-1", params=dict(format="json"), use_cache=False)
+    await run_action(unit_1, "action-2", use_cache=False)
+    await run_action(unit_1, "action-1", params=dict(format="json"), use_cache=False)
+    await run_action(unit_2, "action-1", use_cache=False)
 
-        assert unit_1.run_action.call_count == 3
-
+    assert unit_1.run_action.call_count == 3
     unit_1.run_action.assert_has_calls(
         [
             call("action-1", format="json"),
@@ -105,14 +102,15 @@ async def test_run_action():
     unit_2.run_action.reset_mock()
 
     # test run_action multiple times with cache
-    with cache_manager(use_cache=True):
-        await run_action(unit_1, "action-1", params=dict(format="json"))  # uses cache
-        await run_action(unit_1, "action-2")  # uses cache
-        await run_action(unit_1, "action-3")
-        await run_action(unit_1, "action-1", params=dict(format="text"))
-        await run_action(unit_2, "action-1")  # uses cache
-        await run_action(unit_2, "action-1")  # uses cache
-        await run_action(unit_2, "action-2")
+    await run_action(
+        unit_1, "action-1", params=dict(format="json"), use_cache=True
+    )  # uses cache
+    await run_action(unit_1, "action-2", use_cache=True)  # uses cache
+    await run_action(unit_1, "action-3", use_cache=True)
+    await run_action(unit_1, "action-1", params=dict(format="text"), use_cache=True)
+    await run_action(unit_2, "action-1", use_cache=True)  # uses cache
+    await run_action(unit_2, "action-1", use_cache=True)  # uses cache
+    await run_action(unit_2, "action-2", use_cache=True)
 
     assert unit_1.run_action.call_count == 2
     unit_1.run_action.assert_has_calls(
@@ -149,7 +147,7 @@ def test_run_action_on_units(mock_run_action, model):
     )
 
     mock_run_action.assert_has_calls(
-        [call(unit, action, action_params) for unit in run_on_units]
+        [call(unit, action, action_params, False) for unit in run_on_units]
     )
 
     assert len(results) == len(run_on_unit_ids)
