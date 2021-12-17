@@ -163,14 +163,14 @@ class CephTree:
         return self.nodes == other._nodes
 
     def __str__(self) -> str:
-        """Return string representation of AZ objects."""
+        """Return string representation of CaphTree objects."""
         return ",".join(
             str(node)
             for node in sorted(self.nodes, key=lambda node: node.type_id, reverse=True)
         )
 
     def __hash__(self) -> int:
-        """Return hash representation of AZ objects."""
+        """Return hash representation of CaphTree objects."""
         return hash(self.__str__())
 
     @property
@@ -464,7 +464,7 @@ class CephOsd(CephCommon):
         if not self._ceph_tree_map:
             logger.warning("could not get Ceph tree")
 
-        logger.debug("found ceph tree map: %s", self._ceph_tree_map)
+        logger.debug("found ceph tree map: %s", str(self._ceph_tree_map))
         return self._ceph_tree_map
 
     @property
@@ -604,6 +604,11 @@ class CephOsd(CephCommon):
                 all_units = self._find_units_in_ceph_tree(
                     ceph_tree, pool.crush_rule.device_class
                 )
+                logger.debug(
+                    "found %d units that have an osd type %s",
+                    len(all_units),
+                    pool.crush_rule.device_class,
+                )
                 # filter active units and units out of self.units
                 units = {
                     unit
@@ -611,8 +616,15 @@ class CephOsd(CephCommon):
                     if unit.entity_id not in self.unit_ids
                     and unit.workload_status == "active"
                 }
+                logger.debug("%d units remain active after reboot/shutdown", len(units))
+                # count failure_domains
                 count_remaining_failure_domains = self._count_branch(
                     ceph_tree, units, pool.crush_rule.failure_domain
+                )
+                logger.debug(
+                    "%d %s(s) failure domain remain active after reboot/shutdown",
+                    count_remaining_failure_domains,
+                    pool.crush_rule.failure_domain,
                 )
 
                 if count_remaining_failure_domains < pool.min_size:
