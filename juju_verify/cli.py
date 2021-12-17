@@ -134,7 +134,9 @@ def config_logger(log_level: str) -> None:
         root_logger.setLevel(logging.DEBUG)
         juju_verify_logger.setLevel(logging.DEBUG)
     elif log_level == "debug":
-        stream_handler.setFormatter(logging.Formatter("| %(levelname)s | %(message)s"))
+        stream_handler.setFormatter(
+            logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
+        )
         root_logger.setLevel(logging.INFO)
         # set DEBUG level only for juju-verify logger
         juju_verify_logger.setLevel(logging.DEBUG)
