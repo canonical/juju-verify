@@ -383,6 +383,7 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
 
         # get all crush rules in Ceph cluster
         crush_rules = cls.get_crush_rules(unit)
+        logger.debug("found %d crush rules in Ceph cluster", len(crush_rules))
         return [
             PoolInfo(
                 id=pool["pool"],
