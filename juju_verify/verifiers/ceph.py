@@ -438,6 +438,7 @@ class CephOsd(CephCommon):
         super().__init__(units=units)
         self._ceph_mon_app_map: Optional[Dict[str, Unit]] = None
         self._ceph_tree_map: Optional[Dict[str, CephTree]] = None
+        self._units_device_class_map: Optional[Dict[str, Dict[str, Set[Unit]]]] = None
 
     @property
     def ceph_mon_app_map(self) -> Dict[str, Unit]:
@@ -463,10 +464,27 @@ class CephOsd(CephCommon):
             self._ceph_tree_map = self._get_ceph_tree_map()
 
         if not self._ceph_tree_map:
-            logger.warning("could not get Ceph tree")
+            logger.warning("could not get Ceph tree map")
 
         logger.debug("found ceph tree map: %s", str(self._ceph_tree_map))
         return self._ceph_tree_map
+
+    @property
+    def units_device_class_map(self) -> Dict[str, Dict[str, Set[Unit]]]:
+        """Get a map between ceph-osd units and osds device class.
+
+        Return dictionary contain three keys `hdd`, `ssd` and `nvme` and a set of units.
+        """
+        if self._units_device_class_map is None:
+            self._units_device_class_map = self._get_units_device_class_map()
+
+        if not self._units_device_class_map:
+            logger.warning("could not get units device class map")
+
+        logger.debug(
+            "found units device class map: %s", str(self._units_device_class_map)
+        )
+        return self._units_device_class_map
 
     @property
     def ancestor_node_type(self) -> str:
@@ -483,6 +501,37 @@ class CephOsd(CephCommon):
             return "root"
 
         return replication_rule
+
+    def _get_units_device_class_map(self) -> Dict[str, Dict[str, Set[Unit]]]:
+        """Get units device class map."""
+        # create defaultdict with dictionary contains hdd, ssd and nvme as set
+        units_device_class_map: Dict[str, Dict[str, Set[Unit]]] = defaultdict(
+            lambda: {"hdd": set(), "ssd": set(), "nvme": set()}
+        )
+        # iterate over ceph-osd application
+        for app, ceph_tree in self.ceph_tree_map.items():
+            # get all nodes type host
+            hosts = {node for node in ceph_tree.nodes if node.type == "host"}
+            # create osd map from all nodes type osd and their ids
+            osds = {node.id: node for node in ceph_tree.nodes if node.type == "osd"}
+
+            for host in hosts:
+                if not host.children:
+                    continue
+
+                # get unit from host.name
+                unit = find_unit_by_hostname(self.model, host.name, self.NAME)
+                # go through all the children
+                for osd_id in host.children:
+                    osd = osds.get(osd_id)  # get osd from id
+                    if osd is None:
+                        logger.warning("could not found osd with `%d` id", osd_id)
+                    elif osd.device_class is None:
+                        logger.warning("osd with `%d` id has no device class", osd_id)
+                    else:
+                        units_device_class_map[app][osd.device_class].add(unit)
+
+        return units_device_class_map
 
     def _get_ceph_tree_map(self) -> Dict[str, CephTree]:
         """Get Ceph tree for each ceph-osd application."""
@@ -527,23 +576,39 @@ class CephOsd(CephCommon):
         logger.debug("affected applications %s", ", ".join(applications))
         return {name: self._get_ceph_mon_unit(name) for name in applications}
 
-    def _find_units_in_ceph_tree(
-        self, tree: CephTree, device_class: Optional[str] = None
-    ) -> Set[Unit]:
-        """Get set of units from ceph tree."""
-        units = set()
-        for node in tree.nodes:
-            if node.type == "host" and node.children is not None:
-                if device_class is not None:
-                    # check if there is any osd with required device_class
-                    if not any(
-                        osd.device_class == device_class
-                        for osd in tree.nodes
-                        if osd.id in node.children
-                    ):
-                        continue
+    def _get_units_by_device_class(self, app_name: str, pool: PoolInfo) -> Set[Unit]:
+        """Get all units that contain at least one device class OSD as pool.
 
-                units.add(find_unit_by_hostname(self.model, node.name, self.NAME))
+        This function will get all units for specific application and then filters
+        the units that contain an OSD with the same device class as the pool. Finally,
+        it filters only active units and those for which the check is performed
+        (self.units).
+        """
+        units_device_class_map = self.units_device_class_map[app_name]
+        # get all ceph-osd units, that contain at least one osd with device
+        # class same as crush rule in pool
+        if pool.crush_rule.device_class is not None:
+            all_units = units_device_class_map[pool.crush_rule.device_class]
+        else:
+            # get all units with hdd, ssd and nvme
+            all_units = set().union(
+                units_device_class_map["hdd"],
+                units_device_class_map["ssd"],
+                units_device_class_map["nvme"],
+            )
+
+        logger.debug(
+            "found %d units that have an osd type %s",
+            len(all_units),
+            pool.crush_rule.device_class,
+        )
+        # filter active units and units out of self.units
+        units = {
+            unit
+            for unit in all_units
+            if unit.entity_id not in self.unit_ids and unit.workload_status == "active"
+        }
+        logger.debug("%d units remain active after reboot/shutdown", len(units))
 
         return units
 
@@ -600,24 +665,8 @@ class CephOsd(CephCommon):
         for app_name, ceph_mon_unit in self.ceph_mon_app_map.items():
             ceph_tree = self.ceph_tree_map[app_name]
             for pool in self.get_ceph_pools(ceph_mon_unit):
-                # get all ceph-osd units, that contain at least one osd w/ device class
-                # same as crush rule in pool
-                all_units = self._find_units_in_ceph_tree(
-                    ceph_tree, pool.crush_rule.device_class
-                )
-                logger.debug(
-                    "found %d units that have an osd type %s",
-                    len(all_units),
-                    pool.crush_rule.device_class,
-                )
-                # filter active units and units out of self.units
-                units = {
-                    unit
-                    for unit in all_units
-                    if unit.entity_id not in self.unit_ids
-                    and unit.workload_status == "active"
-                }
-                logger.debug("%d units remain active after reboot/shutdown", len(units))
+                # get all units that contain OSD with the same device class as the pool
+                units = self._get_units_by_device_class(app_name, pool)
                 # count failure_domains
                 count_remaining_failure_domains = self._count_branch(
                     ceph_tree, units, pool.crush_rule.failure_domain

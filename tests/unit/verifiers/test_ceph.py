@@ -307,43 +307,57 @@ def test_get_ceph_tree_map(mock_get_disk_utilization, mock_ceph_mon_app_map, mod
     mock_get_disk_utilization.assert_called_once_with(model.units["ceph-mon/0"])
 
 
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_tree_map")
 @mock.patch("juju_verify.verifiers.ceph.find_unit_by_hostname")
-def test_find_units_in_ceph_tree(mock_find_unit_by_hostname, model):
+def test_get_units_device_class_map(
+    mock_find_unit_by_hostname, mock_get_ceph_tree_map, model
+):
     """Test get set of units from ceph tree."""
     nodes = [
         NodeInfo(-2, "host.0", 0, "host", 0, 0, 0, [0]),
         NodeInfo(0, "osd.0", 0, "osd", 0, 0, 0, device_class="hdd"),
         NodeInfo(-3, "host.1", 0, "host", 0, 0, 0, [1]),
         NodeInfo(1, "osd.1", 0, "osd", 0, 0, 0, device_class="hdd"),
-        NodeInfo(-4, "host.2", 0, "host", 0, 0, 0, [2]),
+        NodeInfo(-4, "host.2", 0, "host", 0, 0, 0, [2, 3, 4, 5]),
         NodeInfo(2, "osd.2", 0, "osd", 0, 0, 0, device_class="ssd"),
+        NodeInfo(3, "osd.3", 0, "osd", 0, 0, 0, device_class="ssd"),
+        NodeInfo(4, "osd.4", 0, "osd", 0, 0, 0),
+        NodeInfo(-4, "host.3", 0, "host", 0, 0, 0, None),
     ]
     hosts = {
         "host.0": model.units["ceph-osd-hdd/0"],
         "host.1": model.units["ceph-osd-hdd/1"],
-        "host.2": model.units["ceph-osd/0"],
+        "host.2": model.units["ceph-osd-ssd/0"],
+        "host.3": model.units["ceph-osd/0"],
     }
     ceph_tree = CephTree(nodes=nodes)
     mock_find_unit_by_hostname.side_effect = lambda _, host, charm: hosts[host]
+    mock_get_ceph_tree_map.return_value = {
+        "ceph-osd-ssd": ceph_tree,
+        "ceph-osd-hdd": ceph_tree,
+    }
 
     # get all hosts
-    ceph_tree_map = CephOsd([model.units["ceph-osd/0"]])._find_units_in_ceph_tree(
-        ceph_tree
-    )
-    assert ceph_tree_map == {
-        model.units["ceph-osd-hdd/0"],
-        model.units["ceph-osd-hdd/1"],
-        model.units["ceph-osd/0"],
+    units_device_class_map = CephOsd([model.units["ceph-osd/0"]]).units_device_class_map
+
+    # ceph-osd-hdd and ceph-osd-ssd are at the same cluster -> output are same
+    assert units_device_class_map == {
+        "ceph-osd-hdd": {
+            "hdd": {model.units["ceph-osd-hdd/0"], model.units["ceph-osd-hdd/1"]},
+            "ssd": {model.units["ceph-osd-ssd/0"]},
+            "nvme": set(),
+        },
+        "ceph-osd-ssd": {
+            "hdd": {model.units["ceph-osd-hdd/0"], model.units["ceph-osd-hdd/1"]},
+            "ssd": {model.units["ceph-osd-ssd/0"]},
+            "nvme": set(),
+        },
     }
 
-    # get host w/ device_class == hdd
-    ceph_tree_map = CephOsd([model.units["ceph-osd/0"]])._find_units_in_ceph_tree(
-        ceph_tree, "hdd"
-    )
-    assert ceph_tree_map == {
-        model.units["ceph-osd-hdd/0"],
-        model.units["ceph-osd-hdd/1"],
-    }
+    #
+    mock_get_ceph_tree_map.return_value = {}
+    units_device_class_map = CephOsd([model.units["ceph-osd/0"]]).units_device_class_map
+    assert units_device_class_map == {}
 
 
 def test_count_branch(model):
@@ -629,6 +643,76 @@ def test_get_ceph_mon_app_map(mock_get_ceph_mon_unit, model):
     }
 
 
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_units_device_class_map")
+def test_get_units_by_device_class(mock_get_units_device_class_map, model):
+    """Test function to get all units contain OSD with same device class as pool."""
+    mock_pool = MagicMock()
+    mock_get_units_device_class_map.return_value = {
+        "ceph-osd": {
+            "hdd": {
+                model.units["ceph-osd/0"],
+                model.units["ceph-osd/1"],
+                model.units["ceph-osd/2"],
+                model.units["ceph-osd-hdd/0"],
+                model.units["ceph-osd-hdd/1"],
+                model.units["ceph-osd-hdd/2"],
+            },
+            "ssd": {
+                model.units["ceph-osd/0"],
+                model.units["ceph-osd/2"],
+                model.units["ceph-osd-ssd/0"],
+                model.units["ceph-osd-ssd/1"],
+                model.units["ceph-osd-ssd/2"],
+            },
+            "nvme": set(),
+        }
+    }
+
+    # test get all units contain device class HDD
+    mock_pool.crush_rule.device_class = "hdd"
+
+    units = CephOsd([model.units["ceph-osd/0"]])._get_units_by_device_class(
+        "ceph-osd", mock_pool
+    )
+    assert units == {
+        model.units["ceph-osd/1"],
+        model.units["ceph-osd/2"],
+        model.units["ceph-osd-hdd/0"],
+        model.units["ceph-osd-hdd/1"],
+        model.units["ceph-osd-hdd/2"],
+    }
+
+    # test get all units contain device class SSD
+    mock_pool.crush_rule.device_class = "ssd"
+
+    units = CephOsd([model.units["ceph-osd/0"]])._get_units_by_device_class(
+        "ceph-osd", mock_pool
+    )
+    assert units == {
+        model.units["ceph-osd/2"],
+        model.units["ceph-osd-ssd/0"],
+        model.units["ceph-osd-ssd/1"],
+        model.units["ceph-osd-ssd/2"],
+    }
+
+    # test get all units contain any device class
+    mock_pool.crush_rule.device_class = None
+
+    units = CephOsd([model.units["ceph-osd/0"]])._get_units_by_device_class(
+        "ceph-osd", mock_pool
+    )
+    assert units == {
+        model.units["ceph-osd/1"],
+        model.units["ceph-osd/2"],
+        model.units["ceph-osd-hdd/0"],
+        model.units["ceph-osd-hdd/1"],
+        model.units["ceph-osd-hdd/2"],
+        model.units["ceph-osd-ssd/0"],
+        model.units["ceph-osd-ssd/1"],
+        model.units["ceph-osd-ssd/2"],
+    }
+
+
 @mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
 @mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
 def test_check_ceph_cluster_health(
@@ -694,7 +778,7 @@ def test_check_ceph_pool(mock_get_ceph_mon_app_map, mock_get_ceph_pools, model):
 
 
 @mock.patch("juju_verify.verifiers.ceph.CephOsd._count_branch")
-@mock.patch("juju_verify.verifiers.ceph.CephOsd._find_units_in_ceph_tree")
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_units_by_device_class")
 @mock.patch("juju_verify.verifiers.ceph.CephCommon.get_ceph_pools")
 @mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_tree_map")
 @mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
@@ -702,7 +786,7 @@ def test_check_replication_number(
     mock_get_ceph_mon_app_map,
     mock_get_ceph_tree_map,
     mock_get_ceph_pools,
-    mock_find_units_in_ceph_tree,
+    mock_get_units_by_device_class,
     mock_count_branch,
     model,
 ):
@@ -711,31 +795,42 @@ def test_check_replication_number(
     mock_ceph_tree = MagicMock()
     mock_get_ceph_tree_map.return_value = {"ceph-osd": mock_ceph_tree}
     mock_get_ceph_pools.return_value = []
+    mock_get_units_by_device_class.return_value = {
+        model.units["ceph-osd/0"],
+        model.units["ceph-osd/1"],
+        model.units["ceph-osd/2"],
+    }
 
     # check shutdown/rebooting one ceph-osd unit on Ceph cluster w/ no pools
     result = CephOsd([model.units["ceph-osd/0"]]).check_replication_number()
     mock_get_ceph_mon_app_map.assert_called_once()
     mock_get_ceph_tree_map.assert_called_once()
     mock_get_ceph_pools.assert_called_once()
-    mock_find_units_in_ceph_tree.assert_not_called()
+    mock_get_units_by_device_class.assert_not_called()
     assert result == Result(Severity.OK, "Minimum replica number check passed.")
 
-    # check shutdown/rebooting one ceph-osd unit on Ceph cluster w/ one pool
+    # check one ceph-osd unit on Ceph cluster w/ one pool without device_class
+    host_crush_rule = CrushRuleInfo(0, "slow", "host", None)
+    mock_get_ceph_pools.return_value = [
+        PoolInfo(1, "pool-1", 1, 3, 2, host_crush_rule, "")
+    ]
+    mock_count_branch.return_value = 2
+
+    result = CephOsd([model.units["ceph-osd/0"]]).check_replication_number()
+    mock_get_units_by_device_class.assert_called_once()
+    assert result == Result(Severity.OK, "Minimum replica number check passed.")
+
+    # check one ceph-osd unit on Ceph cluster w/ one pool w/ device_class == hdd
     host_crush_rule = CrushRuleInfo(0, "slow", "host", "hdd")
     mock_get_ceph_pools.return_value = [
         PoolInfo(1, "pool-1", 1, 3, 2, host_crush_rule, "")
     ]
-    mock_find_units_in_ceph_tree.return_value = {
-        model.units["ceph-osd/0"],
-        model.units["ceph-osd/1"],
-        model.units["ceph-osd/2"],
-    }
     mock_count_branch.return_value = 2
 
     result = CephOsd([model.units["ceph-osd/0"]]).check_replication_number()
     assert result == Result(Severity.OK, "Minimum replica number check passed.")
 
-    # check shutdown/rebooting two ceph-osd units on Ceph cluster w/ one pool
+    # check two ceph-osd units on Ceph cluster w/ one pool
     mock_count_branch.return_value = 1
 
     result = CephOsd(
