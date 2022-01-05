@@ -36,6 +36,8 @@ from juju_verify.utils.unit import find_units, find_units_on_machine
 from juju_verify.verifiers import BaseVerifier, get_verifiers
 from juju_verify.verifiers.result import set_stop_on_failure
 
+# set MAX_FRAME_SIZE to 64MB to connect python-libjuju to the model
+JUJU_MAX_FRAME_SIZE = 2 ** 26
 logger = logging.getLogger(__name__)
 
 
@@ -49,10 +51,12 @@ async def connect_model(model_name: Union[str, None]) -> Model:
     try:
         if model_name:
             logger.debug("Connecting to model '%s'.", model_name)
-            await model.connect(model_name=model_name)
+            await model.connect(
+                model_name=model_name, max_frame_size=JUJU_MAX_FRAME_SIZE
+            )
         else:
             logger.debug("Connecting to currently active model.")
-            await model.connect()
+            await model.connect(max_frame_size=JUJU_MAX_FRAME_SIZE)
     except errors.JujuError as exc:
         raise CharmException(
             f"Failed to connect to the model.{os.linesep}{exc}"
