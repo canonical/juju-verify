@@ -163,14 +163,14 @@ class CephTree:
         return self.nodes == other._nodes
 
     def __str__(self) -> str:
-        """Return string representation of CaphTree objects."""
+        """Return string representation of CephTree objects."""
         return ",".join(
             str(node)
             for node in sorted(self.nodes, key=lambda node: node.type_id, reverse=True)
         )
 
     def __hash__(self) -> int:
-        """Return hash representation of CaphTree objects."""
+        """Return hash representation of CephTree objects."""
         return hash(self.__str__())
 
     @property
@@ -330,7 +330,8 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
     def get_crush_rules(cls, unit: Unit) -> Dict[int, CrushRuleInfo]:
         """Get all crush rules in Ceph cluster."""
         verify_charm_unit("ceph-mon", unit)
-        # NOTE (rgildein): This should be replaced be feature action in ceph-mon.
+        # NOTE (rgildein): This should be replaced be feature action [1] in ceph-mon.
+        # [1]: https://bugs.launchpad.net/charm-ceph-mon/+bug/1957458
         action = run_command_on_unit(
             unit, "ceph --id admin osd crush rule dump -f json"
         )
@@ -360,7 +361,7 @@ class CephCommon(BaseVerifier):  # pylint: disable=W0223
 
     @classmethod
     def get_ceph_pools(cls, unit: Unit) -> List[PoolInfo]:
-        """Get detail about Ceph pools namely name, type, min_size and replicated.
+        """Get detail about Ceph pools (name, type, min_size, replicated).
 
         This function runs the `list-pools` action with the parameter 'format=json'
         to gather information about all pools.
@@ -590,7 +591,11 @@ class CephOsd(CephCommon):
         if pool.crush_rule.device_class is not None:
             all_units = units_device_class_map[pool.crush_rule.device_class]
         else:
-            # get all units with hdd, ssd and nvme
+            # NOTE (rgildein): If device_class is None, it means all osd will be used.
+            # The device_class is set automatically on ODDs startup [1] and could be
+            # set only to hdd, ssd and nvme [2].
+            # [1]: https://docs.ceph.com/en/latest/rados/operations/crush-map/#device-classes # noqa: E501 pylint: disable=C0301
+            # [2]: https://docs.ceph.com/en/latest/rados/operations/crush-map/#devices
             all_units = set().union(
                 units_device_class_map["hdd"],
                 units_device_class_map["ssd"],

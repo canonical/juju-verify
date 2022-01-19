@@ -19,7 +19,7 @@ import asyncio
 import logging
 import os
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from juju.action import Action
 from juju.application import Application
@@ -196,18 +196,18 @@ def get_applications_names(model: Model, application: str) -> List[str]:
     return applications
 
 
-def get_related_charm_units_to_app(application: Application, charm: str) -> List[Unit]:
+def get_related_charm_units_to_app(application: Application, charm: str) -> Set[Unit]:
     """Get all units for the same charm related to application.
 
     :param application: Juju application
     :param charm: charm name, e.g. ceph-osd
     """
-    return [
-        unit
-        for relation in application.relations
-        for unit in relation.provides.application.units
-        if parse_charm_name(unit.charm_url) == charm
-    ]
+    units: Set[Unit] = set()
+    for relation in application.relations:
+        if parse_charm_name(relation.provides.application.charm_url) == charm:
+            units = units.union(relation.provides.application.units)
+
+    return units
 
 
 def find_unit_by_hostname(model: Model, hostname: str, charm: str) -> Unit:

@@ -302,9 +302,21 @@ def test_get_applications_names(model):
 def test_get_related_charm_units_to_app(model):
     """Test function to get all units for the same charm related to application."""
     mock_application = MagicMock()
-    mock_relation = MagicMock()
-    mock_application.relations = [mock_relation]
-    mock_relation.provides.application.units = model.units.values()
+    mock_ceph_osd_relation = MagicMock()
+    mock_ceph_osd_relation.provides.application.charm_url = "cs:focal/ceph-osd-66"
+    mock_ceph_osd_relation.provides.application.units = [
+        unit
+        for unit in model.units.values()
+        if parse_charm_name(unit.charm_url) == "ceph-osd"
+    ]
+    mock_ceph_mon_relation = MagicMock()
+    mock_ceph_mon_relation.provides.application.charm_url = "cs:focal/ceph-mon-99"
+    mock_ceph_mon_relation.provides.application.units = [
+        unit
+        for unit in model.units.values()
+        if parse_charm_name(unit.charm_url) == "ceph-mon"
+    ]
+    mock_application.relations = [mock_ceph_osd_relation, mock_ceph_mon_relation]
 
     units = get_related_charm_units_to_app(mock_application, "ceph-osd")
     assert len(units) == 9
