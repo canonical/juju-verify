@@ -355,9 +355,11 @@ class CephOsd(CephCommon):
     # information from pools
     REPLICATION_RULE = "host"
 
-    def __init__(self, units: List[Unit]):
+    def __init__(
+        self, units: List[Unit], exclude_affected_units: Optional[List[Unit]] = None
+    ):
         """Ceph-osd charm verifier."""
-        super().__init__(units=units)
+        super().__init__(units=units, exclude_affected_units=exclude_affected_units)
         self._ceph_mon_app_map: Optional[Dict[str, Unit]] = None
         self._ceph_tree_map: Optional[Dict[str, CephTree]] = None
 

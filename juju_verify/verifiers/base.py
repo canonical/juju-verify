@@ -46,12 +46,18 @@ class BaseVerifier:
 
     NAME = ""
 
-    def __init__(self, units: List[Unit]):
+    def __init__(
+        self, units: List[Unit], exclude_affected_units: Optional[List[Unit]] = None
+    ):
         """Initiate verifier linked to the Juju units.
 
         All the checks that the verifier implements must expect that the action
         that is being verified is intended to be performed on all juju units
         in the 'self.units' simultaneously.
+
+        Parameter `exclude_affected_units` should contain list of units that are
+        explicitly checked by other Verifier(s) so that they can be excluded from
+        the warnings in `check_affected_machines()`.
 
         :raises VerificationError: If 'units' parameter is empty
         :raises VerificationError: If 'units' parameter contains units from
@@ -59,6 +65,7 @@ class BaseVerifier:
         """
         self.units = units
         self.affected_machines = set()
+        self.exclude_affected_units = exclude_affected_units or []
         models = set()
 
         if not self.units:
@@ -165,9 +172,12 @@ class BaseVerifier:
             ):
                 machine_map[unit.machine.entity_id].append(unit.entity_id)
 
+        verified_units = self.unit_ids.copy()
+        verified_units.extend(unit.entity_id for unit in self.exclude_affected_units)
+
         for machine, unit_list in machine_map.items():
             for unit in unit_list:
-                if unit not in self.unit_ids:
+                if unit not in verified_units:
                     result.add_partial_result(
                         Severity.WARN,
                         f"Machine {machine} runs other principal "

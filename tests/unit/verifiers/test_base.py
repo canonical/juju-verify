@@ -94,6 +94,16 @@ def test_base_verifier_warn_on_unchecked_units(mocker):
 
     assert expected_partial_result not in result.partials
 
+    # Test run excluding missing unit explicitly
+    log_warning.reset_mock()
+    verifier = BaseVerifier(
+        units=[checked_unit], exclude_affected_units=[unchecked_unit]
+    )
+
+    result = verifier.check_affected_machines()
+
+    assert expected_partial_result not in result.partials
+
 
 def test_base_verifier_unit_ids():
     """Test return value of property BaseVerifier.unit_ids."""
