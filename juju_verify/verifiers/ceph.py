@@ -660,8 +660,10 @@ class CephOsd(CephCommon):
 
     def check_ceph_cluster_health(self) -> Result:
         """Check Ceph cluster health for unique ceph-mon units from ceph_mon_app_map."""
-        unique_ceph_mon_units = set(self.ceph_mon_app_map.values())
-        return self.check_cluster_health(*unique_ceph_mon_units)
+        unique_ceph_mon_units = {
+            unit.entity_id: unit for unit in self.ceph_mon_app_map.values()
+        }
+        return self.check_cluster_health(*unique_ceph_mon_units.values())
 
     def check_replication_number(self) -> Result:
         """Check the minimum number of replications for related applications."""
@@ -760,8 +762,8 @@ class CephMon(CephCommon):
         """Check Ceph cluster health for unique ceph-mon application."""
         # Get one ceph-mon unit per each application
         app_map = {unit.application: unit for unit in self.units}
-        unique_app_units = app_map.values()
-        return self.check_cluster_health(*unique_app_units)
+        unique_units = {unit.entity_id: unit for unit in app_map.values()}
+        return self.check_cluster_health(*unique_units.values())
 
     def check_quorum(self) -> Result:
         """Check that the shutdown does not result in <50% mons alive."""
