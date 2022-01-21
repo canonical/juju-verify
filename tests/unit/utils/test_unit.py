@@ -21,6 +21,7 @@ from unittest import mock
 from unittest.mock import MagicMock, call
 
 import pytest
+from juju.errors import JujuError
 from juju.unit import Unit
 from pytest import raises
 
@@ -28,14 +29,17 @@ from juju_verify.exceptions import CharmException, VerificationError
 from juju_verify.utils.action import cache_manager
 from juju_verify.utils.unit import (
     _run_action,
+    find_unit_by_hostname,
     find_units,
     find_units_on_machine,
     get_applications_names,
     get_cache_key,
     get_first_active_unit,
+    get_related_charm_units_to_app,
     parse_charm_name,
     run_action_on_unit,
     run_action_on_units,
+    run_command_on_unit,
     verify_charm_unit,
 )
 
@@ -172,11 +176,45 @@ def test_run_action_on_units(mock_run_action, model):
 
 
 @mock.patch("juju_verify.utils.unit.run_action_on_units")
-def test_base_verifier_run_action_on_unit(mock_run_action_on_units, model):
+def test_run_action_on_unit(mock_run_action_on_units, model):
     """Test running action on single unit from the verifier."""
     unit = model.units["nova-compute/0"]
     run_action_on_unit(unit, "test", True)
     mock_run_action_on_units.assert_called_with([unit], "test", True, None)
+
+
+def test_run_command_on_unit():
+    """Test run command on unit."""
+
+    async def mock_run_command(*args, **kwargs):
+        return "test output"
+
+    unit = MagicMock()
+    unit.run.side_effect = mock_run_command
+    cache_manager.enable()
+
+    # run command first time
+    result = run_command_on_unit(unit, "test command")
+    assert result == "test output"
+    unit.run.assert_called_once_with("test command", timeout=2 * 60)
+    unit.run.reset_mock()
+
+    # run command second time w/ cache enabled
+    result = run_command_on_unit(unit, "test command")
+    assert result == "test output"
+    unit.run.assert_not_called()
+    unit.run.reset_mock()
+
+    # run command third time w/ cache disabled
+    result = run_command_on_unit(unit, "test command", use_cache=False)
+    assert result == "test output"
+    unit.run.assert_called_once_with("test command", timeout=2 * 60)
+    unit.run.reset_mock()
+
+    # run command failed
+    unit.run.side_effect = JujuError("command failed")
+    with pytest.raises(CharmException):
+        run_command_on_unit(unit, "test command", use_cache=False)
 
 
 @pytest.mark.parametrize(
@@ -259,6 +297,61 @@ def test_get_applications_names(model):
     """Test function to get all names of application based on the same charm."""
     ceph_osd_apps = get_applications_names(model, "ceph-osd")
     assert ceph_osd_apps == ["ceph-osd", "ceph-osd-hdd", "ceph-osd-ssd"]
+
+
+def test_get_related_charm_units_to_app(model):
+    """Test function to get all units for the same charm related to application."""
+    mock_application = MagicMock()
+    mock_ceph_osd_relation = MagicMock()
+    mock_ceph_osd_relation.provides.application.charm_url = "cs:focal/ceph-osd-66"
+    mock_ceph_osd_relation.provides.application.units = [
+        unit
+        for unit in model.units.values()
+        if parse_charm_name(unit.charm_url) == "ceph-osd"
+    ]
+    mock_ceph_mon_relation = MagicMock()
+    mock_ceph_mon_relation.provides.application.charm_url = "cs:focal/ceph-mon-99"
+    mock_ceph_mon_relation.provides.application.units = [
+        unit
+        for unit in model.units.values()
+        if parse_charm_name(unit.charm_url) == "ceph-mon"
+    ]
+    mock_application.relations = [mock_ceph_osd_relation, mock_ceph_mon_relation]
+
+    units = get_related_charm_units_to_app(mock_application, "ceph-osd")
+    assert len(units) == 9
+    assert model.units["ceph-osd/0"] in units
+    assert model.units["ceph-osd-hdd/0"] in units
+    assert model.units["ceph-osd-ssd/0"] in units
+
+
+@mock.patch("juju_verify.utils.unit.parse_charm_name")
+def test_find_unit_by_hostname(mock_parse_charm_name):
+    """Test function to find unit by hostname."""
+    mock_parse_charm_name.side_effect = lambda charm_url: charm_url
+    mock_model = MagicMock()
+    mock_model.units = {}
+    for charm in ["ceph-osd", "ceph-mon"]:
+        for i in range(3):
+            mock_unit = MagicMock()
+            mock_unit.charm_url = charm
+            mock_unit.machine.hostname = (
+                f"host.{i}"  # ceph-mon units are on same machine
+            )
+            mock_model.units[f"{charm}/{i}"] = mock_unit
+
+    # find ceph-osd unit
+    unit = find_unit_by_hostname(mock_model, "host.0", "ceph-osd")
+    assert unit.charm_url == "ceph-osd"
+    assert unit.machine.hostname == "host.0"
+
+    # try to find unknown hostname
+    with pytest.raises(CharmException):
+        find_unit_by_hostname(mock_model, "host.99", "ceph-osd")
+
+    # try to find unknown charm
+    with pytest.raises(CharmException):
+        find_unit_by_hostname(mock_model, "host.0", "ceph-osd-test")
 
 
 @pytest.mark.asyncio

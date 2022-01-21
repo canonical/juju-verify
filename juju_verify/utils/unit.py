@@ -19,9 +19,10 @@ import asyncio
 import logging
 import os
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from juju.action import Action
+from juju.application import Application
 from juju.errors import JujuError
 from juju.model import Model
 from juju.unit import Unit
@@ -38,6 +39,29 @@ def get_cache_key(unit: Unit, action: str, **params: Any) -> int:
     return hash(
         hash(unit.entity_id) + hash(action) + hash(tuple(sorted(params.items())))
     )
+
+
+def run_command_on_unit(unit: Unit, command: str, use_cache: bool = True) -> Action:
+    """Run command on unit.
+
+    Execute is same as `juju run --unit <unit> -- <command>`
+    """
+    with cache_manager(use_cache):
+        key = get_cache_key(unit, command)
+        if key not in cache or not cache_manager.active:
+            try:
+                logger.debug("run command `%s` on unit %s", command, unit.entity_id)
+                loop = asyncio.get_event_loop()
+                result = loop.run_until_complete(unit.run(command, timeout=2 * 60))
+                cache[key] = result  # save result to cache
+            except JujuError as error:
+                juju_error_message = os.linesep.join(f"  {err}" for err in error.errors)
+                raise CharmException(
+                    f"{unit.entity_id}: command `{command}` failed with errors:"
+                    f"{os.linesep}{juju_error_message}"
+                ) from error
+
+        return cache[key]
 
 
 async def _run_action(
@@ -168,13 +192,39 @@ def get_applications_names(model: Model, application: str) -> List[str]:
     return applications
 
 
+def get_related_charm_units_to_app(application: Application, charm: str) -> Set[Unit]:
+    """Get all units for the same charm related to application.
+
+    :param application: Juju application
+    :param charm: charm name, e.g. ceph-osd
+    """
+    units: Set[Unit] = set()
+    for relation in application.relations:
+        if parse_charm_name(relation.provides.application.charm_url) == charm:
+            units = units.union(relation.provides.application.units)
+
+    return units
+
+
+def find_unit_by_hostname(model: Model, hostname: str, charm: str) -> Unit:
+    """Find unit by hostname."""
+    for unit in model.units.values():
+        if (
+            unit.machine.hostname == hostname
+            and parse_charm_name(unit.charm_url) == charm
+        ):
+            return unit
+
+    raise CharmException(f"could not find unit with hostname `{hostname}`")
+
+
 async def find_units(model: Model, units: List[str]) -> List[Unit]:
     """Return list of juju.Unit objects that match with names in 'units' parameter.
 
     This function will exit program with error message if any of units is not
     found in the juju model.
 
-    :param model: Juju model to search units in.
+    :param model: Juju model to search units in
     :param units: List of unit names to search
     :return: List of matching juju.Unit objects
     """
