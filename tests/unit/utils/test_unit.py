@@ -27,13 +27,13 @@ from pytest import raises
 from juju_verify.exceptions import CharmException, VerificationError
 from juju_verify.utils.action import cache_manager
 from juju_verify.utils.unit import (
+    _run_action,
     find_units,
     find_units_on_machine,
     get_applications_names,
     get_cache_key,
     get_first_active_unit,
     parse_charm_name,
-    run_action,
     run_action_on_unit,
     run_action_on_units,
     verify_charm_unit,
@@ -78,16 +78,16 @@ async def test_run_action():
     unit_1.run_action.side_effect = unit_2.run_action.side_effect = mock_unit_run_action
 
     # test run_action once
-    await run_action(unit_1, "action", params=dict(format="json"), use_cache=True)
+    await _run_action(unit_1, "action", params=dict(format="json"), use_cache=True)
 
     unit_1.run_action.assert_called_once_with("action", format="json")
     unit_1.run_action.reset_mock()
 
     # test run_action multiple times without cache
-    await run_action(unit_1, "action-1", params=dict(format="json"), use_cache=False)
-    await run_action(unit_1, "action-2", use_cache=False)
-    await run_action(unit_1, "action-1", params=dict(format="json"), use_cache=False)
-    await run_action(unit_2, "action-1", use_cache=False)
+    await _run_action(unit_1, "action-1", params=dict(format="json"), use_cache=False)
+    await _run_action(unit_1, "action-2", use_cache=False)
+    await _run_action(unit_1, "action-1", params=dict(format="json"), use_cache=False)
+    await _run_action(unit_2, "action-1", use_cache=False)
 
     assert unit_1.run_action.call_count == 3
     unit_1.run_action.assert_has_calls(
@@ -102,15 +102,15 @@ async def test_run_action():
     unit_2.run_action.reset_mock()
 
     # test run_action multiple times with cache
-    await run_action(
+    await _run_action(
         unit_1, "action-1", params=dict(format="json"), use_cache=True
     )  # uses cache
-    await run_action(unit_1, "action-2", use_cache=True)  # uses cache
-    await run_action(unit_1, "action-3", use_cache=True)
-    await run_action(unit_1, "action-1", params=dict(format="text"), use_cache=True)
-    await run_action(unit_2, "action-1", use_cache=True)  # uses cache
-    await run_action(unit_2, "action-1", use_cache=True)  # uses cache
-    await run_action(unit_2, "action-2", use_cache=True)
+    await _run_action(unit_1, "action-2", use_cache=True)  # uses cache
+    await _run_action(unit_1, "action-3", use_cache=True)
+    await _run_action(unit_1, "action-1", params=dict(format="text"), use_cache=True)
+    await _run_action(unit_2, "action-1", use_cache=True)  # uses cache
+    await _run_action(unit_2, "action-1", use_cache=True)  # uses cache
+    await _run_action(unit_2, "action-2", use_cache=True)
 
     assert unit_1.run_action.call_count == 2
     unit_1.run_action.assert_has_calls(
@@ -119,7 +119,7 @@ async def test_run_action():
     unit_2.run_action.assert_called_once_with("action-2")
 
 
-@mock.patch("juju_verify.utils.unit.run_action")
+@mock.patch("juju_verify.utils.unit._run_action")
 def test_run_action_on_units(mock_run_action, model):
     """Test running action on list of units and returning results."""
     # Prepare units and actions data

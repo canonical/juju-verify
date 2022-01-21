@@ -40,7 +40,7 @@ def get_cache_key(unit: Unit, action: str, **params: Any) -> int:
     )
 
 
-async def run_action(
+async def _run_action(
     unit: Unit,
     action: str,
     params: Optional[Dict[str, Any]] = None,
@@ -52,13 +52,12 @@ async def run_action(
     with cache_manager(use_cache):
         if key not in cache or not cache_manager.active:
             try:
+                logger.debug("run action %s on unit %s", action, unit.entity_id)
                 _action = await unit.run_action(action, **params)
                 result = await _action.wait()  # wait for result
+                cache[key] = result  # save result to cache
             except JujuError as error:
                 raise JujuActionFailed(error, unit, action, params) from error
-
-            cache[key] = result  # save result to cache
-            return result
 
         return cache[key]
 
@@ -79,11 +78,11 @@ def run_action_on_units(
              provided in 'units' and actions are their matching,
              juju.Action objects that have been executed and awaited.
     """
-    task_map = {
-        unit.entity_id: run_action(unit, action, params, use_cache) for unit in units
-    }
-
     loop = asyncio.get_event_loop()
+    task_map = {
+        unit.entity_id: loop.create_task(_run_action(unit, action, params, use_cache))
+        for unit in units
+    }
     tasks: asyncio.Future = asyncio.gather(*task_map.values())
     results: List[Action] = loop.run_until_complete(tasks)
     result_map = dict(zip(task_map.keys(), results))
