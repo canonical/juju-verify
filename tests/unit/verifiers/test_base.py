@@ -24,7 +24,7 @@ from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError
-from juju_verify.verifiers.base import BaseVerifier, logger
+from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.result import Partial, Severity
 
 
