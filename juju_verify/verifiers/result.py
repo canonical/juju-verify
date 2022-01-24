@@ -256,14 +256,19 @@ def checks_executor(
         else:
             check, check_kwargs = check_definition
 
+        check_name = getattr(check, "__name__", "unknown")
+
         try:
+            logger.debug("check %s is executed", check_name)
             aggregate_result += check(**check_kwargs) or Result(
-                Severity.OK, f"{check.__name__} check passed"
+                Severity.OK, f"{check_name} check passed"
             )
+            logger.debug("check %s ended successfully", check_name)
         except (JujuActionFailed, CharmException, KeyError, JSONDecodeError) as error:
             aggregate_result += Result(
-                Severity.FAIL, f"{check.__name__} check failed with error: {error}"
+                Severity.FAIL, f"{check_name} check failed with error: {error}"
             )
+            logger.debug("check %s failed with error: %s", check_name, str(error))
 
         if not aggregate_result.success and stop_on_failure():
             # break if verify was called with the `--stop-on-failure` flag

@@ -26,7 +26,15 @@ from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import CharmException, JujuActionFailed
-from juju_verify.verifiers.ceph import CephCommon, CephMon, CephOsd, CephTree, NodeInfo
+from juju_verify.verifiers.ceph import (
+    CephCommon,
+    CephMon,
+    CephOsd,
+    CephTree,
+    CrushRuleInfo,
+    NodeInfo,
+    PoolInfo,
+)
 from juju_verify.verifiers.result import Result, Severity
 
 CEPH_MON_QUORUM_OK = "Ceph-mon quorum check passed."
@@ -145,12 +153,12 @@ def test_ceph_tree_method():
     assert hash(tree) == hash(tree_str)
 
     with pytest.raises(KeyError):
-        tree._get_node("not-valid-child-name")
+        tree.get_node("not-valid-child-name")
 
     with pytest.raises(ValueError):
         test_tree = CephTree(nodes)
         test_tree._nodes = nodes[1:]  # change private value
-        test_tree._get_node("default")  # trying to get root node by name
+        test_tree.get_node("default")  # trying to get root node by name
 
     with pytest.raises(KeyError):
         tree.can_remove_host_node("not-valid-child-name")
@@ -159,7 +167,7 @@ def test_ceph_tree_method():
         # test if root could be removed
         tree.can_remove_host_node("default")
 
-    assert tree._find_ancestor(tree._get_node("default"), required_type="host") is None
+    assert tree.find_ancestor(tree.get_node("default"), required_type="host") is None
 
     with pytest.raises(ValueError):
         test_tree = CephTree(nodes[1:])  # remove root node to find_ancestor return None
@@ -187,10 +195,10 @@ def test_ceph_tree(exp_child, exp_parent, ancestor_type, can_remove_host_node):
         )
     ]
     tree = CephTree(nodes=nodes)
-    child = tree._get_node(exp_child)
+    child = tree.get_node(exp_child)
 
     assert exp_child == child.name
-    assert exp_parent == tree._find_ancestor(child, ancestor_type).name
+    assert exp_parent == tree.find_ancestor(child, ancestor_type).name
     assert can_remove_host_node == tree.can_remove_host_node(
         exp_child, required_ancestor_type=ancestor_type
     )
@@ -285,39 +293,209 @@ def test_check_cluster_health_error(model):
         CephCommon.check_cluster_health(model.units["ceph-mon/0"])
 
 
-@mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
-def test_get_replication_number(mock_run_action_on_units, model):
-    """Test get minimum replication number from ceph-mon unit."""
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
+@mock.patch("juju_verify.verifiers.ceph.CephOsd.get_disk_utilization")
+def test_get_ceph_tree_map(mock_get_disk_utilization, mock_ceph_mon_app_map, model):
+    """Test get Ceph tree for each ceph-osd application."""
+    mock_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
+    nodes = [NodeInfo(-1, "default", 0, "root", 0, 0, 0, [])]
+    mock_get_disk_utilization.return_value = nodes
+
+    ceph_tree_map = CephOsd([model.units["ceph-osd/0"]])._get_ceph_tree_map()
+
+    assert ceph_tree_map == {"ceph-osd": CephTree(nodes)}
+    mock_get_disk_utilization.assert_called_once_with(model.units["ceph-mon/0"])
+
+
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_tree_map")
+@mock.patch("juju_verify.verifiers.ceph.find_unit_by_hostname")
+def test_get_units_device_class_map(
+    mock_find_unit_by_hostname, mock_get_ceph_tree_map, model
+):
+    """Test get set of units from ceph tree."""
+    nodes = [
+        NodeInfo(-2, "host.0", 0, "host", 0, 0, 0, [0]),
+        NodeInfo(0, "osd.0", 0, "osd", 0, 0, 0, device_class="hdd"),
+        NodeInfo(-3, "host.1", 0, "host", 0, 0, 0, [1]),
+        NodeInfo(1, "osd.1", 0, "osd", 0, 0, 0, device_class="hdd"),
+        NodeInfo(-4, "host.2", 0, "host", 0, 0, 0, [2, 3, 4, 5]),
+        NodeInfo(2, "osd.2", 0, "osd", 0, 0, 0, device_class="ssd"),
+        NodeInfo(3, "osd.3", 0, "osd", 0, 0, 0, device_class="ssd"),
+        NodeInfo(4, "osd.4", 0, "osd", 0, 0, 0),
+        NodeInfo(-4, "host.3", 0, "host", 0, 0, 0, None),
+    ]
+    hosts = {
+        "host.0": model.units["ceph-osd-hdd/0"],
+        "host.1": model.units["ceph-osd-hdd/1"],
+        "host.2": model.units["ceph-osd-ssd/0"],
+        "host.3": model.units["ceph-osd/0"],
+    }
+    ceph_tree = CephTree(nodes=nodes)
+    mock_find_unit_by_hostname.side_effect = lambda _, host, charm: hosts[host]
+    mock_get_ceph_tree_map.return_value = {
+        "ceph-osd-ssd": ceph_tree,
+        "ceph-osd-hdd": ceph_tree,
+    }
+
+    # get all hosts
+    units_device_class_map = CephOsd([model.units["ceph-osd/0"]]).units_device_class_map
+
+    # ceph-osd-hdd and ceph-osd-ssd are at the same cluster -> output are same
+    assert units_device_class_map == {
+        "ceph-osd-hdd": {
+            "hdd": {model.units["ceph-osd-hdd/0"], model.units["ceph-osd-hdd/1"]},
+            "ssd": {model.units["ceph-osd-ssd/0"]},
+            "nvme": set(),
+        },
+        "ceph-osd-ssd": {
+            "hdd": {model.units["ceph-osd-hdd/0"], model.units["ceph-osd-hdd/1"]},
+            "ssd": {model.units["ceph-osd-ssd/0"]},
+            "nvme": set(),
+        },
+    }
+
+    #
+    mock_get_ceph_tree_map.return_value = {}
+    units_device_class_map = CephOsd([model.units["ceph-osd/0"]]).units_device_class_map
+    assert units_device_class_map == {}
+
+
+def test_count_branch(model):
+    """Test unique branches for list of units (hots) in Ceph tree."""
+    unit_0 = MagicMock()
+    unit_0.machine.hostname = "host.0"
+    unit_1 = MagicMock()
+    unit_1.machine.hostname = "host.1"
+    unit_2 = MagicMock()
+    unit_2.machine.hostname = "host.2"
+    nodes = [
+        NodeInfo(-1, "default", 10, "root", 0, 0, 0, [-2, -3]),
+        NodeInfo(-2, "rack.0", 3, "rack", 0, 0, 0, [-4, -5]),
+        NodeInfo(-4, "host.0", 1, "host", 0, 0, 0, [0]),
+        NodeInfo(-5, "host.1", 1, "host", 0, 0, 0, [1]),
+        NodeInfo(-3, "rack.1", 3, "rack", 0, 0, 0, [-6]),
+        NodeInfo(-6, "host.2", 1, "host", 0, 0, 0, [2]),
+    ]
+    ceph_tree = CephTree(nodes)
+    ceph_osd = CephOsd([model.units["ceph-osd/0"]])
+
+    # count roots
+    result = ceph_osd._count_branch(ceph_tree, {unit_0}, "root")
+    assert result == 1
+
+    result = ceph_osd._count_branch(ceph_tree, {unit_0, unit_1}, "root")
+    assert result == 1
+
+    # count racks
+    result = ceph_osd._count_branch(ceph_tree, {unit_0, unit_1}, "rack")
+    assert result == 1
+
+    result = ceph_osd._count_branch(ceph_tree, {unit_0, unit_2}, "rack")
+    assert result == 2
+
+    # count hosts
+    result = ceph_osd._count_branch(ceph_tree, {unit_0, unit_2}, "host")
+    assert result == 2
+
+    # raise a CharmException
+    with pytest.raises(CharmException):
+        ceph_osd._count_branch(ceph_tree, {unit_1}, "chassis")
+
+
+@mock.patch("juju_verify.verifiers.ceph.run_command_on_unit")
+def test_get_crush_rules(mock_run_command_on_unit, model):
+    """Test get all crush rules in Ceph cluster."""
+    action = MagicMock()
+    action.data.get.side_effect = {
+        "results": {
+            "Stdout": "\n"
+            + json.dumps(
+                [
+                    {
+                        "rule_id": 0,
+                        "rule_name": "replicated_rule",
+                        "ruleset": 0,
+                        "type": 1,
+                        "min_size": 1,
+                        "max_size": 10,
+                        "steps": [
+                            {"op": "take", "item": -1, "item_name": "default"},
+                            {"op": "chooseleaf_firstn", "num": 0, "type": "host"},
+                            {"op": "emit"},
+                        ],
+                    },
+                    {
+                        "rule_id": 1,
+                        "rule_name": "hdd",
+                        "ruleset": 1,
+                        "type": 1,
+                        "min_size": 1,
+                        "max_size": 10,
+                        "steps": [
+                            {"op": "take", "item": -2, "item_name": "default~hdd"},
+                            {"op": "chooseleaf_firstn", "num": 0, "type": "rack"},
+                            {"op": "emit"},
+                        ],
+                    },
+                ]
+            )
+        }
+    }.get
+    mock_run_command_on_unit.return_value = action
+    crush_rules = CephCommon.get_crush_rules(model.units["ceph-mon/0"])
+
+    assert crush_rules[0].name == "replicated_rule"
+    assert crush_rules[0].failure_domain == "host"
+    assert crush_rules[0].device_class is None
+    assert crush_rules[1].name == "hdd"
+    assert crush_rules[1].failure_domain == "rack"
+
+
+@mock.patch("juju_verify.verifiers.ceph.CephCommon.get_crush_rules")
+@mock.patch("juju_verify.verifiers.ceph.run_action_on_unit")
+def test_get_ceph_pools(mock_run_action_on_unit, mock_get_crush_rules, model):
+    """Test get detail about Ceph pools."""
     action = MagicMock()
     action.data.get.side_effect = {
         "results": {
             "message": json.dumps(
                 [
-                    {"pool": 1, "name": "test_1", "size": 5, "min_size": 2},
-                    {"pool": 2, "name": "test_2", "size": 5, "min_size": 2},
-                    {"pool": 3, "name": "test_3", "size": 3, "min_size": 2},
+                    {
+                        "pool": 2,
+                        "pool_name": "ssd",
+                        "type": 1,
+                        "size": 3,
+                        "min_size": 2,
+                        "crush_rule": 2,
+                        "erasure_code_profile": "",
+                    },
+                    {
+                        "pool": 3,
+                        "pool_name": "hdd",
+                        "type": 1,
+                        "size": 3,
+                        "min_size": 2,
+                        "crush_rule": 2,
+                        "erasure_code_profile": "",
+                    },
                 ]
             )
         }
     }.get
-    mock_run_action_on_units.return_value = {"ceph-mon/0": action}
+    mock_run_action_on_unit.return_value = action
+    mock_get_crush_rules.return_value = {2: CrushRuleInfo(2, "test", "host")}
 
-    # test find minimum replication in list of 3 pools
-    assert CephCommon.get_replication_number(model.units["ceph-mon/0"]) == 1
-
-    # test return None if list of pools is empty
-    action.data.get.side_effect = {"results": {"message": json.dumps([])}}.get
-    assert CephCommon.get_replication_number(model.units["ceph-mon/0"]) is None
-
-
-def test_get_replication_number_error(model):
-    """Test get minimum replication number from ceph-mon unit raise CharmException."""
-    with pytest.raises(CharmException):
-        CephCommon.get_replication_number(model.units["ceph-osd/0"])
+    pools = CephCommon.get_ceph_pools(model.units["ceph-mon/0"])
+    mock_get_crush_rules.assert_called_once_with(model.units["ceph-mon/0"])
+    assert pools[0].id == 2
+    assert pools[0].name == "ssd"
+    assert pools[0].crush_rule.name == "test"
+    assert pools[0].crush_rule.failure_domain == "host"
+    assert pools[1].id == 3
 
 
-@mock.patch("juju_verify.verifiers.ceph.run_action_on_units")
-def test_get_disk_utilization(mock_run_action_on_units, model):
+@mock.patch("juju_verify.verifiers.ceph.run_action_on_unit")
+def test_get_disk_utilization(mock_run_action_on_unit, model):
     """Test get disk utilization for ceph."""
     action = MagicMock()
     action.data.get.side_effect = {
@@ -398,7 +576,7 @@ def test_get_disk_utilization(mock_run_action_on_units, model):
             )
         }
     }.get
-    mock_run_action_on_units.return_value = {"ceph-mon/0": action}
+    mock_run_action_on_unit.return_value = action
 
     nodes = CephCommon.get_disk_utilization(model.units["ceph-mon/0"])
     assert any(
@@ -465,6 +643,76 @@ def test_get_ceph_mon_app_map(mock_get_ceph_mon_unit, model):
     }
 
 
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_units_device_class_map")
+def test_get_units_by_device_class(mock_get_units_device_class_map, model):
+    """Test function to get all units contain OSD with same device class as pool."""
+    mock_pool = MagicMock()
+    mock_get_units_device_class_map.return_value = {
+        "ceph-osd": {
+            "hdd": {
+                model.units["ceph-osd/0"],
+                model.units["ceph-osd/1"],
+                model.units["ceph-osd/2"],
+                model.units["ceph-osd-hdd/0"],
+                model.units["ceph-osd-hdd/1"],
+                model.units["ceph-osd-hdd/2"],
+            },
+            "ssd": {
+                model.units["ceph-osd/0"],
+                model.units["ceph-osd/2"],
+                model.units["ceph-osd-ssd/0"],
+                model.units["ceph-osd-ssd/1"],
+                model.units["ceph-osd-ssd/2"],
+            },
+            "nvme": set(),
+        }
+    }
+
+    # test get all units contain device class HDD
+    mock_pool.crush_rule.device_class = "hdd"
+
+    units = CephOsd([model.units["ceph-osd/0"]])._get_units_by_device_class(
+        "ceph-osd", mock_pool
+    )
+    assert units == {
+        model.units["ceph-osd/1"],
+        model.units["ceph-osd/2"],
+        model.units["ceph-osd-hdd/0"],
+        model.units["ceph-osd-hdd/1"],
+        model.units["ceph-osd-hdd/2"],
+    }
+
+    # test get all units contain device class SSD
+    mock_pool.crush_rule.device_class = "ssd"
+
+    units = CephOsd([model.units["ceph-osd/0"]])._get_units_by_device_class(
+        "ceph-osd", mock_pool
+    )
+    assert units == {
+        model.units["ceph-osd/2"],
+        model.units["ceph-osd-ssd/0"],
+        model.units["ceph-osd-ssd/1"],
+        model.units["ceph-osd-ssd/2"],
+    }
+
+    # test get all units contain any device class
+    mock_pool.crush_rule.device_class = None
+
+    units = CephOsd([model.units["ceph-osd/0"]])._get_units_by_device_class(
+        "ceph-osd", mock_pool
+    )
+    assert units == {
+        model.units["ceph-osd/1"],
+        model.units["ceph-osd/2"],
+        model.units["ceph-osd-hdd/0"],
+        model.units["ceph-osd-hdd/1"],
+        model.units["ceph-osd-hdd/2"],
+        model.units["ceph-osd-ssd/0"],
+        model.units["ceph-osd-ssd/1"],
+        model.units["ceph-osd-ssd/2"],
+    }
+
+
 @mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
 @mock.patch("juju_verify.verifiers.ceph.CephCommon.check_cluster_health")
 def test_check_ceph_cluster_health(
@@ -480,60 +728,121 @@ def test_check_ceph_cluster_health(
     mock_check_cluster_health.assert_called_once_with(model.units["ceph-mon/0"])
 
 
+@mock.patch("juju_verify.verifiers.ceph.CephCommon.get_ceph_pools")
 @mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
-@mock.patch("juju_verify.verifiers.ceph.CephCommon.get_replication_number")
+def test_check_ceph_pool(mock_get_ceph_mon_app_map, mock_get_ceph_pools, model):
+    """Test check whether Ceph cluster pools meet the requirements."""
+    mock_get_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
+    # check Ceph cluster w/ no pools
+    mock_get_ceph_pools.return_value = []
+
+    result = CephOsd([model.units["ceph-osd/0"]]).check_ceph_pools()
+    assert result == Result(Severity.OK, "The requirements for ceph check were met.")
+
+    # check Ceph cluster w/ two pools of the same type and two similar crush rules
+    slow_crush_rule = CrushRuleInfo(0, "slow", "host", "hdd")
+    fast_crush_rule = CrushRuleInfo(1, "fast", "host", "ssd")
+    mock_get_ceph_pools.return_value = [
+        PoolInfo(0, "pool-0", 1, 3, 2, slow_crush_rule, ""),
+        PoolInfo(1, "pool-1", 1, 3, 2, fast_crush_rule, ""),
+    ]
+
+    result = CephOsd([model.units["ceph-osd/0"]]).check_ceph_pools()
+    assert result == Result(Severity.OK, "The requirements for ceph check were met.")
+
+    # check Ceph cluster w/ two pools of the same type and two different crush rules
+    slow_crush_rule = CrushRuleInfo(0, "slow", "rac", "hdd")
+    fast_crush_rule = CrushRuleInfo(1, "fast", "host", "ssd")
+    mock_get_ceph_pools.return_value = [
+        PoolInfo(0, "pool-0", 1, 3, 2, slow_crush_rule, ""),
+        PoolInfo(1, "pool-1", 1, 3, 2, fast_crush_rule, ""),
+    ]
+    result = CephOsd([model.units["ceph-osd/0"]]).check_ceph_pools()
+    assert result == Result(
+        Severity.FAIL,
+        "Juju-verify only supports crush rules with same failure-domain for now.",
+    )
+
+    # check Ceph cluster w/ two pools of the different type and two similar crush rules
+    slow_crush_rule = CrushRuleInfo(0, "slow", "host", "hdd")
+    fast_crush_rule = CrushRuleInfo(1, "fast", "host", "ssd")
+    mock_get_ceph_pools.return_value = [
+        PoolInfo(0, "pool-0", 1, 3, 2, slow_crush_rule, ""),
+        PoolInfo(1, "pool-1", 2, 3, 2, fast_crush_rule, "test-erasure_code_profile"),
+    ]
+
+    result = CephOsd([model.units["ceph-osd/0"]]).check_ceph_pools()
+    assert result == Result(
+        Severity.FAIL, "Juju-verify only supports the replicated pool for now."
+    )
+
+
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._count_branch")
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_units_by_device_class")
+@mock.patch("juju_verify.verifiers.ceph.CephCommon.get_ceph_pools")
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_tree_map")
+@mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
 def test_check_replication_number(
-    mock_get_replication_number, mock_get_ceph_mon_app_map, model
+    mock_get_ceph_mon_app_map,
+    mock_get_ceph_tree_map,
+    mock_get_ceph_pools,
+    mock_get_units_by_device_class,
+    mock_count_branch,
+    model,
 ):
     """Test check the minimum number of replications for related applications."""
-    check_passed_result = Result(Severity.OK, "Minimum replica number check passed.")
     mock_get_ceph_mon_app_map.return_value = {"ceph-osd": model.units["ceph-mon/0"]}
-    mock_get_replication_number.return_value = None
+    mock_ceph_tree = MagicMock()
+    mock_get_ceph_tree_map.return_value = {"ceph-osd": mock_ceph_tree}
+    mock_get_ceph_pools.return_value = []
+    mock_get_units_by_device_class.return_value = {
+        model.units["ceph-osd/0"],
+        model.units["ceph-osd/1"],
+        model.units["ceph-osd/2"],
+    }
 
-    # [min_replication_number=None] verified one ceph-osd unit
-    ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"]])
-    assert ceph_osd_verifier.check_replication_number() == check_passed_result
+    # check shutdown/rebooting one ceph-osd unit on Ceph cluster w/ no pools
+    result = CephOsd([model.units["ceph-osd/0"]]).check_replication_number()
+    mock_get_ceph_mon_app_map.assert_called_once()
+    mock_get_ceph_tree_map.assert_called_once()
+    mock_get_ceph_pools.assert_called_once()
+    mock_get_units_by_device_class.assert_not_called()
+    assert result == Result(Severity.OK, "Minimum replica number check passed.")
 
-    # [min_replication_number=None] verified two ceph-osd unit
-    ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"], model.units["ceph-osd/1"]])
-    assert ceph_osd_verifier.check_replication_number() == check_passed_result
+    # check one ceph-osd unit on Ceph cluster w/ one pool without device_class
+    host_crush_rule = CrushRuleInfo(0, "slow", "host", None)
+    mock_get_ceph_pools.return_value = [
+        PoolInfo(1, "pool-1", 1, 3, 2, host_crush_rule, "")
+    ]
+    mock_count_branch.return_value = 2
 
-    mock_get_replication_number.return_value = 1
+    result = CephOsd([model.units["ceph-osd/0"]]).check_replication_number()
+    mock_get_units_by_device_class.assert_called_once()
+    assert result == Result(Severity.OK, "Minimum replica number check passed.")
 
-    # [min_replication_number=1] verified one ceph-osd unit
-    ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"]])
-    assert ceph_osd_verifier.check_replication_number() == check_passed_result
+    # check one ceph-osd unit on Ceph cluster w/ one pool w/ device_class == hdd
+    host_crush_rule = CrushRuleInfo(0, "slow", "host", "hdd")
+    mock_get_ceph_pools.return_value = [
+        PoolInfo(1, "pool-1", 1, 3, 2, host_crush_rule, "")
+    ]
+    mock_count_branch.return_value = 2
 
-    # [min_replication_number=1] verified two ceph-osd unit
-    ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"], model.units["ceph-osd/1"]])
-    expected_fail_result = Result(
-        Severity.FAIL,
-        "The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to "
-        "reboot/shutdown 2 units. 0 units are not active.",
+    result = CephOsd([model.units["ceph-osd/0"]]).check_replication_number()
+    assert result == Result(Severity.OK, "Minimum replica number check passed.")
+
+    # check two ceph-osd units on Ceph cluster w/ one pool
+    mock_count_branch.return_value = 1
+
+    result = CephOsd(
+        [model.units["ceph-osd/0"], model.units["ceph-osd/1"]]
+    ).check_replication_number()
+
+    assert len(result.partials) == 1
+    assert result.partials[0].severity == Severity.FAIL
+    assert result.partials[0].message.startswith(
+        "The minimum number of replicas in `ceph-osd` and pool `pool-1` is 2 and it's "
+        "not safe to reboot/shutdown"
     )
-    assert ceph_osd_verifier.check_replication_number() == expected_fail_result
-
-    # [min_replication_number=1] verified one ceph-osd unit,
-    # if there is an unit that is not in an active state
-    model.units["ceph-osd/1"].data["workload-status"]["current"] = "blocked"
-    ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"]])
-    expected_fail_result = Result(
-        Severity.FAIL,
-        "The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to "
-        "reboot/shutdown 1 units. 1 units are not active.",
-    )
-    assert ceph_osd_verifier.check_replication_number() == expected_fail_result
-
-    # [min_replication_number=1] verified one ceph-osd unit that is not active
-    ceph_osd_verifier = CephOsd([model.units["ceph-osd/1"]])
-    assert ceph_osd_verifier.check_replication_number() == check_passed_result
-    model.units["ceph-osd/1"].data["workload-status"]["current"] = "active"
-
-    mock_get_replication_number.return_value = 2
-
-    # [min_replication_number=2] verified two ceph-osd unit
-    ceph_osd_verifier = CephOsd([model.units["ceph-osd/0"], model.units["ceph-osd/1"]])
-    assert ceph_osd_verifier.check_replication_number() == check_passed_result
 
 
 @mock.patch("juju_verify.verifiers.ceph.CephOsd._get_ceph_mon_app_map")
@@ -603,6 +912,10 @@ def test_check_availability_zone(
 
 
 @mock.patch(
+    "juju_verify.verifiers.ceph.CephOsd.check_ceph_pools",
+    return_value=Result(Severity.OK, "The requirements for ceph check were met."),
+)
+@mock.patch(
     "juju_verify.verifiers.ceph.CephOsd.check_ceph_cluster_health",
     return_value=Result(Severity.OK, "Ceph cluster is healthy"),
 )
@@ -618,22 +931,54 @@ def test_verify_reboot(
     mock_check_availability_zone,
     mock_check_replication_number,
     mock_check_ceph_cluster_health,
+    mock_check_ceph_pools,
     model,
 ):
     """Test reboot verification on CephOsd."""
     result = CephOsd([model.units["ceph-osd/0"]]).verify_reboot()
     expected_result = Result()
+    expected_result.add_partial_result(
+        Severity.OK, "The requirements for ceph check were met."
+    )
     expected_result.add_partial_result(Severity.OK, "Ceph cluster is healthy")
     expected_result.add_partial_result(
         Severity.OK, "Minimum replica number check passed."
     )
     expected_result.add_partial_result(Severity.OK, "Availability zone check passed.")
     assert result == expected_result
+    mock_check_ceph_pools.assert_called_once_with()
     mock_check_ceph_cluster_health.assert_called_once_with()
     mock_check_replication_number.assert_called_once_with()
     mock_check_availability_zone.assert_called_once_with()
 
 
+@mock.patch(
+    "juju_verify.verifiers.ceph.CephOsd.check_ceph_pools",
+    return_value=Result(Severity.FAIL, "test-message"),
+)
+@mock.patch("juju_verify.verifiers.ceph.CephOsd.check_ceph_cluster_health")
+@mock.patch("juju_verify.verifiers.ceph.CephOsd.check_replication_number")
+@mock.patch("juju_verify.verifiers.ceph.CephOsd.check_availability_zone")
+def test_verify_reboot_failed(
+    mock_check_availability_zone,
+    mock_check_replication_number,
+    mock_check_ceph_cluster_health,
+    mock_check_ceph_pools,
+    model,
+):
+    """Test reboot verification on CephOsd."""
+    result = CephOsd([model.units["ceph-osd/0"]]).verify_reboot()
+    assert result == Result(Severity.FAIL, "test-message")
+    mock_check_ceph_pools.assert_called_once_with()
+    mock_check_ceph_cluster_health.assert_not_called()
+    mock_check_replication_number.assert_not_called()
+    mock_check_availability_zone.assert_not_called()
+
+
+@mock.patch(
+    "juju_verify.verifiers.ceph.CephOsd.check_ceph_pools",
+    return_value=Result(Severity.OK, "The requirements for ceph check were met."),
+)
 @mock.patch(
     "juju_verify.verifiers.ceph.CephOsd.check_ceph_cluster_health",
     return_value=Result(Severity.OK, "Ceph cluster is healthy"),
@@ -650,17 +995,22 @@ def test_verify_shutdown(
     mock_check_availability_zone,
     mock_check_replication_number,
     mock_check_ceph_cluster_health,
+    mock_check_ceph_pools,
     model,
 ):
     """Test shutdown verification on CephOsd."""
     result = CephOsd([model.units["ceph-osd/0"]]).verify_shutdown()
     expected_result = Result()
+    expected_result.add_partial_result(
+        Severity.OK, "The requirements for ceph check were met."
+    )
     expected_result.add_partial_result(Severity.OK, "Ceph cluster is healthy")
     expected_result.add_partial_result(
         Severity.OK, "Minimum replica number check passed."
     )
     expected_result.add_partial_result(Severity.OK, "Availability zone check passed.")
     assert result == expected_result
+    mock_check_ceph_pools.assert_called_once_with()
     mock_check_ceph_cluster_health.assert_called_once_with()
     mock_check_replication_number.assert_called_once_with()
     mock_check_availability_zone.assert_called_once_with()

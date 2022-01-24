@@ -198,7 +198,7 @@ class BaseVerifier:
 
         # Search for child machines
         for parent_unit in self.units:
-            # search the list of units for any that have the unit"s machine as a parent
+            # search the list of units for any that have the unit's machine as a parent
             for _, potential_child in self.model.units.items():
                 if potential_child.machine.entity_id.startswith(
                     parent_unit.machine.entity_id + "/"
