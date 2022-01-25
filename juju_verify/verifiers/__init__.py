@@ -73,5 +73,6 @@ def get_verifiers(units: List[Unit]) -> Iterator[BaseVerifier]:
             )
             continue
 
+        exclude_affected_units = list(set(units).difference(charm_units))
         logger.debug("Initiating verifier instance of class: %s", verifier.__name__)
-        yield verifier(units=charm_units)
+        yield verifier(units=charm_units, exclude_affected_units=exclude_affected_units)

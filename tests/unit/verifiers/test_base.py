@@ -24,7 +24,7 @@ from juju.model import Model
 from juju.unit import Unit
 
 from juju_verify.exceptions import VerificationError
-from juju_verify.verifiers.base import BaseVerifier, logger
+from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.result import Partial, Severity
 
 
@@ -66,7 +66,6 @@ def test_base_verifier_warn_on_unchecked_units(mocker):
     )
     mocker.patch.object(Unit, "data", new_callable=PropertyMock(return_value=unit_data))
     mocker.patch.object(Model, "units")
-    log_warning = mocker.patch.object(logger, "warning")
 
     model = Model()
     checked_unit = Unit("nova-compute/0", model)
@@ -87,8 +86,16 @@ def test_base_verifier_warn_on_unchecked_units(mocker):
     assert expected_partial_result in result.partials
 
     # Test run without warning
-    log_warning.reset_mock()
     verifier = BaseVerifier([checked_unit, unchecked_unit])
+
+    result = verifier.check_affected_machines()
+
+    assert expected_partial_result not in result.partials
+
+    # Test run excluding missing unit explicitly
+    verifier = BaseVerifier(
+        units=[checked_unit], exclude_affected_units=[unchecked_unit]
+    )
 
     result = verifier.check_affected_machines()
 
