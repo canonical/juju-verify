@@ -1,5 +1,45 @@
 **Changelog**
 
+0.3
+^^^
+Thursday Jan 27 2022
+
+* This version has been tested and requires revisions:
+
+  * to verify ceph-osd units: **cs:ceph-osd-315** (`stable/21.10`, or `charmhub rev 511 or higher`)
+  * to verify ceph-mon units: **cs:ceph-mon-61** (`stable/21.10`, or `charmhub rev 71 or higher`)
+  * to verify nova-compute units: **cs:nova-compute-337** (`stable/21.10`, or `charmhub rev 449 or higher`)
+  * to verify neutron-gateway units: **cs:neutron-gateway** (`stable/21.10`, or `charmhub rev 487`)
+
+* Testing
+
+  * Lint: Add black and isort
+  * Functests: nova-compute and neutron-gateway tests run on the same model. Fix neutron-gateway routers/networks order.
+  * Github actions: new PR workflow. lint-unit-docs-build on PR, full tests on approval and commands (`recheck-snap`, `recheck-full`).
+  * Makefile: add `docs` and `format-code` targets
+
+* Design, base verifier
+
+  * Replace aggregate_results with check_executor (callable, catches common exceptions)
+  * Check min Juju version required
+  * Add `__bool__` function to the Result class
+  * Add `--stop-on-failure` flag. Hard stop instead of waiting for other checks to finish.
+  * Improve caching
+  * Improve logging in CLI, defining different log levels for `libjuju` and `juju_verify`.
+  * Add support to check units from multiple charms
+
+* Verifiers
+
+  * Nova-compute: uses `juju.machine.Machine.hostname` instead of a dedicated action
+  * Neutron-gateway: align action calls to the charm action names.
+  * Ceph-mon: fix `check_quorum`
+  * Ceph-osd: fix AZ calculation method. The verifier now supports replication (not EC) by host, rack and row. Juju-run is required for some of the checks (replication rule) until we get Juju actions into the next stable release for the same purpose.
+
+* Docs
+
+  * add contributor guide, document limitations and known issues
+  * add diagrams to verifiers documentation, as well as examples of results.
+
 0.2.2
 ^^^^^
 Monday Jul 12 2021
