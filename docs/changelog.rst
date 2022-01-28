@@ -1,5 +1,12 @@
 **Changelog**
 
+1.0
+^^^
+Friday Jan 28 2022
+
+* Update Changelog for version 0.3, pointing to closed bugs.
+* Update README
+
 0.3
 ^^^
 Thursday Jan 27 2022
@@ -15,30 +22,34 @@ Thursday Jan 27 2022
 
   * Lint: Add black and isort
   * Functests: nova-compute and neutron-gateway tests run on the same model. Fix neutron-gateway routers/networks order.
-  * Github actions: new PR workflow. lint-unit-docs-build on PR, full tests on approval and commands (`recheck-snap`, `recheck-full`).
+  * Github actions: new PR workflow. lint-unit-docs-build on PR, full tests on approval and commands (`recheck-snap`, `recheck-full`). See `LP#1951946`_, `LP#1951951`_.
   * Makefile: add `docs` and `format-code` targets
 
 * Design, base verifier
 
   * Replace aggregate_results with check_executor (callable, catches common exceptions)
   * Check min Juju version required
-  * Add `__bool__` function to the Result class
-  * Add `--stop-on-failure` flag. Hard stop instead of waiting for other checks to finish.
-  * Improve caching
-  * Improve logging in CLI, defining different log levels for `libjuju` and `juju_verify`.
+  * Add `__bool__` function to the Result class (`LP#1937040`_)
+  * Add `--stop-on-failure` flag. Hard stop instead of waiting for other checks to finish (`LP#1921428`_).
+  * Improve caching (`LP#1954767`_)
+  * Improve logging in CLI, defining different log levels for `libjuju` and `juju_verify` (`LP#1951609`_, `LP#1952655`_, `LP#1947189`_).
   * Add support to check units from multiple charms
+  * Catch failed actions (`LP#1935627`_)
+  * Verify units from different charms (`LP#1951620`_)
+  * Incorrect warning message for unit passed via CLI and described as "not checked" (`LP#1958648`_)
 
 * Verifiers
 
   * Nova-compute: uses `juju.machine.Machine.hostname` instead of a dedicated action
-  * Neutron-gateway: align action calls to the charm action names.
-  * Ceph-mon: fix `check_quorum`
-  * Ceph-osd: fix AZ calculation method. The verifier now supports replication (not EC) by host, rack and row. Juju-run is required for some of the checks (replication rule) until we get Juju actions into the next stable release for the same purpose.
+  * Neutron-gateway: align action calls to the charm action names (`LP#1916231`_, `LP#1944509`_)
+  * Ceph-mon: fix `check_quorum` (`LP#1945113`_)
+  * Ceph-osd: fix action names (`LP#1944510`_)
+  * Ceph-osd: fix AZ calculation method. The verifier now supports replication (not EC) by host, rack and row. Juju-run is required for some of the checks (replication rule) until we get Juju actions into the next stable release for the same purpose. See `LP#1947858`_ and `LP#1917007`_.
 
 * Docs
 
-  * add contributor guide, document limitations and known issues
-  * add diagrams to verifiers documentation, as well as examples of results.
+  * add contributor guide, document limitations and known issues (`LP#1946954`_, `LP#1946956`_)
+  * add diagrams to verifiers documentation, as well as examples of results (`LP#1922564`_, `LP#1936189`_, `LP#1946027`_).
 
 0.2.2
 ^^^^^
@@ -105,3 +116,25 @@ Wednesday May 12 2021
 .. _LP#1924974: https://bugs.launchpad.net/juju-verify/+bug/1924974
 .. _LP#1913700: https://bugs.launchpad.net/juju-verify/+bug/1913700
 .. _LP#1915782: https://bugs.launchpad.net/juju-verify/+bug/1915782
+.. _LP#1954767: https://bugs.launchpad.net/juju-verify/+bug/1954767
+.. _LP#1951609: https://bugs.launchpad.net/juju-verify/+bug/1951609
+.. _LP#1951946: https://bugs.launchpad.net/juju-verify/+bug/1951946
+.. _LP#1951951: https://bugs.launchpad.net/juju-verify/+bug/1951951
+.. _LP#1952655: https://bugs.launchpad.net/juju-verify/+bug/1952655
+.. _LP#1916231: https://bugs.launchpad.net/juju-verify/+bug/1916231
+.. _LP#1922564: https://bugs.launchpad.net/juju-verify/+bug/1922564
+.. _LP#1944509: https://bugs.launchpad.net/juju-verify/+bug/1944509
+.. _LP#1935627: https://bugs.launchpad.net/juju-verify/+bug/1935627
+.. _LP#1944510: https://bugs.launchpad.net/juju-verify/+bug/1944510
+.. _LP#1945113: https://bugs.launchpad.net/juju-verify/+bug/1945113
+.. _LP#1947858: https://bugs.launchpad.net/juju-verify/+bug/1947858
+.. _LP#1951620: https://bugs.launchpad.net/juju-verify/+bug/1951620
+.. _LP#1958648: https://bugs.launchpad.net/juju-verify/+bug/1958648
+.. _LP#1936189: https://bugs.launchpad.net/juju-verify/+bug/1936189
+.. _LP#1937040: https://bugs.launchpad.net/juju-verify/+bug/1937040
+.. _LP#1921428: https://bugs.launchpad.net/juju-verify/+bug/1921428
+.. _LP#1946027: https://bugs.launchpad.net/juju-verify/+bug/1946027
+.. _LP#1946954: https://bugs.launchpad.net/juju-verify/+bug/1946954
+.. _LP#1946956: https://bugs.launchpad.net/juju-verify/+bug/1946956
+.. _LP#1947189: https://bugs.launchpad.net/juju-verify/+bug/1947189
+.. _LP#1917007: https://bugs.launchpad.net/juju-verify/+bug/1917007

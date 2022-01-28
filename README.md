@@ -10,17 +10,15 @@ Juju-verify requires Juju 2.8.10 or higher.
 
 ## Supported charms
 
-* nova-compute (Usable with the next stable release of the charm. Currently available as a [nova-compute-rc])
-* ceph-osd (Usable with the next stable release of the charm. [cs:~openstack-charmers-next/ceph-osd] and [cs:~openstack-charmers-next/ceph-mon])
-* ceph-mon (Usable with the next stable release of the charm. [cs:~openstack-charmers-next/ceph-mon])
-* neutron-gateway (Usable with the next stable release of the charm. [cs:~openstack-charmers-next/neutron-gateway])
+* nova-compute
+* ceph-osd
+* ceph-mon
+* neutron-gateway
 
 ## Supported checks
 
 * reboot
 * shutdown
-
-**NOTE:** Final list of supported checks and what they represent is still WIP
 
 ## Contribution and lifecycle
 
@@ -35,29 +33,35 @@ run the following.
 
 ```bash
 $ juju-verify shutdown --units nova-compute/0 nova-compute/1
+$ juju verify shutdown -u nova-compute/ nova-compute/1
 ```
+
+To verify that it is safe to reboot all principal units from a Juju machine, run the following.
+
+```bash
+$ juju-verify reboot --machines 6
+$ juju verify reboot -M 6
+```
+
+For more information, visit the [juju-verify-getting-started] page.
 
 ## Known limitations
 
-1. If a check is run on multiple units at the same time, they must all run
-   the same charm. Trying, for example, `juju-verify shutdown --units nova-compute/1
-   ceph-osd/0` will result in error.
-
-   Alternatively, a machine can be targeted:
-
-   ```bash
-   $ juju-verify shutdown --machines 0
-   ```
+1. argparse limitation with `nargs="+"` type of arguments. The core Juju client allows
+   commands after options (e.g. `juju --run unit/0 ls`). ``juju-verify`` needs to pass the
+   type of check (`reboot`, `shutdown`) at the beginning of the command, otherwise it will
+   be parsed as a unit (or machine). `juju-verify -u unit/0 reboot` will fail.
+   `juju-verify reboot -u unit/0` will succeed.
 
 2. If you run a check on a unit which contains a subordinate unit, you will only get
    a warning message about the existence of the subordinate unit. In order to check if
-   it is safe to reboot/shutdown this unit, juju-verify needs to be explicitly run 
+   it is safe to reboot/shutdown this unit, juju-verify needs to be explicitly run
    against this subordinate unit, or the unit needs to be manually checked (if
    juju-verify does not support this charm yet)
 
    Example:
    ```bash
-   $ juju-verify shutdown --unit ceph-osd/0
+   $ juju-verify shutdown --units ceph-osd/0
    ===[ceph-osd/0]===
    Checks:
    [WARN] ceph-osd/0 has units running on child machines: ceph-mon/0*
@@ -120,12 +124,12 @@ Find some examples below:
 1. `tox -e func` runs all bundles and does not keep any Juju model
 2. `tox -e func -- --keep-faulty-model` runs all bundles and keeps the Juju models that
                                         failed
-3. `tox -e func -- --keep-all-models --log DEBUG` runs all bundles w/ logging in debug 
+3. `tox -e func -- --keep-all-models --log DEBUG` runs all bundles w/ logging in debug
                                                   mode and keeping all the Juju models
 4. `tox -e func-target -- ceph` runs only the Ceph bundle and not keep the Juju model
 5. `tox -e func-target -- ceph --keep-model --log DEBUG` runs only the Ceph bundle w/
                                                          logging in debug mode and keep
-                                                         the Juju model 
+                                                         the Juju model
 
 ## Code decisions
 
@@ -141,10 +145,10 @@ can be installed directly from [pypi.org].
 
 The basic structure of the verifier is defined in the `/juju_verify/verifiers/base.py`
 file as the `BaseVerifier` class. Every other verifier must inherit from this class,
-with the following variable and functions having to be overrided. 
+with the following variable and functions having to be overrided.
 
 * `NAME` - name of verifier
-* `verify_<action-with-unit>` - function to run all necessary checks when trying to 
+* `verify_<action-with-unit>` - function to run all necessary checks when trying to
 	                          perform "action" with the unit
 
 Each verifier will contain these two variables:
@@ -182,7 +186,7 @@ There are currently 4 severity tips:
 
 * OK - representing a successful check
 * WARN - the result ended successfully, but there was a possibility that may have
-         an unexpected impact on the result 
+         an unexpected impact on the result
 * UNSUPPORTED - result of check is not supported
 * FAIL - check failed
 
@@ -192,7 +196,7 @@ results, which are represented as severiny name and message.
 
 In the following example, we can see four checks, one ending with a severity WARN
 and three ending with a severity OK, but the overall result is OK.
-   
+
 ```bash
 $ juju-verify shutdown --unit ceph-osd/0
 ===[ceph-osd/0]===
@@ -214,9 +218,6 @@ If you prefer, file a bug or feature request at:
 
 ---
 [pypi.org]: https://pypi.org/
+[juju-verify-getting-started]: https://juju-verify.readthedocs.io/en/latest/getting-started.html
 [juju-verify-verifiers]: https://juju-verify.readthedocs.io/en/latest/verifiers.html
 [CONTRIBUTING]: https://juju-verify.readthedocs.io/en/latest/contributing.html
-[nova-compute-rc]: https://jaas.ai/u/openstack-charmers-next/nova-compute/562
-[cs:~openstack-charmers-next/ceph-osd]: https://jaas.ai/u/openstack-charmers-next/ceph-osd
-[cs:~openstack-charmers-next/ceph-mon]: https://jaas.ai/u/openstack-charmers-next/ceph-mon
-[cs:~openstack-charmers-next/neutron-gateway]: https://jaas.ai/u/openstack-charmers-next/neutron-gateway
