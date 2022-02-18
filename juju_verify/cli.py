@@ -37,7 +37,7 @@ from juju_verify.verifiers import BaseVerifier, get_verifiers
 from juju_verify.verifiers.result import set_stop_on_failure
 
 # set MAX_FRAME_SIZE to 64MB to connect python-libjuju to the model
-JUJU_MAX_FRAME_SIZE = 2 ** 26
+JUJU_MAX_FRAME_SIZE = 2**26
 logger = logging.getLogger(__name__)
 
 
