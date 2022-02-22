@@ -1,3 +1,8 @@
+variables:
+  # We are using `candidate` channel for charm that do not support bionic
+  # release in `stable`
+  channel: &channel candidate
+
 series: bionic
 machines:
   '0':
@@ -14,7 +19,8 @@ machines:
     constraints: cores=1 mem=2G root-disk=20G
 applications:
   ceph-mon:
-    charm: cs:~openstack-charmers-next/ceph-mon
+    charm: ceph-mon
+    channel: *channel
     num_units: 3
     options:
       expected-osd-count: 3
@@ -24,7 +30,8 @@ applications:
     - lxd:1
     - lxd:2
   ceph-osd-hdd:
-    charm: cs:~openstack-charmers-next/ceph-osd
+    charm: ceph-osd
+    channel: *channel
     num_units: 3
     options:
       osd-devices: /dev/loop0
@@ -35,7 +42,8 @@ applications:
       - 1
       - 2
   ceph-osd-ssd:
-    charm: cs:~openstack-charmers-next/ceph-osd
+    charm: ceph-osd
+    channel: *channel
     num_units: 3
     options:
       osd-devices: /dev/loop0
