@@ -114,6 +114,31 @@ def test_unsupported_log_levels(log_level):
 
 
 @pytest.mark.parametrize(
+    "arg_value, exp_result, exp_failure",
+    [
+        (
+            ["ceph-osd:ceph-osd", "ceph-mon:ceph-mon"],
+            [("ceph-osd", "ceph-osd"), ("ceph-mon", "ceph-mon")],
+            False,
+        ),  # Correct mapping of multiple applications
+        (["ceph-osd-ssd:ceph-osd:foo"], [], True),  # too many colons in mapping
+        (["ceph-osd-ssd"], [], True),  # application not mapped to charm
+        ([42], [], True),  # bad type of argument. String expected
+    ],
+)
+def test_parse_charm_mapping(arg_value, exp_result, exp_failure):
+    """Test converting string values of --map-charms to List of Tuples."""
+    args = Namespace(map_charm=arg_value)
+
+    if exp_failure:
+        with pytest.raises(ValueError):
+            cli.parse_charm_mapping(args)
+    else:
+        cli.parse_charm_mapping(args)
+        assert args.map_charm == exp_result
+
+
+@pytest.mark.parametrize(
     "args, exp_args",
     [
         (
@@ -121,6 +146,7 @@ def test_unsupported_log_levels(log_level):
             dict(
                 check="reboot",
                 machines=None,
+                map_charm=[],
                 units=["ceph-osd/0", "ceph-osd/1"],
                 stop_on_failure=False,
             ),
@@ -128,19 +154,31 @@ def test_unsupported_log_levels(log_level):
         (
             ["reboot", "--machines", "0", "1"],
             dict(
-                check="reboot", units=None, machines=["0", "1"], stop_on_failure=False
+                check="reboot",
+                units=None,
+                machines=["0", "1"],
+                map_charm=[],
+                stop_on_failure=False,
             ),
         ),
         (
             ["reboot", "--machines", "0", "--machines", "1"],
             dict(
-                check="reboot", units=None, machines=["0", "1"], stop_on_failure=False
+                check="reboot",
+                units=None,
+                machines=["0", "1"],
+                map_charm=[],
+                stop_on_failure=False,
             ),
         ),
         (
             ["reboot", "--machine", "0", "--machine", "1"],
             dict(
-                check="reboot", units=None, machines=["0", "1"], stop_on_failure=False
+                check="reboot",
+                units=None,
+                machines=["0", "1"],
+                map_charm=[],
+                stop_on_failure=False,
             ),
         ),
         (
@@ -149,6 +187,7 @@ def test_unsupported_log_levels(log_level):
                 check="reboot",
                 units=None,
                 machines=["0", "1", "2"],
+                map_charm=[],
                 stop_on_failure=False,
             ),
         ),
@@ -158,6 +197,7 @@ def test_unsupported_log_levels(log_level):
                 check="reboot",
                 units=None,
                 machines=["0", "1", "2"],
+                map_charm=[],
                 stop_on_failure=True,
             ),
         ),
@@ -166,9 +206,11 @@ def test_unsupported_log_levels(log_level):
 def test_parse_args(args, exp_args, mocker):
     """Test for argument parsing."""
     mocker.patch("sys.argv", ["juju-verify", *args])
+    mapping_mock = mocker.patch.object(cli, "parse_charm_mapping")
     exp_result = Namespace(**exp_args, log_level="info", model=None)
 
     result = cli.parse_args()
+    mapping_mock.assert_called_once_with(exp_result)
     assert result == exp_result
 
 
@@ -186,6 +228,24 @@ def test_parse_args_error(args, mocker):
 
     with pytest.raises(SystemExit):
         cli.parse_args()
+
+
+def test_parse_args_charm_mapping_error(mocker):
+    """Test behavior of arg parsing when --map-charms option has bad values."""
+    mock_parser = MagicMock()
+    parser_error = MagicMock()
+    mock_parser.error = parser_error
+
+    mocker.patch.object(cli.argparse, "ArgumentParser", return_value=mock_parser)
+    mocker.patch.object(cli, "parse_charm_mapping", side_effect=ValueError)
+
+    expected_error = (
+        "Unexpected format of --map-charm argument. For more info see " "--help"
+    )
+
+    cli.parse_args()
+
+    parser_error.assert_called_once_with(expected_error)
 
 
 def test_main_cli_target_units(mocker):

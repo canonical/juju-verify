@@ -19,7 +19,7 @@
 import logging
 import os
 from collections import defaultdict
-from typing import Iterator, List
+from typing import Iterator, List, Optional, Tuple
 
 from juju.unit import Unit
 
@@ -42,10 +42,13 @@ SUPPORTED_CHARMS = {
 }
 
 
-def get_verifiers(units: List[Unit]) -> Iterator[BaseVerifier]:
+def get_verifiers(
+    units: List[Unit], charm_map: Optional[List[Tuple[str, str]]] = None
+) -> Iterator[BaseVerifier]:
     """Implement Factory function "verifier" creator for the supplied units.
 
     :param units: Juju unit(s) for which you want to produce verifier
+    :param charm_map: Explicit mapping of application units to specific verifier
     :return: Correct verifier for given unit(s)
     :raises CharmException: Raised if units do not belong to the same charm or
         if the charm is unsupported for verification
@@ -53,11 +56,24 @@ def get_verifiers(units: List[Unit]) -> Iterator[BaseVerifier]:
     if not units:
         raise CharmException("List of units can not be empty when creating verifier")
 
+    charm_map = charm_map or []
     charms = defaultdict(list)
+    mapped_applications = {mapping[0]: mapping[1] for mapping in charm_map}
 
     for unit in units:
-        charm_type = parse_charm_name(unit.data.get("charm-url", ""))
-        logger.debug("Inferred charm for unit %s: %s", unit.entity_id, charm_type)
+        unit_application = unit.data.get("application")
+        if unit_application in mapped_applications:
+            # Assign charm type based on explicit mapping
+            charm_type = mapped_applications[unit_application]
+            logger.debug(
+                "Using explicitly defined charm for " "unit %s: %s",
+                unit.entity_id,
+                charm_type,
+            )
+        else:
+            # Infer charm type based on charm URL
+            charm_type = parse_charm_name(unit.data.get("charm-url", ""))
+            logger.debug("Inferred charm for unit %s: %s", unit.entity_id, charm_type)
         charms[charm_type].append(unit)
 
     for charm, charm_units in charms.items():

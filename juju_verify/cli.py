@@ -33,7 +33,7 @@ from juju_verify import logger as juju_verify_logger
 from juju_verify import stream_handler
 from juju_verify.exceptions import CharmException, JujuVerifyError, VerificationError
 from juju_verify.utils.unit import find_units, find_units_on_machine
-from juju_verify.verifiers import BaseVerifier, get_verifiers
+from juju_verify.verifiers import SUPPORTED_CHARMS, BaseVerifier, get_verifiers
 from juju_verify.verifiers.result import set_stop_on_failure
 
 # set MAX_FRAME_SIZE to 64MB to connect python-libjuju to the model
@@ -80,10 +80,33 @@ class ExtendAction(argparse.Action):  # pylint: disable=too-few-public-methods
         setattr(namespace, self.dest, items)
 
 
+def parse_charm_mapping(parsed_args: argparse.Namespace) -> None:
+    """Parse values of --map-charm argument into list of tuples.
+
+    Expected input format of mapping is two colon separated strings.
+
+    :param parsed_args: argparse object containing pre-parsed arguments.
+    :return: None
+    """
+    parsed_mapping = []
+    for mapping in parsed_args.map_charm:
+        if not isinstance(mapping, str):
+            raise ValueError()
+        charm, verifier = mapping.split(":")
+        parsed_mapping.append((charm, verifier))
+    parsed_args.map_charm = parsed_mapping
+
+
 def parse_args() -> argparse.Namespace:
     """Parse cli arguments."""
-    description = "Verify that it's safe to perform selected action on specified units"
-    parser = argparse.ArgumentParser(description=description)
+    description = (
+        "Verify that it's safe to perform selected action on specified units."
+        "\nCurrently supported charms are:"
+    )
+    description += "".join(f"\n\t* {verifier}" for verifier in SUPPORTED_CHARMS)
+    parser = argparse.ArgumentParser(
+        description=description, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.register("action", "extend", ExtendAction)
 
     parser.add_argument(
@@ -109,6 +132,17 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Stop running checks after a failed one.",
     )
+    parser.add_argument(
+        "--map-charm",
+        action="append",
+        default=[],
+        help="WARNING: This option can lead to failed verifications when used "
+        "incorrectly. This option allows user to explicitly specify which charm is"
+        " the application running. It is useful when charm is deployed from local"
+        " source or from non-official charmhub repository. Expected value format"
+        " is <APP_NAME>:<CHARM_NAME>. For list of supported charms, see description"
+        " in --help",
+    )
 
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument(
@@ -122,7 +156,14 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="Check all units on the machine.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    try:
+        parse_charm_mapping(args)
+    except ValueError:
+        parser.error(
+            "Unexpected format of --map-charm argument. For more info see --help"
+        )
+    return args
 
 
 def config_logger(log_level: str) -> None:
