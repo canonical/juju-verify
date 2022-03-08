@@ -58,7 +58,7 @@ def get_verifiers(
 
     charm_map = charm_map or []
     charms = defaultdict(list)
-    mapped_applications = {mapping[0]: mapping[1] for mapping in charm_map}
+    mapped_applications = dict(charm_map)
 
     for unit in units:
         unit_application = unit.data.get("application")
@@ -66,7 +66,7 @@ def get_verifiers(
             # Assign charm type based on explicit mapping
             charm_type = mapped_applications[unit_application]
             logger.debug(
-                "Using explicitly defined charm for " "unit %s: %s",
+                "Using explicitly defined charm for unit %s: %s",
                 unit.entity_id,
                 charm_type,
             )

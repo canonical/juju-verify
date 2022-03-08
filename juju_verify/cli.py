@@ -24,7 +24,7 @@ import logging
 import os
 import sys
 import typing
-from typing import Union
+from typing import Tuple, Union
 
 from juju import errors
 from juju.model import Model
@@ -80,28 +80,32 @@ class ExtendAction(argparse.Action):  # pylint: disable=too-few-public-methods
         setattr(namespace, self.dest, items)
 
 
-def parse_charm_mapping(parsed_args: argparse.Namespace) -> None:
-    """Parse values of --map-charm argument into list of tuples.
+def parse_charm_mapping(charm_map: str = "") -> Tuple[str, str]:
+    """Parse value of --map-charm argument into a tuple (app_name, charm_name).
 
     Expected input format of mapping is two colon separated strings.
 
-    :param parsed_args: argparse object containing pre-parsed arguments.
-    :return: None
+    :param charm_map: Colon separated pair <APP_NAME>:<CHARM_NAME>.
+    :return: Input value parsed into tuple (app_name, charm_name)
     """
-    parsed_mapping = []
-    for mapping in parsed_args.map_charm:
-        if not isinstance(mapping, str):
-            raise ValueError()
-        charm, verifier = mapping.split(":")
-        parsed_mapping.append((charm, verifier))
-    parsed_args.map_charm = parsed_mapping
+    if not isinstance(charm_map, str):
+        raise ValueError("--map-charm arguments expects string type value.")
+
+    try:
+        app_name, charm_name = charm_map.split(":")
+    except ValueError as exc:
+        raise ValueError(
+            "Unexpected format of --map-charm argument. For more info see --help."
+        ) from exc
+
+    return app_name, charm_name
 
 
 def parse_args() -> argparse.Namespace:
     """Parse cli arguments."""
     description = (
         "Verify that it's safe to perform selected action on specified units."
-        "\nCurrently supported charms are:"
+        f"{os.linesep}Currently supported charms are:"
     )
     description += "".join(f"\n\t* {verifier}" for verifier in SUPPORTED_CHARMS)
     parser = argparse.ArgumentParser(
@@ -136,6 +140,7 @@ def parse_args() -> argparse.Namespace:
         "--map-charm",
         action="append",
         default=[],
+        type=parse_charm_mapping,
         help="WARNING: This option can lead to failed verifications when used "
         "incorrectly. This option allows user to explicitly specify which charm is"
         " the application running. It is useful when charm is deployed from local"
@@ -156,14 +161,7 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="Check all units on the machine.",
     )
-    args = parser.parse_args()
-    try:
-        parse_charm_mapping(args)
-    except ValueError:
-        parser.error(
-            "Unexpected format of --map-charm argument. For more info see --help"
-        )
-    return args
+    return parser.parse_args()
 
 
 def config_logger(log_level: str) -> None:
@@ -212,7 +210,7 @@ def entrypoint() -> None:
                 "juju-verify must target either juju units or juju machines"
             )
 
-        for verifier in get_verifiers(units):
+        for verifier in get_verifiers(units, args.map_charm):
             result = verifier.verify(args.check)
             logger.info("%s", result)
     except (

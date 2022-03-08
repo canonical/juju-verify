@@ -21,7 +21,7 @@ import os
 import pkgutil
 from argparse import Namespace
 from asyncio import Future
-from unittest.mock import ANY, MagicMock
+from unittest.mock import ANY, MagicMock, call
 
 import pytest
 from juju import errors
@@ -117,25 +117,23 @@ def test_unsupported_log_levels(log_level):
     "arg_value, exp_result, exp_failure",
     [
         (
-            ["ceph-osd:ceph-osd", "ceph-mon:ceph-mon"],
-            [("ceph-osd", "ceph-osd"), ("ceph-mon", "ceph-mon")],
+            "ceph-osd:ceph-osd",
+            ("ceph-osd", "ceph-osd"),
             False,
         ),  # Correct mapping of multiple applications
-        (["ceph-osd-ssd:ceph-osd:foo"], [], True),  # too many colons in mapping
-        (["ceph-osd-ssd"], [], True),  # application not mapped to charm
-        ([42], [], True),  # bad type of argument. String expected
+        ("ceph-osd-ssd:ceph-osd:foo", None, True),  # too many colons in mapping
+        ("ceph-osd-ssd", None, True),  # application not mapped to charm
+        (42, None, True),  # bad type of argument. String expected
     ],
 )
 def test_parse_charm_mapping(arg_value, exp_result, exp_failure):
-    """Test converting string values of --map-charms to List of Tuples."""
-    args = Namespace(map_charm=arg_value)
-
+    """Test converting string values of --map-charms to Tuples."""
     if exp_failure:
         with pytest.raises(ValueError):
-            cli.parse_charm_mapping(args)
+            cli.parse_charm_mapping(arg_value)
     else:
-        cli.parse_charm_mapping(args)
-        assert args.map_charm == exp_result
+        result = cli.parse_charm_mapping(arg_value)
+        assert result == exp_result
 
 
 @pytest.mark.parametrize(
@@ -148,6 +146,22 @@ def test_parse_charm_mapping(arg_value, exp_result, exp_failure):
                 machines=None,
                 map_charm=[],
                 units=["ceph-osd/0", "ceph-osd/1"],
+                stop_on_failure=False,
+            ),
+        ),
+        (
+            [
+                "reboot",
+                "--units",
+                "ceph-osd-ssd/0",
+                "--map-charm",
+                "ceph-osd-ssd:ceph-osd",
+            ],
+            dict(
+                check="reboot",
+                machines=None,
+                map_charm=[("ceph-osd-ssd", "ceph-osd")],
+                units=["ceph-osd-ssd/0"],
                 stop_on_failure=False,
             ),
         ),
@@ -207,10 +221,20 @@ def test_parse_args(args, exp_args, mocker):
     """Test for argument parsing."""
     mocker.patch("sys.argv", ["juju-verify", *args])
     mapping_mock = mocker.patch.object(cli, "parse_charm_mapping")
+    mapping_mock.side_effect = exp_args["map_charm"]
     exp_result = Namespace(**exp_args, log_level="info", model=None)
+    # Collect any occurrences of --map-charm arguments
+    charms_mappings = []
+    for index, arg in enumerate(args):
+        if arg == "--map-charm":
+            charms_mappings.append(args[index + 1])
+
+    parse_charm_mapping_calls = [call(mapping) for mapping in charms_mappings]
 
     result = cli.parse_args()
-    mapping_mock.assert_called_once_with(exp_result)
+
+    if parse_charm_mapping_calls:
+        mapping_mock.assert_has_calls(parse_charm_mapping_calls)
     assert result == exp_result
 
 
@@ -228,24 +252,6 @@ def test_parse_args_error(args, mocker):
 
     with pytest.raises(SystemExit):
         cli.parse_args()
-
-
-def test_parse_args_charm_mapping_error(mocker):
-    """Test behavior of arg parsing when --map-charms option has bad values."""
-    mock_parser = MagicMock()
-    parser_error = MagicMock()
-    mock_parser.error = parser_error
-
-    mocker.patch.object(cli.argparse, "ArgumentParser", return_value=mock_parser)
-    mocker.patch.object(cli, "parse_charm_mapping", side_effect=ValueError)
-
-    expected_error = (
-        "Unexpected format of --map-charm argument. For more info see " "--help"
-    )
-
-    cli.parse_args()
-
-    parser_error.assert_called_once_with(expected_error)
 
 
 def test_main_cli_target_units(mocker):
