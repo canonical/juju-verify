@@ -142,9 +142,9 @@ def parse_args() -> argparse.Namespace:
         default=[],
         type=parse_charm_mapping,
         help="WARNING: This option can lead to failed verifications when used "
-        "incorrectly. This option allows user to explicitly specify which charm is"
-        " the application running. It is useful when charm is deployed from local"
-        " source or from non-official charmhub repository. Expected value format"
+        "incorrectly. This option allows users to explicitly specify the charm used"
+        " by an application. Typical use cases involve the usage of local charms or"
+        " non-official charmhub repositories. Expected value format"
         " is <APP_NAME>:<CHARM_NAME>. For list of supported charms, see description"
         " in --help",
     )
