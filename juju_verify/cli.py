@@ -24,7 +24,7 @@ import logging
 import os
 import sys
 import typing
-from typing import Union
+from typing import Tuple, Union
 
 from juju import errors
 from juju.model import Model
@@ -33,7 +33,7 @@ from juju_verify import logger as juju_verify_logger
 from juju_verify import stream_handler
 from juju_verify.exceptions import CharmException, JujuVerifyError, VerificationError
 from juju_verify.utils.unit import find_units, find_units_on_machine
-from juju_verify.verifiers import BaseVerifier, get_verifiers
+from juju_verify.verifiers import SUPPORTED_CHARMS, BaseVerifier, get_verifiers
 from juju_verify.verifiers.result import set_stop_on_failure
 
 # set MAX_FRAME_SIZE to 64MB to connect python-libjuju to the model
@@ -80,10 +80,37 @@ class ExtendAction(argparse.Action):  # pylint: disable=too-few-public-methods
         setattr(namespace, self.dest, items)
 
 
+def parse_charm_mapping(charm_map: str = "") -> Tuple[str, str]:
+    """Parse value of --map-charm argument into a tuple (app_name, charm_name).
+
+    Expected input format of mapping is two colon separated strings.
+
+    :param charm_map: Colon separated pair <APP_NAME>:<CHARM_NAME>.
+    :return: Input value parsed into tuple (app_name, charm_name)
+    """
+    if not isinstance(charm_map, str):
+        raise ValueError("--map-charm arguments expects string type value.")
+
+    try:
+        app_name, charm_name = charm_map.split(":")
+    except ValueError as exc:
+        raise ValueError(
+            "Unexpected format of --map-charm argument. For more info see --help."
+        ) from exc
+
+    return app_name, charm_name
+
+
 def parse_args() -> argparse.Namespace:
     """Parse cli arguments."""
-    description = "Verify that it's safe to perform selected action on specified units"
-    parser = argparse.ArgumentParser(description=description)
+    description = (
+        "Verify that it's safe to perform selected action on specified units."
+        f"{os.linesep}Currently supported charms are:"
+    )
+    description += "".join(f"\n\t* {verifier}" for verifier in SUPPORTED_CHARMS)
+    parser = argparse.ArgumentParser(
+        description=description, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.register("action", "extend", ExtendAction)
 
     parser.add_argument(
@@ -108,6 +135,18 @@ def parse_args() -> argparse.Namespace:
         "--stop-on-failure",
         action="store_true",
         help="Stop running checks after a failed one.",
+    )
+    parser.add_argument(
+        "--map-charm",
+        action="append",
+        default=[],
+        type=parse_charm_mapping,
+        help="WARNING: This option can lead to failed verifications when used "
+        "incorrectly. This option allows users to explicitly specify the charm used"
+        " by an application. Typical use cases involve the usage of local charms or"
+        " non-official charmhub repositories. Expected value format"
+        " is <APP_NAME>:<CHARM_NAME>. For list of supported charms, see description"
+        " in --help",
     )
 
     target = parser.add_mutually_exclusive_group(required=True)
@@ -171,7 +210,7 @@ def entrypoint() -> None:
                 "juju-verify must target either juju units or juju machines"
             )
 
-        for verifier in get_verifiers(units):
+        for verifier in get_verifiers(units, args.map_charm):
             result = verifier.verify(args.check)
             logger.info("%s", result)
     except (

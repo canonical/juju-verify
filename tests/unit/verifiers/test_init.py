@@ -44,6 +44,24 @@ def test_get_verifier_supported_charms(model, charm, verifier_type):
         assert verifier.units == units
 
 
+def test_get_verifier_explicit_charm_mapping(mocker):
+    """Test get_verifiers with explicitly mapped charm."""
+    unknown_origin = "ch:amd64/focal/personal-nova-compute"
+    application = "nova-compute-dev"
+    explicit_application = "nova-compute"
+    expected_verifier = NovaCompute
+
+    charm_mapping = [(application, explicit_application)]
+
+    nova_unit = mocker.MagicMock()
+    nova_unit.entity_id = f"{application}/0"
+    nova_unit.data = {"charm-url": unknown_origin, "application": application}
+
+    for verifier in get_verifiers([nova_unit], charm_mapping):
+        assert isinstance(verifier, expected_verifier)
+        assert verifier.units == [nova_unit]
+
+
 def test_get_verifier_unsupported_charm(mocker, model):
     """Raise exception if unsupported charm is requested."""
     mock_logger = mocker.patch("juju_verify.verifiers.logger")

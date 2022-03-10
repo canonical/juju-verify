@@ -63,10 +63,18 @@ Description of CLI
 After successfully installing ``juju-verify``, help instructions can be
 displayed using this command::
 
-  juju-verify --help
-  usage: juju-verify [-h] [--model MODEL] [-l {trace,debug,info}] [-s] (--units UNITS [UNITS ...] | --machines MACHINES [MACHINES ...]) {shutdown,reboot}
+  $ juju verify --help
+  usage: juju-verify [-h] [--model MODEL] [-l {trace,debug,info}] [-s]
+                     [--map-charm MAP_CHARM]
+                     (--units UNITS [UNITS ...] | --machines MACHINES [MACHINES ...])
+                     {shutdown,reboot}
 
-  Verify that it's safe to perform selected action on specified units
+  Verify that it's safe to perform selected action on specified units.
+  Currently supported charms are:
+    * nova-compute
+    * ceph-osd
+    * ceph-mon
+    * neutron-gateway
 
   positional arguments:
     {shutdown,reboot}     Check to verify.
@@ -79,6 +87,14 @@ displayed using this command::
                           Set amount of displayed information
     -s, --stop-on-failure
                           Stop running checks after a failed one.
+    --map-charm MAP_CHARM
+                          WARNING: This option can lead to failed verifications
+                          when used incorrectly. This option allows users to
+                          explicitly specify the charm used by an application.
+                          Typical use cases involve the usage of local charms or
+                          non-official charmhub repositories. Expected value
+                          format is <APP_NAME>:<CHARM_NAME>. For list of
+                          supported charms, see description in --help
     --units UNITS [UNITS ...], -u UNITS [UNITS ...]
                           Units to check.
     --machines MACHINES [MACHINES ...], -M MACHINES [MACHINES ...]
@@ -151,6 +167,36 @@ With ``--stop-on-failure``
   [FAIL] The minimum number of replicas in 'ceph-osd' is 1 and it's not safe to reboot/shutdown 2 units. 0 units are not active.
 
   Result: Failed
+
+Charm mapping
+"""""""""""""
+
+This option enables the user to explicitly tell ``juju-verify`` which charm a
+specific application deploys.
+
+By default, ``juju-verify`` parses URL from which the charm was deployed to
+identify the charm. However this may fail if charm was deployed from local
+source or from non-official charmstore repository. In such cases, this option
+can be used to specify which charm is an application deploying.
+
+For example, if the ``ceph-osd`` charm uses a local path to deploy the
+``ceph-osd-ssd`` application, the following command could be used to verify
+units of the mentioned application:
+
+::
+
+  $ juju-verify reboot --unit ceph-osd-ssd/0 --map-charm ceph-osd-ssd:ceph-osd
+
+The charm name specified via this option must be one of the charms supported by
+``juju-verify``. To get list of supported charms that can be mapped to
+applications, see description in ``--help`` output.
+
+::
+
+  $ juju-verify --help
+
+This option can be repeated multiple times if there's a need to specify mappings
+of multiple application.
 
 Usage examples
 ^^^^^^^^^^^^^^
