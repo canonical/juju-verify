@@ -28,7 +28,7 @@ def data_from_action(action: Action, key: str, default: str = "") -> str:
     :param default: default value to return if the 'key' is not found
     :return: value from the action's results identified by 'key' or default
     """
-    return action.data.get("results", {}).get(key, default)
+    return action.results.get(key, default)
 
 
 cache_manager = CacheManager(enabled=True)
