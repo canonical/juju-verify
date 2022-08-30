@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """Juju action helpers test suite."""
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock
 
 from juju.action import Action
 
@@ -26,11 +26,11 @@ def test_data_from_action(mocker):
     """Test helper function that parses data from Action.data.results dict."""
     host_key = "host"
     host_value = "compute.0"
-    data = {"results": {host_key: host_value}}
+    data = {host_key: host_value}
     default = "default"
 
-    mocker.patch.object(Action, "data", new_callable=PropertyMock(return_value=data))
     action = Action("0", MagicMock())
+    action.results = data
 
     output = data_from_action(action, host_key, default)
     assert output == host_value

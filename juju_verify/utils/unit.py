@@ -121,7 +121,7 @@ def run_action_on_units(
             )
 
         logger.debug(
-            "Action %s (ID: %s) finished with status %s. Action results " "`%s`.",
+            "Action %s (ID: %s) finished with status %s. Action results `%s`.",
             action,
             action_result.entity_id,
             action_result.status,
