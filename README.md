@@ -14,6 +14,7 @@ Juju-verify requires Juju 2.8.10 or higher.
 * ceph-osd
 * ceph-mon
 * neutron-gateway
+* ovn-central
 
 ## Supported checks
 

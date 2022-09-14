@@ -40,6 +40,8 @@ class ClusterStatus:  # pylint: disable=R0902
     cluster as retrieved from 'cluster-status' action of ovn-central charm unit. Example
     of an input data for initialization of this class:
 
+    .. code-block:: yaml
+
         Cluster ID: 567e7225-369e-40d6-abf8-9b442bbcd18b
         Server ID: 16335def-c21e-404c-b123-8337b3013c07
         Address: ssl:10.5.2.232:6644
