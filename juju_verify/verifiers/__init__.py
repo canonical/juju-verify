@@ -29,6 +29,7 @@ from juju_verify.verifiers.base import BaseVerifier
 from juju_verify.verifiers.ceph import CephMon, CephOsd
 from juju_verify.verifiers.neutron_gateway import NeutronGateway
 from juju_verify.verifiers.nova_compute import NovaCompute
+from juju_verify.verifiers.ovn_central import OvnCentral
 from juju_verify.verifiers.result import Result, Severity
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,7 @@ SUPPORTED_CHARMS = {
     "ceph-osd": CephOsd,
     "ceph-mon": CephMon,
     "neutron-gateway": NeutronGateway,
+    "ovn-central": OvnCentral,
 }
 
 
