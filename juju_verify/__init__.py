@@ -33,3 +33,6 @@ logger = logging.getLogger(__package__)
 # While the root logger is set to the WARNING level, the logger for jujju-verify is set
 # to the INFO level.
 logger.setLevel(logging.INFO)
+
+
+# TEST
