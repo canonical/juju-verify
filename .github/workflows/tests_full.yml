@@ -166,6 +166,11 @@ jobs:
           provider: serverstack
           credentials-yaml: ${{ secrets.CREDENTIALS_YAML }}
           clouds-yaml: ${{ secrets.CLOUDS_YAML }}
+      - name: Source novarc
+        env:
+          NOVARC: ${{ secrets.NOVARC }}
+        run: echo "$NOVARC" | base64 --decode > ~/novarc
       - name: Run func tests
         run: |
+          source ~/novarc
           tox -e func
