@@ -10,7 +10,7 @@ sphinx:
 
 formats:
   - pdf
-   
+
 python:
   version: 3.6
   install:
@@ -18,4 +18,3 @@ python:
       path: .
       extra_requirements:
         - docs
-  

@@ -68,4 +68,3 @@ html_static_path = ['_static']
 # -- Custom configuration ----------------------------------------------------
 
 todo_include_todos = True
-
