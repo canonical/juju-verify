@@ -1,5 +1,5 @@
 name: juju-verify
-base: core20
+base: core22
 adopt-info: juju-verify
 summary: Juju plugin to verify if it's safe to perform an operation on juju units
 description: |
@@ -33,9 +33,9 @@ parts:
   juju-verify:
     plugin: python
     source: .
+    stage-packages:
+      - git
     override-build: |
-      sudo apt install -y git
-      ln -s ${SNAPCRAFT_PART_INSTALL} ${SNAPCRAFT_PART_BUILD}/.git
       snapcraftctl build
       PY_VERSION=$(python3 setup.py --version)
       snapcraftctl set-version "${PY_VERSION}"
