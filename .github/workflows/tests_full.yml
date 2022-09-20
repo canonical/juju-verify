@@ -156,16 +156,5 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install tox
-      - name: Setup Juju environment
-        uses: charmed-kubernetes/actions-operator@main
-        with:
-          provider: serverstack
-          credentials-yaml: ${{ secrets.CREDENTIALS_YAML }}
-          clouds-yaml: ${{ secrets.CLOUDS_YAML }}
       - name: Run func tests
-        run: |
-          tox -e func
+        run: tox -e func
