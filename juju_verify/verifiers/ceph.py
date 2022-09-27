@@ -280,7 +280,7 @@ class CephTree:
         return True
 
 
-class CephCommon(BaseVerifier):  # pylint: disable=W0223
+class CephCommon(BaseVerifier):
     """Parent class for CephMon and CephOsd verifier."""
 
     @classmethod
@@ -596,7 +596,7 @@ class CephOsd(CephCommon):
             # NOTE (rgildein): If device_class is None, it means all osd will be used.
             # The device_class is set automatically on ODDs startup [1] and could be
             # set only to hdd, ssd and nvme [2].
-            # [1]: https://docs.ceph.com/en/latest/rados/operations/crush-map/#device-classes # noqa: E501 pylint: disable=C0301
+            # [1]: https://docs.ceph.com/en/latest/rados/operations/crush-map/#device-classes
             # [2]: https://docs.ceph.com/en/latest/rados/operations/crush-map/#devices
             all_units = set().union(
                 units_device_class_map["hdd"],

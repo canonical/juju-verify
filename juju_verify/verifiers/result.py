@@ -35,7 +35,7 @@ def stop_on_failure() -> bool:
 
 def set_stop_on_failure(stop: bool = False) -> None:
     """Set stop on failure."""
-    global STOP_ON_FAILURE  # pylint: disable=W0603
+    global STOP_ON_FAILURE
     STOP_ON_FAILURE = stop
 
 
@@ -53,7 +53,7 @@ class Severity(Enum):
         if not isinstance(other, Severity):
             return NotImplemented
 
-        return self.value < other.value  # pylint: disable=W0143
+        return self.value < other.value
 
 
 class Partial:

@@ -134,7 +134,6 @@ def test_run_action_on_units(mock_run_action, model):
 
     def mock_action_result(status: str) -> Callable:
         async def action_result(unit: Unit, *args, **kwargs):
-            # pylint: disable=unused-argument
             _action = MagicMock()
             action_id = run_on_unit_ids.index(unit.entity_id)
             _action.entity_id = f"{action_id}-wait"
