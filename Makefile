@@ -2,7 +2,7 @@ help:
 	@echo "This project supports the following targets"
 	@echo ""
 	@echo " make help - show this text"
-	@echo " make lint - run flake8 and mypy"
+	@echo " make lint - run flake8, black and isort"
 	@echo " make format-code - run isort and black"
 	@echo " make test - run the lint and unittest targets"
 	@echo " make test-full - run the lint and unittest-full targets"
@@ -16,7 +16,7 @@ help:
 	@echo ""
 
 lint:
-	@echo "Running flake8 and mypy"
+	@echo "Running flake8, black and isort"
 	@tox -e lint
 
 format-code:

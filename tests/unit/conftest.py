@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """Available fixtures for juju_verify unit test suite."""
-# pylint: disable=redefined-outer-name
 from unittest.mock import MagicMock, PropertyMock
 
 import pytest
