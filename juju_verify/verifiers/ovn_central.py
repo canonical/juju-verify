@@ -16,6 +16,7 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """ovn-central verification."""
 import logging
+import os
 from collections import defaultdict
 from typing import Any, Dict, List, NamedTuple, Optional
 
@@ -78,7 +79,7 @@ class ClusterStatus:  # pylint: disable=R0902
                 raise ValueError("Input data is not a YAML dictionary.")
         except (yaml.YAMLError, ValueError) as exc:
             raise JujuVerifyError(
-                f"Failed to load OVN status as YAML:\n{raw_status}"
+                f"Failed to load OVN status as YAML:{os.linesep}{raw_status}"
             ) from exc
 
         try:
@@ -116,7 +117,7 @@ class ClusterStatus:  # pylint: disable=R0902
     def __eq__(self, other: Any) -> bool:
         """Implement equality comparison for ClusterStatus instances."""
         if not isinstance(other, ClusterStatus):
-            return False
+            return NotImplemented
 
         comparable_attrs = [
             "cluster_id",
@@ -155,7 +156,7 @@ class UnitClusterStatus(NamedTuple):
     def __eq__(self, other: Any) -> bool:
         """Implement equality comparison between UnitClusterStatus instances."""
         if not isinstance(other, UnitClusterStatus):
-            return False
+            return NotImplemented
 
         return (
             self.southbound == other.southbound and self.northbound == other.northbound
