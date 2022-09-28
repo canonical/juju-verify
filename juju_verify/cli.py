@@ -65,7 +65,7 @@ async def connect_model(model_name: Union[str, None]) -> Model:
     return model
 
 
-class ExtendAction(argparse.Action):
+class ExtendAction(argparse.Action):  # pylint: disable=too-few-public-methods
     """Extend action for argparse.
 
     NOTE (rgildein): This action should be removed after python 3.6 support ends, because
