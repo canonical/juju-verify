@@ -93,8 +93,8 @@ the `Result(OK, "<check .__ name __> check successful")` form is used.
 
 ### Lint tests
 
-For purpose of a lint test we are using `flake8`, `black` and `isort` and could be
-executed be running:
+For purpose of a lint test we are using `flake8`, `mypy`, `pylint`, `black` and `isort`
+and could be executed be running:
 
 ```bash
 make lint
@@ -103,8 +103,8 @@ tox -e lint
 ```
 
 To find out what's actually running you can look in `tox.ini`, specifically on
-"testenv:lint". The configuration for `flake8`, `black` and `isort` could be
-found in `pyproject.toml`.
+"testenv:lint". The configuration for `flake8`, `mypy`, `pylint`, `black` and `isort`
+could be found in `pyproject.toml`.
 
 ### Unit tests
 

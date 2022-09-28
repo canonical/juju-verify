@@ -16,3 +16,10 @@ repos:
         entry: make lint
         language: system
         types: [ python ]
+exclude: |
+  (?x)^(
+      .tox/|
+      .venv/|
+      build/|
+      .mypy_cache
+  )$

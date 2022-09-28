@@ -2,7 +2,9 @@ help:
 	@echo "This project supports the following targets"
 	@echo ""
 	@echo " make help - show this text"
-	@echo " make lint - run flake8, black and isort"
+	@echo " make dev-environment - setup the development environment"
+	@echo " make pre-commit - run pre-commit checks on all the files"
+	@echo " make lint - run flake8, mypy, pylint, black and isort"
 	@echo " make format-code - run isort and black"
 	@echo " make test - run the lint and unittest targets"
 	@echo " make test-full - run the lint and unittest-full targets"
@@ -15,28 +17,26 @@ help:
 	@echo " make docs - build documentation"
 	@echo ""
 
+dev-environment:
+	@echo "Creating virtualenv with pre-commit installed"
+	@tox -r -e dev-environment
+
+pre-commit:
+	@tox -e pre-commit
+
 lint:
-	@echo "Running flake8, black and isort"
+	@echo "Running flake8, mypy, pylint, black and isort"
 	@tox -e lint
 
 format-code:
 	@echo "Running isort and black"
-	@tox -e format-code
+	@tox -e reformat
 
 unittest:
 	@echo "Running unittest"
 	@tox -e unit
 
-unittest-full:
-	@echo "Running full unittest"
-	@echo "Running unittest python3.6"
-	@tox -e py36
-	@echo "Running unittest python3.8"
-	@tox -e py38
-
 test: lint unittest
-
-test-full: lint unittest-full
 
 build:
 	@echo "Building python package"
