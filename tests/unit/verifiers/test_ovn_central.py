@@ -256,6 +256,11 @@ def test_unit_cluster_status_eq():
         northbound=cluster_statuses["ovn-central/1"]["northbound"],
     )
 
+    mixed_status = ovn_central.UnitClusterStatus(
+        southbound=cluster_statuses["ovn-central/0"]["southbound"],
+        northbound=cluster_statuses["ovn-central/1"]["northbound"],
+    )
+
     single_cluster_status = cluster_statuses["ovn-central/0"]["northbound"]
 
     # Assert two instances are equal if their data match
@@ -263,6 +268,9 @@ def test_unit_cluster_status_eq():
 
     # Assert two instances are not equal if their data differ
     assert not unit_0_status == unit_1_status
+
+    # Assert partially matching instances return false
+    assert not unit_0_status == mixed_status
 
     # Assert comparison with different class object returns False
     assert not unit_0_status == single_cluster_status
