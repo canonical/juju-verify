@@ -142,6 +142,8 @@ jobs:
       || github.event.review.body == 'recheck-full'
     steps:
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
     - uses: snapcore/action-build@v1
       id: snapcraft
     - name: Install snap
