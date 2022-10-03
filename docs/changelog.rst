@@ -1,5 +1,14 @@
 **Changelog**
 
+1.1
+^^^
+Friday Oct 21 2022
+
+- add core22
+- add Python3.10 support
+- add charm mapping option using the `--map-charm` option (`LP#1960331`_)
+- add ovn-central verifier (see documentation for more details)
+
 1.0
 ^^^
 Friday Jan 28 2022
@@ -138,3 +147,4 @@ Wednesday May 12 2021
 .. _LP#1946956: https://bugs.launchpad.net/juju-verify/+bug/1946956
 .. _LP#1947189: https://bugs.launchpad.net/juju-verify/+bug/1947189
 .. _LP#1917007: https://bugs.launchpad.net/juju-verify/+bug/1917007
+.. _LP#1960331: https://bugs.launchpad.net/juju-verify/+bug/1960331
