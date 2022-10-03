@@ -44,7 +44,7 @@ Example of reboot action and output:
   Result: OK (All checks passed)
 
 
-Example of of shutdown action and output:
+Example of shutdown action and output:
 
 ::
 
@@ -127,7 +127,7 @@ Example of successful result of this check:
   [OK] ovn-central/2 (Southbound leader) reports 0 uncommitted log entries
   [OK] ovn-central/1 (Northbound leader) reports 0 uncommitted log entries.
 
-If any leader reports uncommitted entries, error message like this will be show in the
+If any leader reports uncommitted entries, error message like this will be shown in the
 final result:
 
 ::
@@ -180,9 +180,9 @@ check will fail with following (example) message in the result:
 check downscale
 ---------------
 
-This check asses an impact of permanently downscaling a cluster on its fault tolerance.
-If the fault tolerance is unaffected, for example downscaling from 4 units to 3 ( fault
-tolerance remains 1 ), this check will pass with following message
+This check assesses an impact of permanently downscaling a cluster on its fault
+tolerance. If the fault tolerance is unaffected, for example downscaling from 4 units to
+3 ( fault tolerance remains 1 ), this check will pass with following message
 
 ::
 
