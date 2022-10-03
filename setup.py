@@ -20,16 +20,22 @@ import subprocess
 from typing import List
 
 
-def find_version(filename: str = "version") -> str:
-    """Parse the version and build details stored in the 'version' file."""
+def find_version() -> str:
+    """Parse juju-verify version based on the git tag."""
     try:
         cmd: List[str] = ["git", "describe", "--tags", "--always", "HEAD"]
         gitversion: str = subprocess.check_output(
             cmd, stderr=subprocess.DEVNULL
         ).decode().strip()
-        build: List[str] = gitversion.split("-")
-        # <tagname>-<ncommits-ahead>-<commit-id> (e.g. 0.2-8-adfebee)
-        return "{}.post{}".format(build[0], build[1])
+        if all(char.isdigit() or char == "." for char in gitversion):
+            # gitversion in tagged commits comprises only of numbers and dots
+            return gitversion
+        else:
+            # gitversion in commits that are not tagged has number of commits
+            # since the last tag and commit id attached to it.
+            # <tagname>-<ncommits-ahead>-<commit-id> (e.g. 0.2-8-adfebee)
+            build: List[str] = gitversion.split("-")
+            return "{}.post{}".format(build[0], build[1])
     except IndexError:
         cmd: List[str] = ["git", "rev-list", "--count", "HEAD"]
         commits_count: str = subprocess.check_output(
