@@ -8,7 +8,7 @@ import zaza
 from tests.base import BaseTestCase
 
 from juju_verify.utils.action import cache_manager
-from juju_verify.verifiers import Severity, get_verifiers
+from juju_verify.verifiers import get_verifiers
 from juju_verify.verifiers.result import Result
 
 logger = logging.getLogger(__name__)
@@ -97,11 +97,6 @@ class CephOsdTests(BaseTestCase):
         result = verifier.verify(check)
         logger.info("result: %s", result)
         self.assertTrue(result.success)
-        self.assert_message_in_result(
-            r"\[WARN\] ceph-osd-hdd\/\d has units running on child machines: "
-            r"ceph-mon\/\d",
-            result,
-        )
 
     def test_pool_with_multiple_failure_domain(self):
         """Test multiple pools with different failure-domain."""
@@ -148,9 +143,6 @@ class CephOsdTests(BaseTestCase):
         verifier = next(get_verifiers(units))
         result = verifier.verify(check)
         logger.info("result: %s", result)
-        self.assertTrue(
-            any(partial.severity == Severity.WARN for partial in result.partials)
-        )
         self.assert_message_in_result(
             r"\[FAIL\] ceph-mon\/\d: Ceph cluster is in a warning state",
             result,
