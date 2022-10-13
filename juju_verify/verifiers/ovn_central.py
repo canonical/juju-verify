@@ -55,15 +55,16 @@ class ClusterStatus:  # pylint: disable=R0902
         Entries not yet committed: 0
         Entries not yet applied: 0
         Servers:
-          dbdb:
-            Address: ssl:10.5.0.144:6644
-            Unit: ovn-central/7
-          f1a2:
-            Address: ssl:10.5.3.200:6644
-            Unit: ovn-central/10
-          '1633':
-            Address: ssl:10.5.2.232:6644
-            Unit: ovn-central/6
+        - - 7f23
+          - ssl:10.75.224.151:6644
+        - - 1bc5
+          - ssl:10.75.224.192:6644
+        - - 1ef7
+          - ssl:10.75.224.120:6644
+        unit_map:
+          ovn-central/0: 7f23
+          ovn-central/1: 1bc5
+          ovn-central/2: 1ef7
     """
 
     def __init__(self, raw_status: str) -> None:
@@ -83,17 +84,19 @@ class ClusterStatus:  # pylint: disable=R0902
             ) from exc
 
         try:
-            self.cluster_id = status_dict["Cluster ID"]
-            self.server_id = status_dict["Server ID"]
-            self.status = status_dict["Status"]
-            self.role = status_dict["Role"]
-            self.term = status_dict["Term"]
-            self.leader = status_dict["Leader"]
-            self.vote = status_dict["Vote"]
-            self.log = status_dict["Log"]
-            self.entries_not_committed = status_dict["Entries not yet committed"]
-            self.entries_not_applied = status_dict["Entries not yet applied"]
-            self.servers = status_dict["Servers"]
+            self.cluster_id = status_dict["cluster_id"]
+            self.server_id = status_dict["server_id"]
+            self.address = status_dict["address"]
+            self.status = status_dict["status"]
+            self.role = status_dict["role"]
+            self.term = status_dict["term"]
+            self.leader = status_dict["leader"]
+            self.vote = status_dict["vote"]
+            self.log = status_dict["log"]
+            self.entries_not_yet_committed = status_dict["entries_not_yet_committed"]
+            self.entries_not_yet_applied = status_dict["entries_not_yet_applied"]
+            self.servers = status_dict["servers"]
+            self.unit_map = status_dict["unit_map"]
 
         except KeyError as exc:
             raise JujuVerifyError(
@@ -122,15 +125,17 @@ class ClusterStatus:  # pylint: disable=R0902
         comparable_attrs = [
             "cluster_id",
             "server_id",
+            "address",
             "status",
             "role",
             "term",
             "leader",
             "vote",
             "log",
-            "entries_not_committed",
-            "entries_not_applied",
+            "entries_not_yet_committed",
+            "entries_not_yet_applied",
             "servers",
+            "unit_map",
         ]
         equal = True
         try:
@@ -192,8 +197,8 @@ class OvnCentral(BaseVerifier):
                 self.all_application_units, "cluster-status", use_cache=False
             )
             for unit_name, result in action_results.items():
-                sb_data = data_from_action(result, "southbound-cluster")
-                nb_data = data_from_action(result, "northbound-cluster")
+                sb_data = data_from_action(result, "ovnsb")
+                nb_data = data_from_action(result, "ovnnb")
                 if not sb_data:
                     raise JujuVerifyError(report_err.format(unit_name, "Southbound"))
                 if not nb_data:
@@ -298,12 +303,12 @@ class OvnCentral(BaseVerifier):
             for cluster_name, status in clusters:
                 # Verify that cluster leader does not have any uncommitted entries
                 if status.is_leader:
-                    commits_ok = not bool(status.entries_not_committed)
+                    commits_ok = not bool(status.entries_not_yet_committed)
                     result_severity = Severity.OK if commits_ok else Severity.FAIL
                     result.add_partial_result(
                         result_severity,
                         f"{unit} ({cluster_name} leader) reports "
-                        f"{status.entries_not_committed} uncommitted log entries.",
+                        f"{status.entries_not_yet_committed} uncommitted log entries.",
                     )
 
         return result

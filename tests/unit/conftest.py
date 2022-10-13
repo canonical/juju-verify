@@ -111,30 +111,26 @@ def model(session_mocker, model_units):
 def ovn_cluster_status_dict():
     """Fixture representing sample of an ovn-cluster status in the for of dict."""
     return {
-        "Cluster ID": "567e7225-369e-40d6-abf8-9b442bbcd18b",
-        "Server ID": "16335def-c21e-404c-b123-8337b3013c07",
-        "Address": "ssl:10.5.2.232:6644",
-        "Status": "cluster member",
-        "Role": "follower",
-        "Term": 34,
-        "Leader": "dbdb",
-        "Vote": "dbdb",
-        "Log": "[66, 66]",
-        "Entries not yet committed": 0,
-        "Entries not yet applied": 0,
-        "Servers": {
-            "dbdb": {
-                "Address": "ssl:10.5.0.144:6644",
-                "Unit": "ovn-central/7",
-            },
-            "f1a2": {
-                "Address": "ssl:10.5.3.200:6644",
-                "Unit": "ovn-central/10",
-            },
-            "1633": {
-                "Address": "ssl:10.5.2.232:6644",
-                "Unit": "ovn-central/6",
-            },
+        "cluster_id": "567e7225-369e-40d6-abf8-9b442bbcd18b",
+        "server_id": "16335def-c21e-404c-b123-8337b3013c07",
+        "address": "ssl:10.5.2.232:6644",
+        "status": "cluster member",
+        "role": "follower",
+        "term": 34,
+        "leader": "dbdb",
+        "vote": "dbdb",
+        "log": "[66, 66]",
+        "entries_not_yet_committed": 0,
+        "entries_not_yet_applied": 0,
+        "servers": [
+            ["dbdb", "ssl:10.5.0.144:6644"],
+            ["f1a2", "ssl:10.5.3.200:6644"],
+            ["1613", "ssl:10.5.2.232:6644"],
+        ],
+        "unit_map": {
+            "ovn-central/7": "dbdb",
+            "ovn-central/10": "f1a2",
+            "ovn-central/6": "1633",
         },
     }
 
@@ -142,7 +138,7 @@ def ovn_cluster_status_dict():
 @pytest.fixture()
 def ovn_cluster_status_raw(ovn_cluster_status_dict):
     """Fixture representing sample of an ovn-cluster status serialized an YAML string."""
-    return yaml.dump(ovn_cluster_status_dict, indent=2)
+    return yaml.safe_dump(ovn_cluster_status_dict, indent=2)
 
 
 @pytest.fixture()

@@ -42,18 +42,19 @@ def generate_cluster_status(units, format_="string"):
     sb_leader_id = None
     nb_leader_id = None
     template = {
-        "Cluster ID": "",
-        "Server ID": "",
-        "Address": "",
-        "Status": "cluster member",
-        "Role": "",
-        "Term": 10,
-        "Leader": "",
-        "Vote": "",
-        "Log": "[23, 23]",
-        "Entries not yet committed": 0,
-        "Entries not yet applied": 0,
-        "Servers": {},
+        "cluster_id": "",
+        "server_id": "",
+        "address": "",
+        "status": "cluster member",
+        "role": "",
+        "term": 10,
+        "leader": "",
+        "vote": "",
+        "log": "[23, 23]",
+        "entries_not_yet_committed": 0,
+        "entries_not_yet_applied": 0,
+        "servers": [],
+        "unit_map": {},
     }
     output_data = {}
 
@@ -61,52 +62,55 @@ def generate_cluster_status(units, format_="string"):
         sb_status = template.copy()
         nb_status = template.copy()
 
-        sb_status["Cluster ID"] = sb_cluster_id
-        nb_status["Cluster ID"] = nb_cluster_id
+        sb_status["cluster_id"] = sb_cluster_id
+        nb_status["cluster_id"] = nb_cluster_id
 
-        sb_status["Server ID"] = str(uuid4())
-        nb_status["Server ID"] = str(uuid4())
+        sb_status["server_id"] = str(uuid4())
+        nb_status["server_id"] = str(uuid4())
 
-        sb_status["Address"] = f"ssl:10.0.0.{i + 1}:6644"
-        nb_status["Address"] = f"ssl:10.0.0.{i + 1}:6643"
+        sb_status["address"] = f"ssl:10.0.0.{i + 1}:6644"
+        nb_status["address"] = f"ssl:10.0.0.{i + 1}:6643"
 
         if not sb_leader_id or not nb_leader_id:
-            sb_status["Role"] = nb_status["Role"] = "leader"
-            sb_status["Leader"] = nb_status["Leader"] = "self"
-            sb_status["Vote"] = nb_status["Vote"] = "self"
+            sb_status["role"] = nb_status["role"] = "leader"
+            sb_status["leader"] = nb_status["leader"] = "self"
+            sb_status["vote"] = nb_status["vote"] = "self"
 
-            sb_leader_id = sb_status["Server ID"][:4]
-            nb_leader_id = nb_status["Server ID"][:4]
+            sb_leader_id = sb_status["server_id"][:4]
+            nb_leader_id = nb_status["server_id"][:4]
         else:
-            sb_status["Role"] = nb_status["Role"] = "follower"
-            sb_status["Leader"] = sb_status["Vote"] = sb_leader_id
-            nb_status["Leader"] = nb_status["Vote"] = nb_leader_id
+            sb_status["role"] = nb_status["role"] = "follower"
+            sb_status["leader"] = sb_status["vote"] = sb_leader_id
+            nb_status["leader"] = nb_status["vote"] = nb_leader_id
 
         output_data[unit] = {"southbound": sb_status, "northbound": nb_status}
 
-    sb_servers = {}
-    nb_servers = {}
+    sb_servers = []
+    nb_servers = []
+    sb_unit_map = {}
+    nb_unit_map = {}
     for unit, status in output_data.items():
-        sb_short_id = status["southbound"]["Server ID"][:4]
-        nb_short_id = status["northbound"]["Server ID"][:4]
-        sb_servers[sb_short_id] = {
-            "Address": status["southbound"]["Address"],
-            "Unit": unit,
-        }
-        nb_servers[nb_short_id] = {
-            "Address": status["northbound"]["Address"],
-            "Unit": unit,
-        }
+        sb_short_id = status["southbound"]["server_id"][:4]
+        nb_short_id = status["northbound"]["server_id"][:4]
+
+        sb_servers.append([sb_short_id, status["southbound"]["address"]])
+        nb_servers.append([nb_short_id, status["northbound"]["address"]])
+
+        sb_unit_map[unit] = sb_short_id
+        nb_unit_map[unit] = nb_short_id
 
     for status in output_data.values():
-        status["southbound"]["Servers"] = sb_servers
-        status["northbound"]["Servers"] = nb_servers
+        status["southbound"]["servers"] = sb_servers
+        status["northbound"]["unit_map"] = sb_unit_map
+
+        status["southbound"]["servers"] = nb_servers
+        status["northbound"]["unit_map"] = nb_unit_map
 
     if format_ == "string":
         return {
             unit: {
-                "southbound": yaml.dump(status["southbound"], indent=2),
-                "northbound": yaml.dump(status["northbound"], indent=2),
+                "southbound": yaml.safe_dump(status["southbound"], indent=2),
+                "northbound": yaml.safe_dump(status["northbound"], indent=2),
             }
             for unit, status in output_data.items()
         }
@@ -114,10 +118,10 @@ def generate_cluster_status(units, format_="string"):
         return {
             unit: {
                 "southbound": ovn_central.ClusterStatus(
-                    yaml.dump(status["southbound"])
+                    yaml.safe_dump(status["southbound"])
                 ),
                 "northbound": ovn_central.ClusterStatus(
-                    yaml.dump(status["northbound"])
+                    yaml.safe_dump(status["northbound"])
                 ),
             }
             for unit, status in output_data.items()
@@ -156,22 +160,14 @@ def verify_leader_consistency(
 def test_cluster_status_init(ovn_cluster_status_raw, ovn_cluster_status_dict):
     """Test successful initialization of ClusterStatus class from data string."""
     status = ovn_central.ClusterStatus(ovn_cluster_status_raw)
-    expected_status = ovn_cluster_status_dict
 
-    assert status.cluster_id == expected_status["Cluster ID"]
-    assert status.server_id == expected_status["Server ID"]
-    assert status.status == expected_status["Status"]
-    assert status.role == expected_status["Role"]
-    assert status.vote == expected_status["Vote"]
-    assert status.log == expected_status["Log"]
-    assert status.entries_not_committed == expected_status["Entries not yet committed"]
-    assert status.entries_not_applied == expected_status["Entries not yet applied"]
-    assert status.servers == expected_status["Servers"]
+    for attr, value in ovn_cluster_status_dict.items():
+        assert status.__getattribute__(attr) == value
 
 
 def test_cluster_status_init_missing_key(ovn_cluster_status_dict):
     """Test failure of ClusterStatus initialization when data string is missing key."""
-    missing_key = "Status"
+    missing_key = "status"
     ovn_cluster_status_dict.pop(missing_key)
     status_string = yaml.dump(ovn_cluster_status_dict)
     with pytest.raises(ovn_central.JujuVerifyError) as exc_info:
@@ -283,12 +279,12 @@ def test_unit_cluster_status_eq():
         ("", "", False),  # Every unit reports every cluster status, no failure expected
         (
             "ovn-central/1",
-            "southbound-cluster",
+            "ovnsb",
             True,
         ),  # Expect failure on ovn-central/1 unit in Southbound cluster
         (
             "ovn-central/2",
-            "northbound-cluster",
+            "ovnnb",
             True,
         ),  # Expect failure on ovn-central/2 unit in Northbound cluster
     ],
@@ -310,8 +306,8 @@ def test_ovn_central_complete_cluster_status(
 
     for unit, status in sample_cluster_data.items():
         results = {
-            "southbound-cluster": status["southbound"],
-            "northbound-cluster": status["northbound"],
+            "ovnsb": status["southbound"],
+            "ovnnb": status["northbound"],
         }
         #  prepare mocked return value for running `cluster-status` action on units
         action = Action(unit, model, connected=False)
@@ -356,9 +352,7 @@ def test_ovn_central_complete_cluster_status(
     else:
         #  Verify that proper exception was raised if some unit failed to report cluster
         #  status.
-        cluster_name = (
-            "Southbound" if missing_cluster == "southbound-cluster" else "Northbound"
-        )
+        cluster_name = "Southbound" if missing_cluster == "ovnsb" else "Northbound"
         expected_err = (
             f"{broken_unit} failed to report {cluster_name} cluster status. Please try "
             f"to run `cluster-status` action manually."
@@ -563,7 +557,7 @@ def test_ovn_central_check_uncommitted_logs(uncommitted_logs, model, mocker):
     for unit, status_pair in sample_cluster_data.items():
         for cluster, status in status_pair.items():
             if status.is_leader:
-                status.entries_not_committed = uncommitted_logs
+                status.entries_not_yet_committed = uncommitted_logs
                 if cluster == "southbound":
                     sb_leader = unit
                 if cluster == "northbound":
