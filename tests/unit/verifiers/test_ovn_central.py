@@ -16,7 +16,7 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """ovn-central charm verifier test suite."""
 from collections import defaultdict
-from unittest.mock import PropertyMock
+from unittest.mock import MagicMock, PropertyMock
 from uuid import uuid4
 
 import pytest
@@ -25,7 +25,7 @@ from juju.action import Action
 from juju.unit import Unit
 
 from juju_verify.verifiers import ovn_central
-from juju_verify.verifiers.result import Result, Severity
+from juju_verify.verifiers.result import Partial, Result, Severity
 
 
 def generate_cluster_status(units, format_="string"):
@@ -594,6 +594,92 @@ def test_ovn_central_check_uncommitted_logs(uncommitted_logs, model, mocker):
 
 
 @pytest.mark.parametrize(
+    "southbound_unknown, northbound_unknown",
+    [
+        (True, True),  # Both clusters report unknown servers
+        (False, True),  # Northbound cluster report unknown servers
+        (True, False),  # Southbound cluster report unknown servers
+        (False, False),  # No clusters report unknown servers
+    ],
+)
+def test_check_missing_servers(southbound_unknown, northbound_unknown, model, mocker):
+    """Verify check that alerts if any cluster reports UNKNOWN servers."""
+    expected_success = not (southbound_unknown or northbound_unknown)
+    ok_msg = "No disassociated cluster members reported."
+    err_msg = "{} cluster reports servers that are not associated with a unit."
+    sb_err_msg = err_msg.format("Southbound")
+    nb_err_msg = err_msg.format("Northbound")
+    unit_names = [unit for unit in model.units if unit.startswith("ovn-central")]
+
+    # Mock complete_cluster_status property
+    sample_cluster_data = generate_cluster_status(unit_names, "ClusterStatus")
+    complete_cluster_status = {}
+    for unit, status in sample_cluster_data.items():
+        # Inject UNKNOWN server into cluster status if necessary
+        if southbound_unknown:
+            status["southbound"].unit_map["UNKNOWN"] = ["ff11"]
+        if northbound_unknown:
+            status["northbound"].unit_map["UNKNOWN"] = ["ff22"]
+
+        complete_cluster_status[unit] = ovn_central.UnitClusterStatus(**status)
+
+    cluster_status_property = PropertyMock(return_value=complete_cluster_status)
+    mocker.patch.object(
+        ovn_central.OvnCentral,
+        "complete_cluster_status",
+        new_callable=cluster_status_property,
+    )
+
+    # Execute check
+    verifier = ovn_central.OvnCentral([Unit("ovn-central/0", model)])
+    result = verifier.check_unknown_servers()
+
+    assert result.success == expected_success
+
+    if southbound_unknown:
+        assert Partial(Severity.FAIL, sb_err_msg) in result.partials
+    else:
+        assert Partial(Severity.FAIL, sb_err_msg) not in result.partials
+
+    if northbound_unknown:
+        assert Partial(Severity.FAIL, nb_err_msg) in result.partials
+    else:
+        assert Partial(Severity.FAIL, nb_err_msg) not in result.partials
+
+    if expected_success:
+        assert Partial(Severity.OK, ok_msg) in result.partials
+    else:
+        assert Partial(Severity.OK, ok_msg) not in result.partials
+
+
+@pytest.mark.parametrize("is_supported", [True, False])
+def test_check_supported_charm_version(is_supported, model, mocker):
+    """Verify check that alerts if ovn-central charm doesn't support required actions."""
+    actions = {"cluster-status": True} if is_supported else {}
+    unit_mock = MagicMock()
+    unit_mock.application = "ovn-central"
+    model_mock = MagicMock()
+    model_mock.applications.__getitem__.return_value = MagicMock()
+    loop_mock = MagicMock()
+    loop_mock.run_until_complete.return_value = actions
+    mocker.patch.object(ovn_central.asyncio, "get_event_loop", return_value=loop_mock)
+
+    # Perform check
+    verifier = ovn_central.OvnCentral([Unit("ovn-central/0", model)])
+    verifier.model = model_mock
+    result = verifier.check_supported_charm_version()
+
+    if is_supported:
+        assert result == Result(Severity.OK, "Charm supports all required actions.")
+    else:
+        assert result == Result(
+            Severity.FAIL,
+            "Charm does not support required action 'cluster-status'. Please try "
+            "upgrading charm.",
+        )
+
+
+@pytest.mark.parametrize(
     "all_units, rebooted, expected_results",
     [
         (5, 1, [Severity.OK]),  # Rebooting 1 out of 5 units yields clean result
@@ -698,21 +784,38 @@ def test_check_downscale(all_units, removed, model):
     assert result == expected_result
 
 
-def test_ovn_central_preflight_checks(model, mocker):
+@pytest.mark.parametrize("supported_version", [True, False])
+def test_ovn_central_preflight_checks(supported_version, model, mocker):
     """Test that helper method preflight_checks executes expected checks."""
-    mock_result = Result()
+    executor_result = Result(Severity.OK, "executor result")
     mock_executor = mocker.patch.object(
-        ovn_central, "checks_executor", return_value=mock_result
+        ovn_central, "checks_executor", return_value=executor_result
     )
+    supported_version_result = Result(
+        Severity.OK if supported_version else Severity.FAIL, "supported version result"
+    )
+    mock_supported_version = mocker.patch.object(
+        ovn_central.OvnCentral,
+        "check_supported_charm_version",
+        return_value=supported_version_result,
+    )
+
     verifier = ovn_central.OvnCentral([Unit("ovn-central/0", model)])
     result = verifier.preflight_checks()
 
-    mock_executor.assert_called_once_with(
-        verifier.check_single_application,
-        verifier.check_leader_consistency,
-        verifier.check_uncommitted_logs,
-    )
-    assert result is mock_result
+    mock_supported_version.assert_called_once_with()
+
+    if supported_version:
+        mock_executor.assert_called_once_with(
+            verifier.check_single_application,
+            verifier.check_leader_consistency,
+            verifier.check_uncommitted_logs,
+            verifier.check_unknown_servers,
+        )
+        assert result == (supported_version_result + executor_result)
+    else:
+        mock_executor.assert_not_called()
+        assert result is supported_version_result
 
 
 @pytest.mark.parametrize(

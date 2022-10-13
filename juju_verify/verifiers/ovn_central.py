@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """ovn-central verification."""
+import asyncio
 import logging
 import os
 from collections import defaultdict
@@ -313,6 +314,48 @@ class OvnCentral(BaseVerifier):
 
         return result
 
+    def check_unknown_servers(self) -> Result:
+        """Verify that there are no servers in cluster without associated unit.
+
+        This situation can happen if, for example, a unit is removed from the
+        application, but it's unable to gracefully leave cluster.
+        """
+        # For this check, we don't need to go through ClusterStatus of every unit.
+        # We can just randomly pick one.
+        result = Result()
+        err_msg = "{} cluster reports servers that are not associated with a unit."
+        cluster_status = self.complete_cluster_status[self.unit_ids[0]]
+        if "UNKNOWN" in cluster_status.southbound.unit_map:
+            result.add_partial_result(Severity.FAIL, err_msg.format("Southbound"))
+
+        if "UNKNOWN" in cluster_status.northbound.unit_map:
+            result.add_partial_result(Severity.FAIL, err_msg.format("Northbound"))
+
+        if result.success:
+            result.add_partial_result(
+                Severity.OK, "No disassociated cluster members reported."
+            )
+
+        return result
+
+    def check_supported_charm_version(self) -> Result:
+        """Verify that targeted application has required actions.
+
+        This verifier requires action "cluster-status" to be present on the charm.
+        """
+        loop = asyncio.get_event_loop()
+        app_name = self.units[0].application
+        app = self.model.applications[app_name]
+        all_actions = loop.run_until_complete(app.get_actions())
+        if "cluster-status" in all_actions.keys():
+            return Result(Severity.OK, "Charm supports all required actions.")
+
+        return Result(
+            Severity.FAIL,
+            "Charm does not support required action 'cluster-status'. Please try "
+            "upgrading charm.",
+        )
+
     def check_reboot(self) -> Result:
         """Check that it's safe to temporarily bring down selected units.
 
@@ -382,10 +425,15 @@ class OvnCentral(BaseVerifier):
         These checks should be prerequisite before any further checks are run for both
         reboot and shutdown actions
         """
-        return checks_executor(
+        charm_supported = self.check_supported_charm_version()
+        if not charm_supported.success:
+            return charm_supported
+
+        return charm_supported + checks_executor(
             self.check_single_application,
             self.check_leader_consistency,
             self.check_uncommitted_logs,
+            self.check_unknown_servers,
         )
 
     def verify_reboot(self) -> Result:

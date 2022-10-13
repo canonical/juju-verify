@@ -12,9 +12,11 @@ presented with result describing failures of the common checks.
 
 Common checks:
 
+* check supported charm version
 * check single application
 * check leader consistency
 * check uncommitted logs
+* check unknown servers
 
 Reboot checks:
 
@@ -34,11 +36,13 @@ Example of reboot action and output:
   Checks:
   [OK] check_affected_machines check passed
   [OK] check_has_sub_machines check passed
+  [OK] Charm supports all required actions.
   [OK] Selected units are part of only one application.
   [OK] All units agree that fd42 is Southbound leader.
   [OK] All units agree that 6053 is Northbound leader.
   [OK] ovn-central/1 (Northbound leader) reports 0 uncommitted log entries.
   [OK] ovn-central/2 (Southbound leader) reports 0 uncommitted log entries.
+  [OK] No disassociated cluster members reported.
   [OK] OVN cluster with 5 units can safely tolerate simultaneous reboot of 1 units.
 
   Result: OK (All checks passed)
@@ -53,14 +57,35 @@ Example of shutdown action and output:
   Checks:
   [OK] check_affected_machines check passed
   [OK] check_has_sub_machines check passed
+  [OK] Charm supports all required actions.
   [OK] Selected units are part of only one application.
   [OK] All units agree that fd42 is Southbound leader.
   [OK] All units agree that 6053 is Northbound leader.
   [OK] ovn-central/1 (Northbound leader) reports 0 uncommitted log entries.
   [OK] ovn-central/2 (Southbound leader) reports 0 uncommitted log entries.
+  [OK] No disassociated cluster members reported.
   [OK] Removing 1 units from cluster of 6 won't impact its fault tolerance.
 
   Result: OK (All checks passed)
+
+supported charm version
+-----------------------
+
+This verifier requires that the ovn-central unit supports "cluster-status" action. In
+case it does not, it will be necessary to upgrade the charm in order to use this
+verifier.
+
+Successfully passing test will display following message in the result:
+
+::
+
+  [OK] Charm supports all required actions.
+
+Failing the test will show this message instead:
+
+::
+
+  [FAIL] Charm does not support required action 'cluster-status'. Please try upgrading charm.
 
 
 check single application
@@ -133,6 +158,28 @@ final result:
 ::
 
   [FAIL] ovn-central/1 (Northbound leader) reports 2 uncommitted log entries.
+
+
+check unknown servers
+---------------------
+
+This check verifies that no "unknown" servers are listed in the cluster status. Unknown
+server is an OVN cluster (Southbound or Northbound) member that is not associated with
+any running unit but still shows up in output of cluster status. This can happen when
+unit is abruptly removed and it fails to gracefully leave the cluster. Such servers can
+be removed using "cluster-kick" action on one of the remaining ovn-central units.
+
+Successfully passing test will display following message in the result:
+
+::
+
+  [OK] No disassociated cluster members reported.
+
+Failing this check will display message like this:
+
+::
+
+  [FAIL] Southbound cluster reports servers that are not associated with a unit.
 
 
 check reboot
