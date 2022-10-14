@@ -21,7 +21,6 @@ from uuid import uuid4
 
 import pytest
 import yaml
-from juju.action import Action
 from juju.unit import Unit
 
 from juju_verify.verifiers import ovn_central
@@ -309,12 +308,12 @@ def test_ovn_central_complete_cluster_status(
             "ovnsb": status["southbound"],
             "ovnnb": status["northbound"],
         }
-        #  prepare mocked return value for running `cluster-status` action on units
-        action = Action(unit, model, connected=False)
-        action.results = results
         #  simulate unit not returning expected cluster status
         if unit == broken_unit:
-            action.results.pop(missing_cluster)
+            results.pop(missing_cluster)
+        #  prepare mocked return value for running `cluster-status` action on units
+        action = MagicMock()
+        action.data = {"results": results}
         action_results[unit] = action
 
         #  prepare expected return value from OVNCentral.complete_cluster_status
