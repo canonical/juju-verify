@@ -31,7 +31,8 @@ logger = logging.getLogger(__name__)
 
 def _get_osd_map() -> Dict[str, List[str]]:
     """Get map between ceph-osd unit and osd."""
-    juju_model = zaza.sync_wrapper(model.get_model)()
+    juju_model = Model()
+    zaza.run(juju_model.connect(model_name=model.get_juju_model()))
     action = model.run_action_on_leader(
         "ceph-mon", "show-disk-free", action_params={"format": "json"}
     )
@@ -46,7 +47,7 @@ def _get_osd_map() -> Dict[str, List[str]]:
                 logger.debug("found osd `%s` for unit `%s`", child, unit)
                 osd_map[unit.entity_id].append(ceph_tree[child]["name"])
 
-    zaza.sync_wrapper(juju_model.disconnect)()
+    zaza.run(juju_model.disconnect())
     return osd_map
 
 
