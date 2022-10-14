@@ -237,7 +237,7 @@ def test_ceph_tree(exp_child, exp_parent, ancestor_type, can_remove_host_node):
 def test_check_cluster_health(mock_run_action_on_units, message, exp_result, model):
     """Test check Ceph cluster health."""
     action = MagicMock()
-    action.results = {"message": message}
+    action.data.get.side_effect = {"results": {"message": message}}.get
     mock_run_action_on_units.return_value = {"ceph-mon/0": action}
 
     result = CephCommon.check_cluster_health(model.units["ceph-mon/0"])
@@ -255,9 +255,9 @@ def test_check_cluster_health_combination(mock_run_action_on_units, model):
     )
 
     action_healthy = MagicMock()
-    action_healthy.results = {"message": "HEALTH_OK"}
+    action_healthy.data.get.side_effect = {"results": {"message": "HEALTH_OK"}}.get
     action_unhealthy = MagicMock()
-    action_unhealthy.results = {"message": "HEALTH_ERR"}
+    action_unhealthy.data.get.side_effect = {"results": {"message": "HEALTH_ERR"}}.get
     mock_run_action_on_units.return_value = {
         "ceph-mon/0": action_healthy,
         "ceph-mon/1": action_unhealthy,
@@ -406,39 +406,41 @@ def test_count_branch(model):
 def test_get_crush_rules(mock_run_command_on_unit, model):
     """Test get all crush rules in Ceph cluster."""
     action = MagicMock()
-    action.results = {
-        "Stdout": "\n"
-        + json.dumps(
-            [
-                {
-                    "rule_id": 0,
-                    "rule_name": "replicated_rule",
-                    "ruleset": 0,
-                    "type": 1,
-                    "min_size": 1,
-                    "max_size": 10,
-                    "steps": [
-                        {"op": "take", "item": -1, "item_name": "default"},
-                        {"op": "chooseleaf_firstn", "num": 0, "type": "host"},
-                        {"op": "emit"},
-                    ],
-                },
-                {
-                    "rule_id": 1,
-                    "rule_name": "hdd",
-                    "ruleset": 1,
-                    "type": 1,
-                    "min_size": 1,
-                    "max_size": 10,
-                    "steps": [
-                        {"op": "take", "item": -2, "item_name": "default~hdd"},
-                        {"op": "chooseleaf_firstn", "num": 0, "type": "rack"},
-                        {"op": "emit"},
-                    ],
-                },
-            ]
-        )
-    }
+    action.data.get.side_effect = {
+        "results": {
+            "Stdout": "\n"
+            + json.dumps(
+                [
+                    {
+                        "rule_id": 0,
+                        "rule_name": "replicated_rule",
+                        "ruleset": 0,
+                        "type": 1,
+                        "min_size": 1,
+                        "max_size": 10,
+                        "steps": [
+                            {"op": "take", "item": -1, "item_name": "default"},
+                            {"op": "chooseleaf_firstn", "num": 0, "type": "host"},
+                            {"op": "emit"},
+                        ],
+                    },
+                    {
+                        "rule_id": 1,
+                        "rule_name": "hdd",
+                        "ruleset": 1,
+                        "type": 1,
+                        "min_size": 1,
+                        "max_size": 10,
+                        "steps": [
+                            {"op": "take", "item": -2, "item_name": "default~hdd"},
+                            {"op": "chooseleaf_firstn", "num": 0, "type": "rack"},
+                            {"op": "emit"},
+                        ],
+                    },
+                ]
+            )
+        }
+    }.get
     mock_run_command_on_unit.return_value = action
     crush_rules = CephCommon.get_crush_rules(model.units["ceph-mon/0"])
 
@@ -454,30 +456,32 @@ def test_get_crush_rules(mock_run_command_on_unit, model):
 def test_get_ceph_pools(mock_run_action_on_unit, mock_get_crush_rules, model):
     """Test get detail about Ceph pools."""
     action = MagicMock()
-    action.results = {
-        "message": json.dumps(
-            [
-                {
-                    "pool": 2,
-                    "pool_name": "ssd",
-                    "type": 1,
-                    "size": 3,
-                    "min_size": 2,
-                    "crush_rule": 2,
-                    "erasure_code_profile": "",
-                },
-                {
-                    "pool": 3,
-                    "pool_name": "hdd",
-                    "type": 1,
-                    "size": 3,
-                    "min_size": 2,
-                    "crush_rule": 2,
-                    "erasure_code_profile": "",
-                },
-            ]
-        )
-    }
+    action.data.get.side_effect = {
+        "results": {
+            "message": json.dumps(
+                [
+                    {
+                        "pool": 2,
+                        "pool_name": "ssd",
+                        "type": 1,
+                        "size": 3,
+                        "min_size": 2,
+                        "crush_rule": 2,
+                        "erasure_code_profile": "",
+                    },
+                    {
+                        "pool": 3,
+                        "pool_name": "hdd",
+                        "type": 1,
+                        "size": 3,
+                        "min_size": 2,
+                        "crush_rule": 2,
+                        "erasure_code_profile": "",
+                    },
+                ]
+            )
+        }
+    }.get
     mock_run_action_on_unit.return_value = action
     mock_get_crush_rules.return_value = {2: CrushRuleInfo(2, "test", "host")}
 
@@ -494,82 +498,84 @@ def test_get_ceph_pools(mock_run_action_on_unit, mock_get_crush_rules, model):
 def test_get_disk_utilization(mock_run_action_on_unit, model):
     """Test get disk utilization for ceph."""
     action = MagicMock()
-    action.results = {
-        "message": json.dumps(
-            {
-                "nodes": [
-                    {
-                        "id": -1,
-                        "name": "default",
-                        "type": "root",
-                        "type_id": 10,
-                        "reweight": -1.000000,
-                        "kb": 31457280,
-                        "kb_used": 3154944,
-                        "kb_used_data": 9024,
-                        "kb_used_omap": 0,
-                        "kb_used_meta": 3145728,
-                        "kb_avail": 28302336,
-                        "utilization": 10.029297,
-                        "var": 1.000000,
-                        "pgs": 0,
-                        "children": [-7, -3, -5],
+    action.data.get.side_effect = {
+        "results": {
+            "message": json.dumps(
+                {
+                    "nodes": [
+                        {
+                            "id": -1,
+                            "name": "default",
+                            "type": "root",
+                            "type_id": 10,
+                            "reweight": -1.000000,
+                            "kb": 31457280,
+                            "kb_used": 3154944,
+                            "kb_used_data": 9024,
+                            "kb_used_omap": 0,
+                            "kb_used_meta": 3145728,
+                            "kb_avail": 28302336,
+                            "utilization": 10.029297,
+                            "var": 1.000000,
+                            "pgs": 0,
+                            "children": [-7, -3, -5],
+                        },
+                        {
+                            "id": -3,
+                            "name": "juju-2ecfef-zaza-a0e73f67a6c0-1",
+                            "type": "host",
+                            "type_id": 1,
+                            "pool_weights": {},
+                            "reweight": -1.000000,
+                            "kb": 10485760,
+                            "kb_used": 1051648,
+                            "kb_used_data": 3008,
+                            "kb_used_omap": 0,
+                            "kb_used_meta": 1048576,
+                            "kb_avail": 9434112,
+                            "utilization": 10.029297,
+                            "var": 1.000000,
+                            "pgs": 0,
+                            "children": [0],
+                        },
+                        {
+                            "id": 0,
+                            "device_class": "hdd",
+                            "name": "osd.0",
+                            "type": "osd",
+                            "type_id": 0,
+                            "crush_weight": 0.009796,
+                            "depth": 2,
+                            "pool_weights": {},
+                            "reweight": 1.000000,
+                            "kb": 10485760,
+                            "kb_used": 1051648,
+                            "kb_used_data": 3008,
+                            "kb_used_omap": 0,
+                            "kb_used_meta": 1048576,
+                            "kb_avail": 9434112,
+                            "utilization": 10.029297,
+                            "var": 1.000000,
+                            "pgs": 0,
+                        },
+                    ],
+                    "stray": [],
+                    "summary": {
+                        "total_kb": 31457280,
+                        "total_kb_used": 3154944,
+                        "total_kb_used_data": 9024,
+                        "total_kb_used_omap": 0,
+                        "total_kb_used_meta": 3145728,
+                        "total_kb_avail": 28302336,
+                        "average_utilization": 10.029297,
+                        "min_var": 1.000000,
+                        "max_var": 1.000000,
+                        "dev": 0.000000,
                     },
-                    {
-                        "id": -3,
-                        "name": "juju-2ecfef-zaza-a0e73f67a6c0-1",
-                        "type": "host",
-                        "type_id": 1,
-                        "pool_weights": {},
-                        "reweight": -1.000000,
-                        "kb": 10485760,
-                        "kb_used": 1051648,
-                        "kb_used_data": 3008,
-                        "kb_used_omap": 0,
-                        "kb_used_meta": 1048576,
-                        "kb_avail": 9434112,
-                        "utilization": 10.029297,
-                        "var": 1.000000,
-                        "pgs": 0,
-                        "children": [0],
-                    },
-                    {
-                        "id": 0,
-                        "device_class": "hdd",
-                        "name": "osd.0",
-                        "type": "osd",
-                        "type_id": 0,
-                        "crush_weight": 0.009796,
-                        "depth": 2,
-                        "pool_weights": {},
-                        "reweight": 1.000000,
-                        "kb": 10485760,
-                        "kb_used": 1051648,
-                        "kb_used_data": 3008,
-                        "kb_used_omap": 0,
-                        "kb_used_meta": 1048576,
-                        "kb_avail": 9434112,
-                        "utilization": 10.029297,
-                        "var": 1.000000,
-                        "pgs": 0,
-                    },
-                ],
-                "stray": [],
-                "summary": {
-                    "total_kb": 31457280,
-                    "total_kb_used": 3154944,
-                    "total_kb_used_data": 9024,
-                    "total_kb_used_omap": 0,
-                    "total_kb_used_meta": 3145728,
-                    "total_kb_avail": 28302336,
-                    "average_utilization": 10.029297,
-                    "min_var": 1.000000,
-                    "max_var": 1.000000,
-                    "dev": 0.000000,
-                },
-            }
-        )
-    }
+                }
+            )
+        }
+    }.get
     mock_run_action_on_unit.return_value = action
 
     nodes = CephCommon.get_disk_utilization(model.units["ceph-mon/0"])
@@ -1031,7 +1037,7 @@ def test_verify_shutdown(
 def test_parse_quorum_status(action_output, exp_output):
     """Test function to parse `get-quorum-status` action output."""
     mock_action = MagicMock()
-    mock_action.results = {"message": action_output}
+    mock_action.data = {"results": {"message": action_output}}
 
     unit = Unit("ceph-mon/0", Model())
     verifier = CephMon([unit])

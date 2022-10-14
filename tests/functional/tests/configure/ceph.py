@@ -22,6 +22,7 @@ from typing import Dict, List, Optional
 
 import zaza
 import zaza.model as model
+from juju.model import Model
 
 from juju_verify.utils.unit import find_unit_by_hostname
 

@@ -38,9 +38,9 @@ def test_nova_compute_no_running_vms(mocker, vm_count, expect_severity):
     units = [Unit(name, model) for name in unit_names]
 
     # Mock result of 'instance-count' action on all verified units.
-    result_data = {"instance-count": vm_count}
+    result_data = {"results": {"instance-count": vm_count}}
     mock_result = MagicMock()
-    mock_result.results = result_data
+    mock_result.data = result_data
     action_results = {unit: mock_result for unit in unit_names}
     mocker.patch.object(NovaCompute, "run_action_on_all").return_value = action_results
 
@@ -113,7 +113,7 @@ def test_nova_compute_empty_az(
     node_name_results = []
     for node in host_pool[:remove_hosts]:
         result_mock = MagicMock()
-        result_mock.results = {"node-name": node}
+        result_mock.data = {"results": {"node-name": node}}
         node_name_results.append(result_mock)
     action_results = dict(zip(unit_names, node_name_results))
 
@@ -125,9 +125,9 @@ def test_nova_compute_empty_az(
         for host in host_pool[:all_hosts]
     ]
 
-    compute_nodes_data = {"compute-nodes": json.dumps(raw_compute_nodes)}
+    compute_nodes_data = {"results": {"compute-nodes": json.dumps(raw_compute_nodes)}}
     mock_compute_node_result = MagicMock()
-    mock_compute_node_result.results = compute_nodes_data
+    mock_compute_node_result.data = compute_nodes_data
     mocker.patch(
         "juju_verify.verifiers.nova_compute.run_action_on_unit"
     ).return_value = mock_compute_node_result
