@@ -242,17 +242,13 @@ class OvnCentral(BaseVerifier):
         apps = {unit.application for unit in self.units}
         if len(apps) > 1:
             app_list = ", ".join(apps)
-            result = Result(
+            return Result(
                 Severity.FAIL,
                 f"Can't verify multiple ovn-central application at the same time. "
                 f"Currently selected units belong to: {app_list}",
             )
-        else:
-            result = Result(
-                Severity.OK, "Selected units are part of only one application."
-            )
 
-        return result
+        return Result(Severity.OK, "Selected units are part of only one application.")
 
     def check_leader_consistency(self) -> Result:
         """Verify consistency of ovn-central cluster."""
@@ -404,17 +400,15 @@ class OvnCentral(BaseVerifier):
                 Severity.FAIL, base_msg + "would bring its fault tolerance to 0."
             )
 
-        if original_tolerance == post_removal_tolerance:
-            result = Result(Severity.OK, base_msg + "won't impact its fault tolerance.")
-        else:
-            result = Result(
+        if original_tolerance != post_removal_tolerance:
+            return Result(
                 Severity.WARN,
                 base_msg
                 + f"will decrease its fault tolerance from {original_tolerance}"
                 f" to {post_removal_tolerance}.",
             )
 
-        return result
+        return Result(Severity.OK, base_msg + "won't impact its fault tolerance.")
 
     def preflight_checks(self) -> Result:
         """Run common checks that verify integrity of the OVN cluster.
