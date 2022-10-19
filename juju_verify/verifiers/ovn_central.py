@@ -331,12 +331,9 @@ class OvnCentral(BaseVerifier):
         if "UNKNOWN" in cluster_status.northbound.unit_map:
             result.add_partial_result(Severity.FAIL, err_msg.format("Northbound"))
 
-        if result.success:
-            result.add_partial_result(
-                Severity.OK, "No disassociated cluster members reported."
-            )
-
-        return result
+        return result or Result(
+            Severity.OK, "No disassociated cluster members reported."
+        )
 
     def check_supported_charm_version(self) -> Result:
         """Verify that targeted application has required actions.
