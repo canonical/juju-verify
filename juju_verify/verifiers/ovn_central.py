@@ -422,7 +422,7 @@ class OvnCentral(BaseVerifier):
         These checks should be prerequisite before any further checks are run for both
         reboot and shutdown actions
         """
-        charm_supported = self.check_supported_charm_version()
+        charm_supported = checks_executor(self.check_supported_charm_version)
         if not charm_supported.success:
             return charm_supported
 
@@ -439,7 +439,7 @@ class OvnCentral(BaseVerifier):
         if not preflight_results.success:
             return preflight_results
 
-        return preflight_results + self.check_reboot()
+        return preflight_results + checks_executor(self.check_reboot)
 
     def verify_shutdown(self) -> Result:
         """Verify that it's safe to shut down selected ovn-central units."""
@@ -447,4 +447,4 @@ class OvnCentral(BaseVerifier):
         if not preflight_results.success:
             return preflight_results
 
-        return preflight_results + self.check_downscale()
+        return preflight_results + checks_executor(self.check_downscale)

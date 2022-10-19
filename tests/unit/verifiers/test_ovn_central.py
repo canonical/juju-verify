@@ -16,7 +16,7 @@
 # this program. If not, see https://www.gnu.org/licenses/.
 """ovn-central charm verifier test suite."""
 from collections import defaultdict
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, call
 from uuid import uuid4
 
 import pytest
@@ -786,34 +786,39 @@ def test_check_downscale(all_units, removed, model):
 @pytest.mark.parametrize("supported_version", [True, False])
 def test_ovn_central_preflight_checks(supported_version, model, mocker):
     """Test that helper method preflight_checks executes expected checks."""
-    executor_result = Result(Severity.OK, "executor result")
-    mock_executor = mocker.patch.object(
-        ovn_central, "checks_executor", return_value=executor_result
-    )
     supported_version_result = Result(
         Severity.OK if supported_version else Severity.FAIL, "supported version result"
     )
-    mock_supported_version = mocker.patch.object(
-        ovn_central.OvnCentral,
-        "check_supported_charm_version",
-        return_value=supported_version_result,
+    rest_of_preflight_results = Result(
+        Severity.OK, "rest of the preflight check results"
+    )
+    executor_results = [
+        supported_version_result,
+        rest_of_preflight_results,
+    ]
+    mock_executor = mocker.patch.object(
+        ovn_central, "checks_executor", side_effect=executor_results
     )
 
     verifier = ovn_central.OvnCentral([Unit("ovn-central/0", model)])
     result = verifier.preflight_checks()
 
-    mock_supported_version.assert_called_once_with()
-
-    if supported_version:
-        mock_executor.assert_called_once_with(
+    supported_version_ok_calls = [
+        call(verifier.check_supported_charm_version),
+        call(
             verifier.check_single_application,
             verifier.check_leader_consistency,
             verifier.check_uncommitted_logs,
             verifier.check_unknown_servers,
-        )
-        assert result == (supported_version_result + executor_result)
+        ),
+    ]
+    supported_version_fail_calls = [call(verifier.check_supported_charm_version)]
+
+    if supported_version:
+        mock_executor.assert_has_calls(supported_version_ok_calls)
+        assert result == supported_version_result + rest_of_preflight_results
     else:
-        mock_executor.assert_not_called()
+        mock_executor.assert_has_calls(supported_version_fail_calls)
         assert result is supported_version_result
 
 
@@ -835,8 +840,8 @@ def test_verify_reboot(preflight_severity, mocker, model):
     mock_preflight = mocker.patch.object(
         ovn_central.OvnCentral, "preflight_checks", return_value=preflight_result
     )
-    mock_reboot = mocker.patch.object(
-        ovn_central.OvnCentral, "check_reboot", return_value=reboot_result
+    mock_checks_executor = mocker.patch.object(
+        ovn_central, "checks_executor", return_value=reboot_result
     )
 
     verifier = ovn_central.OvnCentral([Unit("ovn-central/0", model)])
@@ -845,10 +850,10 @@ def test_verify_reboot(preflight_severity, mocker, model):
     mock_preflight.assert_called_once_with()
 
     if not preflight_result.success:
-        mock_reboot.assert_not_called()
+        mock_checks_executor.assert_not_called()
         assert final_result == preflight_result
     else:
-        mock_reboot.assert_called_once_with()
+        mock_checks_executor.assert_called_once_with(verifier.check_reboot)
         assert final_result == (preflight_result + reboot_result)
 
 
@@ -870,8 +875,8 @@ def test_verify_shutdown(preflight_severity, mocker, model):
     mock_preflight = mocker.patch.object(
         ovn_central.OvnCentral, "preflight_checks", return_value=preflight_result
     )
-    mock_shutdown = mocker.patch.object(
-        ovn_central.OvnCentral, "check_downscale", return_value=shutdown_result
+    mock_checks_executor = mocker.patch.object(
+        ovn_central, "checks_executor", return_value=shutdown_result
     )
 
     verifier = ovn_central.OvnCentral([Unit("ovn-central/0", model)])
@@ -880,8 +885,8 @@ def test_verify_shutdown(preflight_severity, mocker, model):
     mock_preflight.assert_called_once_with()
 
     if not preflight_result.success:
-        mock_shutdown.assert_not_called()
+        mock_checks_executor.assert_not_called()
         assert final_result == preflight_result
     else:
-        mock_shutdown.assert_called_once_with()
+        mock_checks_executor.assert_called_once_with(verifier.check_downscale)
         assert final_result == (preflight_result + shutdown_result)
