@@ -15,6 +15,7 @@ into one. For the result to be successful, all checks must be successful.
    verifiers/ceph-osd
    verifiers/nova-compute
    verifiers/neutron-gateway
+   verifiers/ovn-central
 
 
 If you find that a check does not take into account all possible circumstances or its
