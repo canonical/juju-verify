@@ -15,27 +15,27 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see https://www.gnu.org/licenses/.
 """Juju action helpers test suite."""
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import Mock
 
+import pytest
 from juju.action import Action
 
 from juju_verify.utils.action import data_from_action
 
 
-def test_data_from_action(mocker):
+@pytest.mark.parametrize(
+    "data, key, exp_value",
+    [
+        ({"results": {"host": "compute.0", "test": "test"}}, "host", "compute.0"),
+        ({"results": {"test": "test"}}, "host", "default"),
+        ({"results": {"ids": "[1, 2, 3]", "test": "test"}}, "ids", "[1, 2, 3]"),
+        ({"test": "test"}, "host", "default"),
+    ],
+)
+def test_data_from_action(data, key, exp_value):
     """Test helper function that parses data from Action.data.results dict."""
-    host_key = "host"
-    host_value = "compute.0"
-    data = {"results": {host_key: host_value}}
-    default = "default"
+    action = Mock(spec_set=Action)
+    action.data = data
 
-    mocker.patch.object(Action, "data", new_callable=PropertyMock(return_value=data))
-    action = Action("0", MagicMock())
-
-    output = data_from_action(action, host_key, default)
-    assert output == host_value
-
-    # return default on missing key
-
-    output = data_from_action(action, "foo", default)
-    assert output == default
+    output = data_from_action(action, key, "default")
+    assert output == exp_value
