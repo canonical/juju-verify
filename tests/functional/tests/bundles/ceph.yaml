@@ -1,9 +1,8 @@
 variables:
-  # We are using `candidate` channel for charm that do not support bionic
-  # release in `stable`
-  channel: &channel candidate
+  channel: &channel quincy/stable
+  openstack-origin: &openstack-origin distro
 
-series: bionic
+series: jammy
 machines:
   '0':
     constraints: cores=1 mem=2G root-disk=20G
@@ -17,42 +16,52 @@ machines:
     constraints: cores=1 mem=2G root-disk=20G
   '5':
     constraints: cores=1 mem=2G root-disk=20G
+  '6':
+    constraints: cores=1 mem=2G root-disk=20G
+  '7':
+    constraints: cores=1 mem=2G root-disk=20G
+  '8':
+    constraints: cores=1 mem=2G root-disk=20G
 applications:
   ceph-mon:
     charm: ceph-mon
-    channel: *channel
+    # Note (rgildein): it is necessary to use an edge channel to avoid
+    # https://bugs.launchpad.net/charm-prometheus-ceph-exporter/+bug/1929262
+    channel: quincy/edge
     num_units: 3
     options:
-      expected-osd-count: 3
+      source: *openstack-origin
       monitor-count: 3
     to:
-    - lxd:0
-    - lxd:1
-    - lxd:2
+    - 0
+    - 1
+    - 2
   ceph-osd-hdd:
     charm: ceph-osd
     channel: *channel
     num_units: 3
-    options:
-      osd-devices: /dev/loop0
     storage:
-      osd-devices: loop,1.8G
-    to:
-      - 0
-      - 1
-      - 2
-  ceph-osd-ssd:
-    charm: ceph-osd
-    channel: *channel
-    num_units: 3
+      osd-devices: loop,5.0G
     options:
-      osd-devices: /dev/loop0
-    storage:
-      osd-devices: loop,1.8G
+      source: *openstack-origin
+      osd-devices: '/dev/loop*'
     to:
       - 3
       - 4
       - 5
+  ceph-osd-ssd:
+    charm: ceph-osd
+    channel: *channel
+    num_units: 3
+    storage:
+      osd-devices: loop,1.0G
+    options:
+      source: *openstack-origin
+      osd-devices: '/dev/loop*'
+    to:
+      - 6
+      - 7
+      - 8
 relations:
 - - ceph-osd-hdd:mon
   - ceph-mon:osd

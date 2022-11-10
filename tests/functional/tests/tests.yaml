@@ -1,9 +1,5 @@
 tests:
   - openstack:
-    # NOTE (aluria): The NovaCompute tests may fail due to bug [1].
-    # Comment those test if it continues happening (test environment should be fixed
-    # to avoid the issue)
-    # [1]: https://bugs.launchpad.net/juju-verify/+bug/1955054
     - tests.test_novacompute.NovaCompute
     - tests.test_neutron_gateway.NeutronTests
   - ceph:
