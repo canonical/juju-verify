@@ -53,16 +53,17 @@ def _get_osd_map() -> Dict[str, List[str]]:
 
 def _set_osd_device_class(osds: List[str], device_class: str):
     """Set device class for osds."""
+    unit = "ceph-mon/0"
     osds = " ".join(osds)
     # remove old device-class for osds
     model.run_on_unit(
-        "ceph-mon/0",
+        unit,
         f"ceph --id admin osd crush rm-device-class {osds}",
         timeout=2 * 60,
     )
     # set new device-class for osds
     model.run_on_unit(
-        "ceph-mon/0",
+        unit,
         f"ceph --id admin osd crush set-device-class {device_class} {osds}",
         timeout=2 * 60,
     )
@@ -117,6 +118,8 @@ def create_replication_rules():
     crush_rules = [
         ("hdd", None, "hdd"),
         ("ssd", None, "ssd"),
+        ("host", "host", None),
+        ("rack", "rack", None),
         ("hdd-host", "host", "hdd"),
         ("ssd-host", "host", "ssd"),
         ("hdd-rack", "rack", "hdd"),
