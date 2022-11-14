@@ -6,7 +6,9 @@ description: |
   This CLI tool is a Juju plugin that allows user to check whether it's safe
   to perform some disruptive maintenance operations on Juju units, like `shutdown`
   or `reboot`.
-
+architectures:
+  - amd64
+  - arm64
 grade: stable
 confinement: strict
 
