@@ -7,8 +7,8 @@ description: |
   to perform some disruptive maintenance operations on Juju units, like `shutdown`
   or `reboot`.
 architectures:
-  - amd64
-  - arm64
+  - build-on: amd64
+  - build-on: arm64
 grade: stable
 confinement: strict
 
