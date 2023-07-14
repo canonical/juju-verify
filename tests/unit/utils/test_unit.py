@@ -362,7 +362,7 @@ async def test_find_units(model, all_units):
     assert len(unit_list) == len(all_units)
 
     result = zip(all_units, unit_list)
-    for (unit_name, unit_obj) in result:
+    for unit_name, unit_obj in result:
         assert isinstance(unit_obj, Unit)
         assert unit_obj.entity_id == unit_name
 
