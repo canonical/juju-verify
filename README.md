@@ -1,3 +1,5 @@
+[![Release PyPI](https://github.com/canonical/juju-verify/actions/workflows/releases.yml/badge.svg)](https://github.com/canonical/juju-verify/actions/workflows/releases.yml)
+
 # Juju verify
 
 This CLI tool is a Juju plugin that allows user to check whether it's safe
